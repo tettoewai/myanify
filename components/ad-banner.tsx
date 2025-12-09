@@ -1,26 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { X, ExternalLink } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { mockAds } from "@/lib/mock-data"
-import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react";
+import { X, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getAds } from "@/lib/api";
+import type { Ad } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { getImageProxyUrl } from "@/lib/image-proxy";
 
 export function AdBanner() {
-  const [currentAdIndex, setCurrentAdIndex] = useState(0)
-  const [isDismissed, setIsDismissed] = useState(false)
-
-  const currentAd = mockAds[currentAdIndex]
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
+    getAds().then(setAds).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (ads.length === 0) return;
     const interval = setInterval(() => {
-      setCurrentAdIndex((prev) => (prev + 1) % mockAds.length)
-    }, 15000)
+      setCurrentAdIndex((prev) => (prev + 1) % ads.length);
+    }, 15000);
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearInterval(interval);
+  }, [ads.length]);
 
-  if (isDismissed) return null
+  const currentAd = ads[currentAdIndex];
+
+  if (isDismissed || !currentAd || ads.length === 0) return null;
 
   return (
     <div className="mx-4 md:mx-8 my-6">
@@ -44,7 +52,7 @@ export function AdBanner() {
           {/* Ad Image */}
           <div className="w-full sm:w-48 h-24 rounded-lg overflow-hidden flex-shrink-0">
             <img
-              src={currentAd.imageUrl || "/placeholder.svg"}
+              src={getImageProxyUrl(currentAd.imageUrl)}
               alt={currentAd.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -60,8 +68,12 @@ export function AdBanner() {
             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
               {currentAd.title}
             </h3>
-            <p className="text-sm text-muted-foreground">{currentAd.description}</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">by {currentAd.sponsor}</p>
+            <p className="text-sm text-muted-foreground">
+              {currentAd.description}
+            </p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              by {currentAd.sponsor}
+            </p>
           </div>
 
           {/* CTA */}
@@ -75,21 +87,23 @@ export function AdBanner() {
 
         {/* Ad Indicator Dots */}
         <div className="flex justify-center gap-1.5 pb-3">
-          {mockAds.map((_, index) => (
+          {ads.map((_, index) => (
             <button
               key={index}
               onClick={(e) => {
-                e.preventDefault()
-                setCurrentAdIndex(index)
+                e.preventDefault();
+                setCurrentAdIndex(index);
               }}
               className={cn(
                 "w-1.5 h-1.5 rounded-full transition-all",
-                index === currentAdIndex ? "bg-primary w-4" : "bg-muted-foreground/30 hover:bg-muted-foreground/50",
+                index === currentAdIndex
+                  ? "bg-primary w-4"
+                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
               )}
             />
           ))}
         </div>
       </div>
     </div>
-  )
+  );
 }

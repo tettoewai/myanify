@@ -1,39 +1,46 @@
-"use client"
+"use client";
 
-import { Home, Search, Library, User } from "lucide-react"
-import type { ViewType } from "./myanify-app"
-import { cn } from "@/lib/utils"
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { Home, Search, Library, User, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface MobileNavProps {
-  currentView: ViewType
-  onNavigate: (view: ViewType) => void
-}
+export function MobileNav() {
+  const pathname = usePathname();
 
-export function MobileNav({ currentView, onNavigate }: MobileNavProps) {
   const navItems = [
-    { id: "home" as const, label: "Home", icon: Home },
-    { id: "search" as const, label: "Search", icon: Search },
-    { id: "library" as const, label: "Library", icon: Library },
-    { id: "premium" as const, label: "Premium", icon: User },
-  ]
+    { path: "/", label: "Home", icon: Home },
+    { path: "/search", label: "Search", icon: Search },
+    { path: "/library", label: "Library", icon: Library },
+    { path: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return pathname === "/";
+    }
+    return pathname.startsWith(path);
+  };
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border z-40 pb-safe">
       <div className="flex items-center justify-around py-2">
         {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
+          <Link
+            key={item.path}
+            href={item.path}
             className={cn(
               "flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors min-w-[64px]",
-              currentView === item.id ? "text-primary" : "text-muted-foreground",
+              isActive(item.path) ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <item.icon className={cn("w-6 h-6", currentView === item.id && "text-primary")} />
+            <item.icon
+              className={cn("w-6 h-6", isActive(item.path) && "text-primary")}
+            />
             <span className="text-xs font-medium">{item.label}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </nav>
-  )
+  );
 }

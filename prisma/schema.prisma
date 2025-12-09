@@ -1,0 +1,336 @@
+// This is your Prisma schema file for Myanify Music Streaming Platform
+// Supports both Admin and Listener applications
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model - supports both Admin and Listener roles
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String? // For authentication
+  avatarUrl    String?
+  role         UserRole @default(LISTENER)
+  isPremium    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  playlists     Playlist[]
+  likedSongs    LikedSong[]
+  playHistory   PlayHistory[]
+  subscriptions PremiumSubscription[]
+  uploads       Upload[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@index([email])
+  @@index([role])
+}
+
+enum UserRole {
+  ADMIN
+  LISTENER
+}
+
+// Artist model
+model Artist {
+  id               String   @id @default(cuid())
+  name             String
+  imageUrl         String?
+  bio              String?  @db.Text
+  monthlyListeners Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  songs        Song[]
+  artistGenres ArtistGenre[]
+
+  @@index([name])
+}
+
+// Genre model
+model Genre {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  imageUrl    String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  songs        Song[]
+  artistGenres ArtistGenre[]
+
+  @@index([name])
+}
+
+// Many-to-many relationship between Artist and Genre
+model ArtistGenre {
+  id        String   @id @default(cuid())
+  artistId  String
+  genreId   String
+  createdAt DateTime @default(now())
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  genre  Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, genreId])
+  @@index([artistId])
+  @@index([genreId])
+}
+
+// Album model
+model Album {
+  id          String    @id @default(cuid())
+  name        String
+  coverUrl    String?
+  description String?   @db.Text
+  releaseDate DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  songs Song[]
+
+  @@index([name])
+}
+
+// Song model - main music track
+model Song {
+  id          String   @id @default(cuid())
+  title       String
+  duration    Int // Duration in seconds (stored as seconds for precision, but minutes is the standard unit in UI)
+  audioUrl    String // URL to audio file
+  coverUrl    String? // Album cover image URL
+  isPremium   Boolean  @default(false)
+  isPublished Boolean  @default(false) // Admin can publish/unpublish
+  playCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign keys
+  artistId String
+  albumId  String?
+  genreId  String?
+
+  // Relations
+  artist        Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  album         Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  genre         Genre?         @relation(fields: [genreId], references: [id], onDelete: SetNull)
+  lyrics        LyricLine[]
+  likedBy       LikedSong[]
+  playHistory   PlayHistory[]
+  playlistSongs PlaylistSong[]
+
+  @@index([title])
+  @@index([artistId])
+  @@index([albumId])
+  @@index([genreId])
+  @@index([isPublished])
+  @@index([isPremium])
+  @@index([createdAt])
+}
+
+// LyricLine model - synchronized lyrics for songs
+model LyricLine {
+  id          String   @id @default(cuid())
+  songId      String
+  time        Float // Time in seconds when lyric appears
+  text        String // Myanmar text
+  translation String? // English translation
+  order       Int // Order of lyric line
+  createdAt   DateTime @default(now())
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([songId])
+  @@index([songId, time])
+}
+
+// Playlist model
+model Playlist {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  coverUrl    String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign keys
+  createdById String
+
+  // Relations
+  createdBy User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  songs     PlaylistSong[]
+
+  @@index([createdById])
+  @@index([isPublic])
+  @@index([createdAt])
+}
+
+// Many-to-many relationship between Playlist and Song
+model PlaylistSong {
+  id         String   @id @default(cuid())
+  playlistId String
+  songId     String
+  order      Int // Order of song in playlist
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, songId])
+  @@index([playlistId])
+  @@index([songId])
+}
+
+// LikedSong model - tracks which users like which songs
+model LikedSong {
+  id      String   @id @default(cuid())
+  userId  String
+  songId  String
+  likedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId])
+  @@index([userId])
+  @@index([songId])
+}
+
+// PlayHistory model - tracks user listening history
+model PlayHistory {
+  id       String   @id @default(cuid())
+  userId   String
+  songId   String
+  playedAt DateTime @default(now())
+  duration Int? // How long the song was played (in seconds)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([songId])
+  @@index([playedAt])
+  @@index([userId, playedAt])
+}
+
+// PremiumSubscription model
+model PremiumSubscription {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  status            SubscriptionStatus @default(ACTIVE)
+  planType          PlanType           @default(MONTHLY)
+  startDate         DateTime           @default(now())
+  endDate           DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([endDate])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIAL
+}
+
+enum PlanType {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
+// Ad model - for sponsored content
+model Ad {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?   @db.Text
+  imageUrl        String?
+  linkUrl         String
+  sponsor         String
+  isActive        Boolean   @default(true)
+  startDate       DateTime  @default(now())
+  endDate         DateTime?
+  clickCount      Int       @default(0)
+  impressionCount Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+// Upload model - tracks file uploads by admin
+model Upload {
+  id           String   @id @default(cuid())
+  fileName     String
+  fileType     String // 'audio', 'image', 'lyrics'
+  fileUrl      String
+  fileSize     Int // Size in bytes
+  mimeType     String?
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  // Relations
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([uploadedById])
+  @@index([fileType])
+  @@index([uploadedAt])
+}
+
+// Auth.js models for authentication
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

@@ -1,26 +1,34 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ListMusic, Heart, Clock, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { mockPlaylists, mockSongs } from "@/lib/mock-data"
-import type { Song } from "@/lib/types"
-import type { ViewType } from "../myanify-app"
+import { useState, useMemo } from "react";
+import { ListMusic, Heart, Clock, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Song } from "@/lib/types";
+import { useNavigation } from "@/lib/navigation";
+import { usePlaylists, useSongs } from "@/lib/swr";
 
 interface LibraryViewProps {
-  onNavigate: (view: ViewType, id?: string) => void
-  onPlaySong: (song: Song) => void
+  onPlaySong: (song: Song) => void;
 }
 
-export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
-  const [activeTab, setActiveTab] = useState("playlists")
-  const likedSongs = mockSongs.slice(0, 5)
+export function LibraryView({ onPlaySong }: LibraryViewProps) {
+  const { navigate } = useNavigation();
+  const [activeTab, setActiveTab] = useState("playlists");
+
+  // Use SWR hooks for data fetching
+  const { playlists } = usePlaylists({ isPublic: true });
+  const { songs } = useSongs({ isPublished: true });
+
+  // TODO: Replace with actual liked songs from API
+  const likedSongs = useMemo(() => songs.slice(0, 5), [songs]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Your Library</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+          Your Library
+        </h1>
         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
           <Plus className="w-4 h-4 mr-2" />
           Create Playlist
@@ -60,8 +68,12 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
               <span className="font-medium">Create Playlist</span>
             </button>
 
-            {mockPlaylists.map((playlist) => (
-              <button key={playlist.id} onClick={() => onNavigate("playlist", playlist.id)} className="group text-left">
+            {playlists.map((playlist) => (
+              <button
+                key={playlist.id}
+                onClick={() => navigate("playlist", playlist.id)}
+                className="group text-left"
+              >
                 <div className="aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
                   <img
                     src={playlist.coverUrl || "/placeholder.svg"}
@@ -70,7 +82,9 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
                   />
                 </div>
                 <h3 className="font-semibold truncate">{playlist.name}</h3>
-                <p className="text-sm text-muted-foreground">{playlist.songs.length} songs</p>
+                <p className="text-sm text-muted-foreground">
+                  {playlist.songs.length} songs
+                </p>
               </button>
             ))}
           </div>
@@ -97,7 +111,9 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
                 onClick={() => onPlaySong(song)}
                 className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group"
               >
-                <span className="w-6 text-center text-sm text-muted-foreground">{index + 1}</span>
+                <span className="w-6 text-center text-sm text-muted-foreground">
+                  {index + 1}
+                </span>
                 <img
                   src={song.coverUrl || "/placeholder.svg"}
                   alt={song.title}
@@ -105,11 +121,14 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
-                  <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {song.artist}
+                  </p>
                 </div>
                 <Heart className="w-4 h-4 text-primary fill-primary" />
                 <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
+                  {Math.floor(song.duration / 60)}:
+                  {(song.duration % 60).toString().padStart(2, "0")}
                 </span>
               </button>
             ))}
@@ -118,13 +137,15 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
 
         <TabsContent value="recent" className="mt-6">
           <div className="space-y-2">
-            {mockSongs.map((song, index) => (
+            {songs.map((song, index) => (
               <button
                 key={song.id}
                 onClick={() => onPlaySong(song)}
                 className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group"
               >
-                <span className="w-6 text-center text-sm text-muted-foreground">{index + 1}</span>
+                <span className="w-6 text-center text-sm text-muted-foreground">
+                  {index + 1}
+                </span>
                 <img
                   src={song.coverUrl || "/placeholder.svg"}
                   alt={song.title}
@@ -132,10 +153,13 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
-                  <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {song.artist}
+                  </p>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
+                  {Math.floor(song.duration / 60)}:
+                  {(song.duration % 60).toString().padStart(2, "0")}
                 </span>
               </button>
             ))}
@@ -143,5 +167,5 @@ export function LibraryView({ onNavigate, onPlaySong }: LibraryViewProps) {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

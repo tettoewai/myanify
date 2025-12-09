@@ -14,7 +14,6 @@ export interface Song {
 export interface LyricLine {
   time: number
   text: string
-  translation?: string
 }
 
 export interface Artist {

@@ -1,20 +1,20 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { Song } from "@/lib/types"
-import { cn } from "@/lib/utils"
-import { MobileLyricsView } from "./mobile-lyrics-view"
+import { useState } from "react";
+import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Song } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { MobileLyricsView } from "./mobile-lyrics-view";
 
 interface MobileNowPlayingProps {
-  song: Song
-  isPlaying: boolean
-  currentTime: number
-  onTogglePlay: () => void
-  onNext: () => void
-  onPrev: () => void
-  onTimeChange: (time: number) => void
+  song: Song;
+  isPlaying: boolean;
+  currentTime: number;
+  onTogglePlay: () => void;
+  onNext: () => void;
+  onPrev: () => void;
+  onTimeChange: (time: number) => void;
 }
 
 export function MobileNowPlaying({
@@ -26,10 +26,10 @@ export function MobileNowPlaying({
   onPrev,
   onTimeChange,
 }: MobileNowPlayingProps) {
-  const [showFullView, setShowFullView] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
+  const [showFullView, setShowFullView] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
 
-  const progress = (currentTime / song.duration) * 100
+  const progress = (currentTime / song.duration) * 100;
 
   if (showFullView) {
     return (
@@ -43,7 +43,7 @@ export function MobileNowPlaying({
         onPrev={onPrev}
         onTimeChange={onTimeChange}
       />
-    )
+    );
   }
 
   return (
@@ -51,7 +51,7 @@ export function MobileNowPlaying({
       {/* Progress bar at top */}
       <div className="h-0.5 bg-amber-900/30">
         <div
-          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-300"
+          className="h-full bg-linear-to-r from-amber-500 to-amber-400 transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -68,10 +68,9 @@ export function MobileNowPlaying({
               alt={song.title}
               className={cn(
                 "w-12 h-12 rounded-lg object-cover shadow-lg ring-1 ring-amber-500/20",
-                isPlaying && "animate-pulse",
+                isPlaying && "animate-pulse"
               )}
             />
-            {isPlaying && <div className="absolute inset-0 rounded-lg bg-amber-500/10 animate-ping" />}
           </div>
 
           {/* Song info */}
@@ -87,30 +86,39 @@ export function MobileNowPlaying({
               size="icon"
               className="text-white/70 hover:text-white h-10 w-10"
               onClick={(e) => {
-                e.stopPropagation()
-                setIsLiked(!isLiked)
+                e.stopPropagation();
+                setIsLiked(!isLiked);
               }}
             >
-              <Heart className={cn("w-5 h-5", isLiked && "fill-amber-400 text-amber-400")} />
+              <Heart
+                className={cn(
+                  "w-5 h-5",
+                  isLiked && "fill-amber-400 text-amber-400"
+                )}
+              />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               className="text-white hover:text-white h-10 w-10"
               onClick={(e) => {
-                e.stopPropagation()
-                onTogglePlay()
+                e.stopPropagation();
+                onTogglePlay();
               }}
             >
-              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
+              {isPlaying ? (
+                <Pause className="w-6 h-6" />
+              ) : (
+                <Play className="w-6 h-6 ml-0.5" />
+              )}
             </Button>
             <Button
               variant="ghost"
               size="icon"
               className="text-white/70 hover:text-white h-10 w-10"
               onClick={(e) => {
-                e.stopPropagation()
-                onNext()
+                e.stopPropagation();
+                onNext();
               }}
             >
               <SkipForward className="w-5 h-5" />
@@ -122,5 +130,5 @@ export function MobileNowPlaying({
         </div>
       </div>
     </div>
-  )
+  );
 }

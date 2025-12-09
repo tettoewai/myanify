@@ -1,46 +1,74 @@
-"use client"
+"use client";
 
-import { Play, Pause, ChevronRight, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { mockSongs, mockArtists, mockPlaylists, mockGenres } from "@/lib/mock-data"
-import type { Song } from "@/lib/types"
-import type { ViewType } from "../myanify-app"
-import { cn } from "@/lib/utils"
+import { Play, Pause, ChevronRight, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Song } from "@/lib/types";
+import { useNavigation } from "@/lib/navigation";
+import { useSongs, useArtists, usePlaylists, useGenres } from "@/lib/swr";
+import { cn } from "@/lib/utils";
 
 interface HomeViewProps {
-  onNavigate: (view: ViewType, id?: string) => void
-  onPlaySong: (song: Song) => void
-  currentSong: Song | null
-  isPlaying: boolean
+  onPlaySong: (song: Song) => void;
+  currentSong: Song | null;
+  isPlaying: boolean;
 }
 
-export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: HomeViewProps) {
+export function HomeView({
+  onPlaySong,
+  currentSong,
+  isPlaying,
+}: HomeViewProps) {
+  const { navigate } = useNavigation();
+
+  // Use SWR hooks for data fetching
+  const { songs, isLoading: songsLoading } = useSongs({ isPublished: true });
+  const { artists, isLoading: artistsLoading } = useArtists();
+  const { playlists, isLoading: playlistsLoading } = usePlaylists({
+    isPublic: true,
+  });
+  const { genres, isLoading: genresLoading } = useGenres();
+
+  const loading =
+    songsLoading || artistsLoading || playlistsLoading || genresLoading;
+
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/30 via-primary/10 to-card p-6 md:p-8 lg:p-10 myanmar-pattern">
+      <section className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary/30 via-primary/10 to-card p-6 md:p-8 lg:p-10 myanmar-pattern">
         <div className="relative z-10 max-w-xl">
           <div className="flex items-center gap-2 text-primary mb-3">
-            <Sparkles className="w-5 h-5" />
             <span className="text-sm font-medium">Featured Today</span>
           </div>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
             Discover Myanmar's Musical Soul
           </h1>
           <p className="text-muted-foreground mb-6 text-balance">
-            From ancient melodies to modern beats — experience the rich tapestry of Myanmar music with synchronized
-            lyrics.
+            From ancient melodies to modern beats — experience the rich tapestry
+            of Myanmar music with synchronized lyrics.
           </p>
           <div className="flex gap-3">
             <Button
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-              onClick={() => onPlaySong(mockSongs[0])}
+              onClick={() => songs[0] && onPlaySong(songs[0])}
+              disabled={songs.length === 0}
             >
               <Play className="w-5 h-5 mr-2" />
               Play Featured
             </Button>
-            <Button size="lg" variant="outline" onClick={() => onNavigate("search")}>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("search")}
+            >
               Explore All
             </Button>
           </div>
@@ -54,16 +82,19 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
       {/* Quick Play Section */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Quick Play</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Quick Play
+          </h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {mockSongs.slice(0, 4).map((song) => (
+          {songs.slice(0, 4).map((song) => (
             <button
               key={song.id}
               onClick={() => onPlaySong(song)}
               className={cn(
                 "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left",
-                currentSong?.id === song.id && "bg-primary/10 ring-1 ring-primary/30",
+                currentSong?.id === song.id &&
+                  "bg-primary/10 ring-1 ring-primary/30"
               )}
             >
               <div className="relative">
@@ -82,7 +113,9 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate text-sm">{song.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {song.artist}
+                </p>
               </div>
             </button>
           ))}
@@ -92,16 +125,18 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
       {/* Browse Genres */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Browse Genres</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Browse Genres
+          </h2>
           <Button variant="ghost" size="sm" className="text-muted-foreground">
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {mockGenres.map((genre) => (
+          {genres.map((genre) => (
             <button
               key={genre.id}
-              onClick={() => onNavigate("genre", genre.id)}
+              onClick={() => navigate("genre", genre.id)}
               className="group relative aspect-square rounded-xl overflow-hidden"
             >
               <img
@@ -109,7 +144,7 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
                 alt={genre.name}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4">
                 <h3 className="font-bold text-white">{genre.name}</h3>
               </div>
@@ -121,28 +156,32 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
       {/* Popular Artists */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Popular Artists</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Popular Artists
+          </h2>
           <Button variant="ghost" size="sm" className="text-muted-foreground">
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          {mockArtists.map((artist) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+          {artists.map((artist) => (
             <button
               key={artist.id}
-              onClick={() => onNavigate("artist", artist.id)}
+              onClick={() => navigate("artist", artist.id)}
               className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors"
             >
               <div className="relative">
                 <img
                   src={artist.imageUrl || "/placeholder.svg"}
                   alt={artist.name}
-                  className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover shadow-lg group-hover:shadow-xl transition-shadow"
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-md object-cover shadow-lg group-hover:shadow-xl transition-shadow"
                 />
-                <div className="absolute inset-0 rounded-full ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all" />
+                <div className="absolute inset-0 rounded-md ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all" />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-sm truncate max-w-[100px]">{artist.name}</p>
+                <p className="font-semibold text-sm truncate max-w-[100px]">
+                  {artist.name}
+                </p>
                 <p className="text-xs text-muted-foreground">Artist</p>
               </div>
             </button>
@@ -153,14 +192,20 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
       {/* Featured Playlists */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Featured Playlists</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Featured Playlists
+          </h2>
           <Button variant="ghost" size="sm" className="text-muted-foreground">
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {mockPlaylists.map((playlist) => (
-            <button key={playlist.id} onClick={() => onNavigate("playlist", playlist.id)} className="group text-left">
+          {playlists.map((playlist) => (
+            <button
+              key={playlist.id}
+              onClick={() => navigate("playlist", playlist.id)}
+              className="group text-left"
+            >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
                 <img
                   src={playlist.coverUrl || "/placeholder.svg"}
@@ -174,7 +219,9 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
                 </div>
               </div>
               <h3 className="font-semibold truncate">{playlist.name}</h3>
-              <p className="text-sm text-muted-foreground truncate">{playlist.description}</p>
+              <p className="text-sm text-muted-foreground truncate">
+                {playlist.description}
+              </p>
             </button>
           ))}
         </div>
@@ -183,11 +230,17 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
       {/* Recently Played */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Recently Played</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Recently Played
+          </h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {mockSongs.slice(0, 6).map((song) => (
-            <button key={song.id} onClick={() => onPlaySong(song)} className="group text-left">
+          {songs.slice(0, 6).map((song) => (
+            <button
+              key={song.id}
+              onClick={() => onPlaySong(song)}
+              className="group text-left"
+            >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
                 <img
                   src={song.coverUrl || "/placeholder.svg"}
@@ -208,11 +261,13 @@ export function HomeView({ onNavigate, onPlaySong, currentSong, isPlaying }: Hom
                 )}
               </div>
               <h3 className="font-medium text-sm truncate">{song.title}</h3>
-              <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {song.artist}
+              </p>
             </button>
           ))}
         </div>
       </section>
     </div>
-  )
+  );
 }

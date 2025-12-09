@@ -1,45 +1,83 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { Search, Play, Pause, X } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { mockSongs, mockArtists, mockGenres } from "@/lib/mock-data"
-import type { Song } from "@/lib/types"
-import type { ViewType } from "../myanify-app"
-import { cn } from "@/lib/utils"
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, Play, Pause, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import type { Song } from "@/lib/types";
+import { useNavigation } from "@/lib/navigation";
+import { useSongs, useArtists, useGenres } from "@/lib/swr";
+import { cn } from "@/lib/utils";
 
 interface SearchViewProps {
-  onNavigate: (view: ViewType, id?: string) => void
-  onPlaySong: (song: Song) => void
-  currentSong: Song | null
-  isPlaying: boolean
+  onPlaySong: (song: Song) => void;
+  currentSong: Song | null;
+  isPlaying: boolean;
 }
 
-export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: SearchViewProps) {
-  const [query, setQuery] = useState("")
+export function SearchView({
+  onPlaySong,
+  currentSong,
+  isPlaying,
+}: SearchViewProps) {
+  const { navigate } = useNavigation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
-  const filteredSongs = useMemo(() => {
-    if (!query.trim()) return []
-    const lowerQuery = query.toLowerCase()
-    return mockSongs.filter(
-      (song) => song.title.toLowerCase().includes(lowerQuery) || song.artist.toLowerCase().includes(lowerQuery),
-    )
-  }, [query])
+  // Initialize query from URL on mount
+  useEffect(() => {
+    const urlQuery = searchParams.get("q") || "";
+    setQuery(urlQuery);
+    setDebouncedQuery(urlQuery);
+  }, [searchParams]);
 
-  const filteredArtists = useMemo(() => {
-    if (!query.trim()) return []
-    const lowerQuery = query.toLowerCase()
-    return mockArtists.filter((artist) => artist.name.toLowerCase().includes(lowerQuery))
-  }, [query])
+  // Debounce query for URL updates and API calls
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      const params = new URLSearchParams(searchParams.toString());
+      if (query.trim()) {
+        params.set("q", query.trim());
+      } else {
+        params.delete("q");
+      }
+      const newUrl = params.toString()
+        ? `/search?${params.toString()}`
+        : "/search";
+      router.replace(newUrl, { scroll: false });
+    }, 600);
 
-  const hasResults = filteredSongs.length > 0 || filteredArtists.length > 0
-  const showBrowse = !query.trim()
+    return () => clearTimeout(timeoutId);
+  }, [query, router, searchParams]);
+
+  // Use SWR hooks for data fetching - only fetch when there's a search query
+  const shouldSearch = debouncedQuery.trim().length > 0;
+  const { songs, isLoading: songsLoading } = useSongs(
+    shouldSearch ? { isPublished: true, search: debouncedQuery } : undefined
+  );
+  const { artists, isLoading: artistsLoading } = useArtists(
+    shouldSearch ? { search: debouncedQuery } : undefined
+  );
+  const { genres } = useGenres();
+
+  const hasResults = songs.length > 0 || artists.length > 0;
+  const showBrowse = !debouncedQuery.trim();
+  const isLoading = songsLoading || artistsLoading;
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.onerror = null;
+    e.currentTarget.src = "/placeholder.svg";
+  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8">
       {/* Search Header */}
       <div className="max-w-2xl">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Search</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+          Search
+        </h1>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
@@ -51,7 +89,10 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
           />
           {query && (
             <button
-              onClick={() => setQuery("")}
+              onClick={() => {
+                setQuery("");
+                router.replace("/search", { scroll: false });
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-5 h-5" />
@@ -65,16 +106,17 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Browse All</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mockGenres.map((genre) => (
+            {genres.map((genre) => (
               <button
                 key={genre.id}
-                onClick={() => onNavigate("genre", genre.id)}
+                onClick={() => navigate("genre", genre.id)}
                 className="group relative aspect-[4/3] rounded-xl overflow-hidden"
               >
                 <img
                   src={genre.imageUrl || "/placeholder.svg"}
                   alt={genre.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  onError={handleImageError}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -88,28 +130,39 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
       )}
 
       {/* Search Results */}
-      {query && !hasResults && (
+      {debouncedQuery && isLoading && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground text-lg">No results found for "{query}"</p>
-          <p className="text-sm text-muted-foreground mt-2">Try searching for a different song or artist</p>
+          <p className="text-muted-foreground">Searching...</p>
+        </div>
+      )}
+
+      {debouncedQuery && !isLoading && !hasResults && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground text-lg">
+            No results found for "{debouncedQuery}"
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Try searching for a different song or artist
+          </p>
         </div>
       )}
 
       {/* Artists Results */}
-      {filteredArtists.length > 0 && (
+      {artists.length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Artists</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {filteredArtists.map((artist) => (
+            {artists.map((artist) => (
               <button
                 key={artist.id}
-                onClick={() => onNavigate("artist", artist.id)}
+                onClick={() => navigate("artist", artist.id)}
                 className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors"
               >
                 <img
                   src={artist.imageUrl || "/placeholder.svg"}
                   alt={artist.name}
                   className="w-24 h-24 rounded-full object-cover shadow-lg"
+                  onError={handleImageError}
                 />
                 <div className="text-center">
                   <p className="font-semibold text-sm">{artist.name}</p>
@@ -122,20 +175,22 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
       )}
 
       {/* Songs Results */}
-      {filteredSongs.length > 0 && (
+      {songs.length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Songs</h2>
           <div className="space-y-2">
-            {filteredSongs.map((song, index) => (
+            {songs.map((song, index) => (
               <button
                 key={song.id}
                 onClick={() => onPlaySong(song)}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
-                  currentSong?.id === song.id && "bg-primary/10",
+                  currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
-                <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">{index + 1}</span>
+                <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
+                  {index + 1}
+                </span>
                 <span className="w-6 hidden group-hover:flex items-center justify-center">
                   {currentSong?.id === song.id && isPlaying ? (
                     <Pause className="w-4 h-4 text-primary" />
@@ -147,15 +202,24 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
                   src={song.coverUrl || "/placeholder.svg"}
                   alt={song.title}
                   className="w-12 h-12 rounded-md object-cover"
+                  onError={handleImageError}
                 />
                 <div className="flex-1 text-left min-w-0">
-                  <p className={cn("font-medium truncate", currentSong?.id === song.id && "text-primary")}>
+                  <p
+                    className={cn(
+                      "font-medium truncate",
+                      currentSong?.id === song.id && "text-primary"
+                    )}
+                  >
                     {song.title}
                   </p>
-                  <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {song.artist}
+                  </p>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
+                  {Math.floor(song.duration / 60)}:
+                  {(song.duration % 60).toString().padStart(2, "0")}
                 </span>
                 {song.isPremium && (
                   <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
@@ -168,5 +232,5 @@ export function SearchView({ onNavigate, onPlaySong, currentSong, isPlaying }: S
         </section>
       )}
     </div>
-  )
+  );
 }

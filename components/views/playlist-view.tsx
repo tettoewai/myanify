@@ -1,26 +1,57 @@
-"use client"
+"use client";
 
-import { Play, Pause, Shuffle, Heart, MoreHorizontal, Clock, Share2, Pencil } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { mockPlaylists } from "@/lib/mock-data"
-import type { Song } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import {
+  Play,
+  Pause,
+  Shuffle,
+  Heart,
+  MoreHorizontal,
+  Clock,
+  Share2,
+  Pencil,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Song } from "@/lib/types";
+import { usePlaylist } from "@/lib/swr";
+import { cn } from "@/lib/utils";
 
 interface PlaylistViewProps {
-  playlistId: string
-  onPlaySong: (song: Song) => void
-  currentSong: Song | null
-  isPlaying: boolean
+  playlistId: string;
+  onPlaySong: (song: Song) => void;
+  currentSong: Song | null;
+  isPlaying: boolean;
 }
 
-export function PlaylistView({ playlistId, onPlaySong, currentSong, isPlaying }: PlaylistViewProps) {
-  const playlist = mockPlaylists.find((p) => p.id === playlistId)
+export function PlaylistView({
+  playlistId,
+  onPlaySong,
+  currentSong,
+  isPlaying,
+}: PlaylistViewProps) {
+  const { playlist, isLoading } = usePlaylist(playlistId);
 
-  if (!playlist) return null
+  if (isLoading) {
+    return (
+      <div className="p-6 md:p-8 flex items-center justify-center min-h-full">
+        <p className="text-muted-foreground">Loading playlist...</p>
+      </div>
+    );
+  }
 
-  const totalDuration = playlist.songs.reduce((acc, song) => acc + song.duration, 0)
-  const hours = Math.floor(totalDuration / 3600)
-  const minutes = Math.floor((totalDuration % 3600) / 60)
+  if (!playlist) {
+    return (
+      <div className="p-6 md:p-8 flex items-center justify-center min-h-full">
+        <p className="text-muted-foreground">Playlist not found</p>
+      </div>
+    );
+  }
+
+  const totalDuration = playlist.songs.reduce(
+    (acc, song) => acc + song.duration,
+    0
+  );
+  const hours = Math.floor(totalDuration / 3600);
+  const minutes = Math.floor((totalDuration % 3600) / 60);
 
   return (
     <div className="min-h-full">
@@ -35,10 +66,14 @@ export function PlaylistView({ playlistId, onPlaySong, currentSong, isPlaying }:
         </div>
         <div className="flex-1">
           <p className="text-sm text-muted-foreground mb-1">Playlist</p>
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3 text-balance">{playlist.name}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3 text-balance">
+            {playlist.name}
+          </h1>
           <p className="text-muted-foreground mb-3">{playlist.description}</p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{playlist.createdBy}</span>
+            <span className="font-medium text-foreground">
+              {playlist.createdBy}
+            </span>
             <span>•</span>
             <span>{playlist.songs.length} songs</span>
             <span>•</span>
@@ -60,7 +95,11 @@ export function PlaylistView({ playlistId, onPlaySong, currentSong, isPlaying }:
           <Play className="w-5 h-5 mr-2" />
           Play
         </Button>
-        <Button size="lg" variant="outline" className="rounded-full bg-transparent">
+        <Button
+          size="lg"
+          variant="outline"
+          className="rounded-full bg-transparent"
+        >
           <Shuffle className="w-5 h-5 mr-2" />
           Shuffle
         </Button>
@@ -95,10 +134,12 @@ export function PlaylistView({ playlistId, onPlaySong, currentSong, isPlaying }:
               onClick={() => onPlaySong(song)}
               className={cn(
                 "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
-                currentSong?.id === song.id && "bg-primary/10",
+                currentSong?.id === song.id && "bg-primary/10"
               )}
             >
-              <span className="w-8 text-center text-sm text-muted-foreground group-hover:hidden">{index + 1}</span>
+              <span className="w-8 text-center text-sm text-muted-foreground group-hover:hidden">
+                {index + 1}
+              </span>
               <span className="w-8 hidden group-hover:flex items-center justify-center">
                 {currentSong?.id === song.id && isPlaying ? (
                   <Pause className="w-4 h-4 text-primary" />
@@ -112,22 +153,34 @@ export function PlaylistView({ playlistId, onPlaySong, currentSong, isPlaying }:
                 className="w-10 h-10 md:w-12 md:h-12 rounded-md object-cover"
               />
               <div className="flex-1 text-left min-w-0">
-                <p className={cn("font-medium truncate", currentSong?.id === song.id && "text-primary")}>
+                <p
+                  className={cn(
+                    "font-medium truncate",
+                    currentSong?.id === song.id && "text-primary"
+                  )}
+                >
                   {song.title}
                 </p>
-                <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {song.artist}
+                </p>
               </div>
-              <span className="hidden md:block w-32 text-sm text-muted-foreground truncate">{song.album}</span>
+              <span className="hidden md:block w-32 text-sm text-muted-foreground truncate">
+                {song.album}
+              </span>
               <span className="text-sm text-muted-foreground">
-                {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, "0")}
+                {Math.floor(song.duration / 60)}:
+                {(song.duration % 60).toString().padStart(2, "0")}
               </span>
               {song.isPremium && (
-                <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">Premium</span>
+                <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                  Premium
+                </span>
               )}
             </button>
           ))}
         </div>
       </div>
     </div>
-  )
+  );
 }

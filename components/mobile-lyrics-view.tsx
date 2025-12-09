@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Heart,
   Share2,
-  Languages,
   SkipBack,
   Play,
   Pause,
@@ -43,7 +42,6 @@ export function MobileLyricsView({
 }: MobileLyricsViewProps) {
   const activeRef = useRef<HTMLDivElement>(null)
   const [showLyrics, setShowLyrics] = useState(true)
-  const [showTranslation, setShowTranslation] = useState(true)
   const [isLiked, setIsLiked] = useState(false)
 
   const currentLyricIndex = song.lyrics.reduce((prevIndex, curr, index) => {
@@ -129,17 +127,6 @@ export function MobileLyricsView({
                         >
                           {line.text}
                         </p>
-
-                        {line.translation && showTranslation && (
-                          <p
-                            className={cn(
-                              "text-sm mt-2 transition-all duration-500 italic",
-                              isActive ? "text-amber-400/80" : "text-white/40",
-                            )}
-                          >
-                            {line.translation}
-                          </p>
-                        )}
                       </div>
                     )
                   })}
@@ -188,17 +175,6 @@ export function MobileLyricsView({
               Lyrics
             </Button>
           </div>
-          {showLyrics && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowTranslation(!showTranslation)}
-              className={cn("ml-2 rounded-full px-3 h-8 text-xs", showTranslation ? "text-amber-400" : "text-white/50")}
-            >
-              <Languages className="w-4 h-4 mr-1" />
-              EN
-            </Button>
-          )}
         </div>
 
         {/* Song info */}

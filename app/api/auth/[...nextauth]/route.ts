@@ -1,0 +1,19 @@
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
+import { credentialsProvider } from "@/lib/auth-providers";
+
+// Create handlers with credentials provider (only in API route, not middleware)
+// This runs in Node.js runtime, so it can use bcryptjs
+// Note: We don't need PrismaAdapter since we're using JWT sessions, not database sessions
+const { handlers } = NextAuth({
+  ...authConfig,
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 days
+  providers: [credentialsProvider],
+  secret: process.env.AUTH_SECRET,
+  trustHost: true, // Trust all hosts (safe for development)
+});
+
+export const { GET, POST } = handlers;
+
+// Force Node.js runtime (required for bcryptjs which uses Node.js crypto)
+export const runtime = "nodejs";

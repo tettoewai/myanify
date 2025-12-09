@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react";
 import {
   Play,
   Pause,
@@ -13,21 +13,21 @@ import {
   Repeat,
   Shuffle,
   ListMusic,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import type { Song } from "@/lib/types"
-import { cn } from "@/lib/utils"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import type { Song } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface MobilePlayerProps {
-  currentSong: Song
-  isPlaying: boolean
-  currentTime: number
-  onTogglePlay: () => void
-  onNext: () => void
-  onPrev: () => void
-  onTimeChange: (time: number) => void
-  onClose: () => void
+  currentSong: Song;
+  isPlaying: boolean;
+  currentTime: number;
+  onTogglePlay: () => void;
+  onNext: () => void;
+  onPrev: () => void;
+  onTimeChange: (time: number) => void;
+  onClose: () => void;
 }
 
 export function MobilePlayer({
@@ -40,44 +40,49 @@ export function MobilePlayer({
   onTimeChange,
   onClose,
 }: MobilePlayerProps) {
-  const [isLiked, setIsLiked] = useState(false)
-  const [showLyrics, setShowLyrics] = useState(false)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [isLiked, setIsLiked] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeRef = useRef(currentTime);
+
+  useEffect(() => {
+    timeRef.current = currentTime;
+  }, [currentTime]);
 
   useEffect(() => {
     if (isPlaying) {
       intervalRef.current = setInterval(() => {
-        onTimeChange((prev) => {
-          if (prev >= currentSong.duration) {
-            onNext()
-            return 0
-          }
-          return prev + 1
-        })
-      }, 1000)
+        const newTime = timeRef.current + 1;
+        if (newTime >= currentSong.duration) {
+          onNext();
+          onTimeChange(0);
+        } else {
+          onTimeChange(newTime);
+        }
+      }, 1000);
     } else {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        clearInterval(intervalRef.current);
       }
     }
 
     return () => {
       if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+        clearInterval(intervalRef.current);
       }
-    }
-  }, [isPlaying, currentSong, onTimeChange, onNext])
+    };
+  }, [isPlaying, currentSong, onTimeChange, onNext]);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const currentLyric = currentSong.lyrics.reduce((prev, curr) => {
-    if (curr.time <= currentTime) return curr
-    return prev
-  }, currentSong.lyrics[0])
+    if (curr.time <= currentTime) return curr;
+    return prev;
+  }, currentSong.lyrics[0]);
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
@@ -111,10 +116,9 @@ export function MobilePlayer({
         {/* Current Lyric */}
         {showLyrics && currentLyric && (
           <div className="w-full max-w-sm text-center mb-4 p-4 rounded-xl bg-primary/10">
-            <p className="text-lg font-medium text-primary">{currentLyric.text}</p>
-            {currentLyric.translation && (
-              <p className="text-sm text-muted-foreground mt-1">{currentLyric.translation}</p>
-            )}
+            <p className="text-lg font-medium text-primary">
+              {currentLyric.text}
+            </p>
           </div>
         )}
       </div>
@@ -123,7 +127,12 @@ export function MobilePlayer({
       <div className="p-6 pb-12 space-y-6">
         {/* Progress */}
         <div className="space-y-2">
-          <Slider value={[currentTime]} max={currentSong.duration} step={1} onValueChange={(v) => onTimeChange(v[0])} />
+          <Slider
+            value={[currentTime]}
+            max={currentSong.duration}
+            step={1}
+            onValueChange={(v) => onTimeChange(v[0])}
+          />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{formatTime(currentTime)}</span>
             <span>{formatTime(currentSong.duration)}</span>
@@ -143,7 +152,11 @@ export function MobilePlayer({
             className="w-16 h-16 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={onTogglePlay}
           >
-            {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+            {isPlaying ? (
+              <Pause className="w-8 h-8" />
+            ) : (
+              <Play className="w-8 h-8 ml-1" />
+            )}
           </Button>
           <Button variant="ghost" size="icon" onClick={onNext}>
             <SkipForward className="w-8 h-8" />
@@ -155,8 +168,14 @@ export function MobilePlayer({
 
         {/* Extra Actions */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setIsLiked(!isLiked)}>
-            <Heart className={cn("w-6 h-6", isLiked && "fill-primary text-primary")} />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsLiked(!isLiked)}
+          >
+            <Heart
+              className={cn("w-6 h-6", isLiked && "fill-primary text-primary")}
+            />
           </Button>
           <Button
             variant="ghost"
@@ -172,5 +191,5 @@ export function MobilePlayer({
         </div>
       </div>
     </div>
-  )
+  );
 }

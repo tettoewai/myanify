@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { X, Languages, Music2 } from "lucide-react"
+import { X, Music2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Song } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -15,7 +15,6 @@ interface LyricsPanelProps {
 export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
   const activeRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [showTranslation, setShowTranslation] = useState(true)
 
   const currentLyricIndex = song.lyrics.reduce((prevIndex, curr, index) => {
     if (curr.time <= currentTime) return index
@@ -44,15 +43,6 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowTranslation(!showTranslation)}
-            className={cn("text-xs gap-1.5 h-8", showTranslation ? "text-amber-500" : "text-muted-foreground")}
-          >
-            <Languages className="w-4 h-4" />
-            EN
-          </Button>
           <Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-5 h-5" />
           </Button>
@@ -105,7 +95,7 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
                       <div className="absolute -left-4 top-0 bottom-0 w-1 rounded-full bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 shadow-lg shadow-amber-500/50" />
                     )}
 
-                    {/* Myanmar lyric text */}
+                    {/* Lyric text */}
                     <p
                       className={cn(
                         "text-xl leading-relaxed transition-all duration-500 font-medium",
@@ -114,18 +104,6 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
                     >
                       {line.text}
                     </p>
-
-                    {/* English translation */}
-                    {line.translation && showTranslation && (
-                      <p
-                        className={cn(
-                          "text-sm mt-2 transition-all duration-500 italic",
-                          isActive ? "text-amber-500/70" : "text-muted-foreground/60",
-                        )}
-                      >
-                        "{line.translation}"
-                      </p>
-                    )}
 
                     {/* Subtle glow effect for active lyric */}
                     {isActive && <div className="absolute -inset-4 bg-amber-500/5 rounded-2xl -z-10 blur-xl" />}
