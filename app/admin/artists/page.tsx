@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Edit, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
+import { useArtists } from "@/lib/swr";
+import { mutate } from "swr";
 
 export const dynamic = "force-dynamic";
 
@@ -28,31 +31,19 @@ interface Artist {
 }
 
 export default function ArtistsPage() {
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [artistToDelete, setArtistToDelete] = useState<string | null>(null);
 
+  const {
+    artists: allArtists,
+    isLoading,
+    mutate: mutateArtists,
+  } = useArtists();
+
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     e.currentTarget.onerror = null;
     e.currentTarget.src = "/placeholder.svg";
-  };
-
-  useEffect(() => {
-    fetchArtists();
-  }, []);
-
-  const fetchArtists = async () => {
-    try {
-      const response = await fetch("/api/artists");
-      const data = await response.json();
-      setArtists(data.data || []);
-    } catch (error) {
-      console.error("Error fetching artists:", error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleDeleteClick = (artistId: string) => {
@@ -69,20 +60,29 @@ export default function ArtistsPage() {
       });
 
       if (response.ok) {
-        fetchArtists();
+        toast.success("Artist deleted successfully");
+        mutateArtists();
+        mutate("/api/artists");
         setDeleteDialogOpen(false);
         setArtistToDelete(null);
+      } else {
+        toast.error("Failed to delete artist");
       }
     } catch (error) {
       console.error("Error deleting artist:", error);
+      toast.error("Failed to delete artist");
     }
   };
 
-  const filteredArtists = artists.filter((artist) =>
-    artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredArtists = useMemo(
+    () =>
+      (allArtists || []).filter((artist) =>
+        artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [allArtists, searchQuery]
   );
 
-  if (loading) {
+  if (isLoading) {
     return <div className="text-center py-12">Loading artists...</div>;
   }
 
@@ -122,9 +122,9 @@ export default function ArtistsPage() {
           filteredArtists.map((artist) => (
             <div
               key={artist.id}
-              className="bg-card rounded-lg border border-border p-6 hover:shadow-lg transition-shadow"
+              className="bg-card rounded-lg border border-border p-6 hover:shadow-lg transition-shadow flex flex-col h-full"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-4 flex-1">
                 <Image
                   width={64}
                   height={64}

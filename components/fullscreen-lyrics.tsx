@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
@@ -65,7 +66,9 @@ export function FullscreenLyrics({
       <div
         className="absolute inset-0 opacity-30 blur-3xl scale-110"
         style={{
-          backgroundImage: `url(${song.coverUrl || "/placeholder.svg"})`,
+          backgroundImage: `url(${
+            song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+          })`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -140,10 +143,13 @@ export function FullscreenLyrics({
         <div className="max-w-2xl mx-auto">
           {/* Song info */}
           <div className="flex items-center gap-4 mb-6">
-            <img
-              src={song.coverUrl || "/placeholder.svg"}
+            <Image
+              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
               alt={song.title}
+              width={80}
+              height={80}
               className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover shadow-2xl ring-2 ring-white/10"
+              unoptimized
             />
             <div className="flex-1 min-w-0">
               <p className="font-bold text-xl md:text-2xl text-white truncate">

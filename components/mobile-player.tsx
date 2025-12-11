@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import {
   Play,
   Pause,
@@ -99,11 +100,17 @@ export function MobilePlayer({
 
       {/* Album Art */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
-        <div className="w-full max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8">
-          <img
-            src={currentSong.coverUrl || "/placeholder.svg"}
+        <div className="relative w-full max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8">
+          <Image
+            src={
+              currentSong.albumCoverUrl ||
+              currentSong.coverUrl ||
+              "/placeholder.svg"
+            }
             alt={currentSong.title}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         </div>
 

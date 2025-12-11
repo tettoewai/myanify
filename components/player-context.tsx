@@ -19,6 +19,8 @@ interface PlayerContextType {
   isPremium: boolean;
   showLyrics: boolean;
   showFullscreenLyrics: boolean;
+  volume: number;
+  isMuted: boolean;
   setCurrentSong: (song: Song | null) => void;
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (time: number) => void;
@@ -26,6 +28,8 @@ interface PlayerContextType {
   setIsPremium: (premium: boolean) => void;
   setShowLyrics: (show: boolean) => void;
   setShowFullscreenLyrics: (show: boolean) => void;
+  setVolume: (volume: number) => void;
+  setIsMuted: (muted: boolean) => void;
   playSong: (song: Song) => void;
   togglePlay: () => void;
   nextSong: () => void;
@@ -43,6 +47,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showFullscreenLyrics, setShowFullscreenLyrics] = useState(false);
+  const [volume, setVolume] = useState(80);
+  const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const nextSongRef = useRef<() => void>(() => {});
   const isPlayingRef = useRef(false);
@@ -176,6 +182,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTime]);
 
+  // Handle volume changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume / 100;
+    }
+  }, [volume, isMuted]);
+
   const playSong = (song: Song) => {
     if (song.isPremium && !isPremium) {
       // Redirect to premium page
@@ -212,6 +225,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         isPremium,
         showLyrics,
         showFullscreenLyrics,
+        volume,
+        isMuted,
         setCurrentSong,
         setIsPlaying,
         setCurrentTime,
@@ -219,6 +234,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsPremium,
         setShowLyrics,
         setShowFullscreenLyrics,
+        setVolume,
+        setIsMuted,
         playSong,
         togglePlay,
         nextSong,

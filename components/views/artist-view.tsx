@@ -145,7 +145,7 @@ export function ArtistView({
                 key={song.id}
                 onClick={() => onPlaySong(song)}
                 className={cn(
-                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
+                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
@@ -162,7 +162,9 @@ export function ArtistView({
                 <Image
                   width={48}
                   height={48}
-                  src={song.coverUrl || "/placeholder.svg"}
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
                   className="w-12 h-12 rounded-md object-cover"
                 />

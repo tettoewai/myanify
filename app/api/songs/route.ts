@@ -82,7 +82,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const genreId = searchParams.get("genreId");
     const artistId = searchParams.get("artistId");
-    const isPublished = searchParams.get("isPublished") !== "false";
+    const albumId = searchParams.get("albumId");
+    const isPublishedParam = searchParams.get("isPublished");
+    const isPublished = isPublishedParam === null ? undefined : isPublishedParam === "true";
     const search = searchParams.get("search") || searchParams.get("q");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -90,9 +92,10 @@ export async function GET(request: Request) {
 
     // Build where clause with search support
     const where: any = {
-      isPublished,
+      ...(isPublished !== undefined && { isPublished }),
       ...(genreId && { genreId }),
       ...(artistId && { artistId }),
+      ...(albumId && { albumId }),
     };
 
     // Add search filter if provided

@@ -5,6 +5,7 @@ export interface Song {
   album: string
   duration: number
   coverUrl: string
+  albumCoverUrl?: string | null // Album cover URL for fallback
   audioUrl: string
   genre: string
   lyrics: LyricLine[]

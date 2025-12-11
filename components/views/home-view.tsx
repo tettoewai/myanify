@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Play, Pause, ChevronRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
@@ -92,16 +93,21 @@ export function HomeView({
               key={song.id}
               onClick={() => onPlaySong(song)}
               className={cn(
-                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left",
+                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer",
                 currentSong?.id === song.id &&
                   "bg-primary/10 ring-1 ring-primary/30"
               )}
             >
               <div className="relative">
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
+                  width={56}
+                  height={56}
                   className="w-14 h-14 rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
                   {currentSong?.id === song.id && isPlaying ? (
@@ -137,12 +143,14 @@ export function HomeView({
             <button
               key={genre.id}
               onClick={() => navigate("genre", genre.id)}
-              className="group relative aspect-square rounded-xl overflow-hidden"
+              className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer"
             >
-              <img
+              <Image
                 src={genre.imageUrl || "/placeholder.svg"}
                 alt={genre.name}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-300"
+                unoptimized
               />
               <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -165,16 +173,19 @@ export function HomeView({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
           {artists.map((artist) => (
-            <button
-              key={artist.id}
-              onClick={() => navigate("artist", artist.id)}
-              className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors"
-            >
+              <button
+                key={artist.id}
+                onClick={() => navigate("artist", artist.id)}
+                className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer"
+              >
               <div className="relative">
-                <img
+                <Image
                   src={artist.imageUrl || "/placeholder.svg"}
                   alt={artist.name}
+                  width={112}
+                  height={112}
                   className="w-24 h-24 md:w-28 md:h-28 rounded-md object-cover shadow-lg group-hover:shadow-xl transition-shadow"
+                  unoptimized
                 />
                 <div className="absolute inset-0 rounded-md ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all" />
               </div>
@@ -201,16 +212,18 @@ export function HomeView({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {playlists.map((playlist) => (
-            <button
-              key={playlist.id}
-              onClick={() => navigate("playlist", playlist.id)}
-              className="group text-left"
-            >
+              <button
+                key={playlist.id}
+                onClick={() => navigate("playlist", playlist.id)}
+                className="group text-left cursor-pointer"
+              >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
-                <img
+                <Image
                   src={playlist.coverUrl || "/placeholder.svg"}
                   alt={playlist.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  unoptimized
                 />
                 <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                   <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-xl">
@@ -242,10 +255,14 @@ export function HomeView({
               className="group text-left"
             >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   {currentSong?.id === song.id && isPlaying ? (

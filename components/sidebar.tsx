@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Home,
@@ -97,7 +98,12 @@ export function Sidebar({ isPremium }: SidebarProps) {
           <span className="text-sm font-semibold text-muted-foreground">
             Your Playlists
           </span>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 cursor-pointer"
+            title="Create new playlist"
+          >
             <Plus className="w-4 h-4" />
           </Button>
         </div>
@@ -114,10 +120,13 @@ export function Sidebar({ isPremium }: SidebarProps) {
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}
               >
-                <img
+                <Image
                   src={playlist.coverUrl || "/placeholder.svg"}
                   alt={playlist.name}
+                  width={40}
+                  height={40}
                   className="w-10 h-10 rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="text-left truncate">
                   <p className="font-medium truncate">{playlist.name}</p>

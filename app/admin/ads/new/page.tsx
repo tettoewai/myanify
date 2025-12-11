@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,9 +58,10 @@ export default function NewAdPage() {
 
       const data = await response.json();
       setImageUrl(data.url);
+      toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -69,7 +71,7 @@ export default function NewAdPage() {
     e.preventDefault();
 
     if (!formData.title || !formData.linkUrl || !formData.sponsor) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -93,10 +95,11 @@ export default function NewAdPage() {
         throw new Error("Failed to create ad");
       }
 
+      toast.success("Ad created successfully");
       router.push("/admin/ads");
     } catch (error) {
       console.error("Error creating ad:", error);
-      alert("Failed to create ad");
+      toast.error("Failed to create ad");
     } finally {
       setLoading(false);
     }

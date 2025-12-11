@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useArtists, useGenres, useAlbums } from "@/lib/swr";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Upload,
@@ -28,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DurationPicker } from "@/components/ui/duration-picker";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +45,17 @@ interface Genre {
   name: string;
 }
 
+interface Album {
+  id: string;
+  name: string;
+}
+
 export default function NewSongPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingLyrics, setUploadingLyrics] = useState(false);
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [genres, setGenres] = useState<Genre[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     duration: 0, // Duration in seconds
@@ -67,29 +72,32 @@ export default function NewSongPage() {
   const [imageFileName, setImageFileName] = useState("");
   const [lyricsFileName, setLyricsFileName] = useState("");
 
-  useEffect(() => {
-    fetchArtists();
-    fetchGenres();
-  }, []);
+  const { artists: fetchedArtists } = useArtists();
+  const { genres: fetchedGenres } = useGenres();
+  const { albums: fetchedAlbums } = useAlbums();
 
-  const fetchArtists = async () => {
-    try {
-      const response = await fetch("/api/artists");
-      const data = await response.json();
-      setArtists(data.data || []);
-    } catch (error) {
-      console.error("Error fetching artists:", error);
-    }
-  };
+  // Use fetched data directly instead of storing in state to avoid infinite loops
+  const artists = fetchedArtists || [];
+  const genres = fetchedGenres || [];
+  const albums = fetchedAlbums || [];
 
-  const fetchGenres = async () => {
-    try {
-      const response = await fetch("/api/genres");
-      const data = await response.json();
-      setGenres(data.data || []);
-    } catch (error) {
-      console.error("Error fetching genres:", error);
-    }
+  const getAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+
+      audio.addEventListener("loadedmetadata", () => {
+        URL.revokeObjectURL(url);
+        resolve(Math.round(audio.duration));
+      });
+
+      audio.addEventListener("error", (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load audio metadata"));
+      });
+
+      audio.src = url;
+    });
   };
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +108,10 @@ export default function NewSongPage() {
     setAudioFileName(file.name);
 
     try {
+      // Get duration from audio file
+      const duration = await getAudioDuration(file);
+      setFormData((prev) => ({ ...prev, duration }));
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("type", "audio");
@@ -115,9 +127,10 @@ export default function NewSongPage() {
 
       const data = await response.json();
       setAudioUrl(data.url);
+      toast.success("Audio file uploaded successfully");
     } catch (error) {
       console.error("Error uploading audio:", error);
-      alert("Failed to upload audio file");
+      toast.error("Failed to upload audio file");
     } finally {
       setUploadingAudio(false);
     }
@@ -146,9 +159,10 @@ export default function NewSongPage() {
 
       const data = await response.json();
       setCoverUrl(data.url);
+      toast.success("Cover image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -176,9 +190,10 @@ export default function NewSongPage() {
       }
 
       setLyricsData(parsedLyrics);
+      toast.success(`Lyrics uploaded successfully (${parsedLyrics.length} lines)`);
     } catch (error) {
       console.error("Error uploading lyrics:", error);
-      alert("Failed to upload lyrics file");
+      toast.error("Failed to upload lyrics file");
       setLyricsData([]);
       setLyricsFileName("");
     } finally {
@@ -190,12 +205,17 @@ export default function NewSongPage() {
     e.preventDefault();
 
     if (!audioUrl) {
-      alert("Please upload an audio file");
+      toast.error("Please upload an audio file");
       return;
     }
 
-    if (!formData.title || formData.duration <= 0 || !formData.artistId) {
-      alert("Please fill in all required fields");
+    if (!formData.title || !formData.artistId) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!formData.duration || formData.duration <= 0) {
+      toast.error("Please upload an audio file to get the duration");
       return;
     }
 
@@ -222,10 +242,11 @@ export default function NewSongPage() {
         throw new Error("Failed to create song");
       }
 
+      toast.success("Song created successfully");
       router.push("/admin/songs");
     } catch (error) {
       console.error("Error creating song:", error);
-      alert("Failed to create song");
+      toast.error("Failed to create song");
     } finally {
       setLoading(false);
     }
@@ -297,7 +318,9 @@ export default function NewSongPage() {
                 Cover Image
               </CardTitle>
               <CardDescription>
-                Upload the song cover image (JPG, PNG, WEBP)
+                Upload the song cover image (JPG, PNG, WEBP). If not provided,
+                the album cover will be used if the song is assigned to an
+                album.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -324,13 +347,24 @@ export default function NewSongPage() {
                     <p className="text-sm text-green-600 dark:text-green-400 mb-2">
                       ✓ Image uploaded: {imageFileName}
                     </p>
-                    <img
+                    <Image
                       src={coverUrl}
                       alt="Cover preview"
+                      width={128}
+                      height={128}
                       className="w-32 h-32 rounded-md object-cover border border-border"
+                      unoptimized
                     />
                   </div>
                 )}
+                {!coverUrl &&
+                  formData.albumId &&
+                  formData.albumId !== "none" && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      No cover image uploaded. The album cover will be used as
+                      fallback.
+                    </p>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -387,29 +421,20 @@ export default function NewSongPage() {
             <CardDescription>Enter the song information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                required
-                className="mt-2"
-              />
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DurationPicker
-                value={formData.duration}
-                onChange={(seconds) =>
-                  setFormData({ ...formData, duration: seconds })
-                }
-                required
-              />
-
-              <div>
+              <div className="col-span-1">
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  required
+                  className="mt-2"
+                />
+              </div>
+              <div className="col-span-1">
                 <Label htmlFor="artistId">Artist *</Label>
                 <Select
                   value={formData.artistId}
@@ -455,16 +480,28 @@ export default function NewSongPage() {
               </div>
 
               <div>
-                <Label htmlFor="albumId">Album ID</Label>
-                <Input
-                  id="albumId"
-                  value={formData.albumId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, albumId: e.target.value })
+                <Label htmlFor="albumId">Album</Label>
+                <Select
+                  value={formData.albumId || "none"}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      albumId: value === "none" ? "" : value,
+                    })
                   }
-                  className="mt-2"
-                  placeholder="Optional"
-                />
+                >
+                  <SelectTrigger className="mt-2" id="albumId">
+                    <SelectValue placeholder="Select an album (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {albums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>
+                        {album.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -510,7 +547,7 @@ export default function NewSongPage() {
           </CardContent>
         </Card>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 justify-end">
           <Button
             type="submit"
             disabled={

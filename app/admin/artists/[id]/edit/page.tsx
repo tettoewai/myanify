@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +59,7 @@ export default function EditArtistPage() {
       setImageUrl(data.imageUrl || "");
     } catch (error) {
       console.error("Error fetching artist:", error);
-      alert("Failed to load artist");
+      toast.error("Failed to load artist");
       router.push("/admin/artists");
     } finally {
       setLoading(false);
@@ -88,9 +89,10 @@ export default function EditArtistPage() {
 
       const data = await response.json();
       setImageUrl(data.url);
+      toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -100,7 +102,7 @@ export default function EditArtistPage() {
     e.preventDefault();
 
     if (!formData.name) {
-      alert("Please fill in the artist name");
+      toast.error("Please fill in the artist name");
       return;
     }
 
@@ -123,10 +125,11 @@ export default function EditArtistPage() {
         throw new Error("Failed to update artist");
       }
 
+      toast.success("Artist updated successfully");
       router.push("/admin/artists");
     } catch (error) {
       console.error("Error updating artist:", error);
-      alert("Failed to update artist");
+      toast.error("Failed to update artist");
     } finally {
       setSaving(false);
     }

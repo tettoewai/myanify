@@ -9,6 +9,7 @@ export function transformSong(prismaSong: any): Song {
     album: prismaSong.album?.name || "",
     duration: prismaSong.duration,
     coverUrl: prismaSong.coverUrl || "/placeholder.svg",
+    albumCoverUrl: prismaSong.album?.coverUrl || null, // Include album cover for fallback
     audioUrl: prismaSong.audioUrl,
     genre: prismaSong.genre?.name || "",
     isPremium: prismaSong.isPremium,

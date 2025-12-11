@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ArrowLeft, Play, Pause, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
@@ -43,10 +44,12 @@ export function GenreView({
     <div className="min-h-full">
       {/* Genre Header */}
       <div className="relative h-64 md:h-80 overflow-hidden">
-        <img
+        <Image
           src={genre.imageUrl || "/placeholder.svg"}
           alt={genre.name}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
+          unoptimized
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
         <div className="absolute top-4 left-4">
@@ -97,7 +100,7 @@ export function GenreView({
                 key={song.id}
                 onClick={() => onPlaySong(song)}
                 className={cn(
-                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
+                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
@@ -111,10 +114,13 @@ export function GenreView({
                     <Play className="w-4 h-4 text-primary" />
                   )}
                 </span>
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
                   alt={song.title}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p

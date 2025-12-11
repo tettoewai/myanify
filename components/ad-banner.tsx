@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAds } from "@/lib/api";
@@ -50,11 +51,13 @@ export function AdBanner() {
           className="flex flex-col sm:flex-row items-center gap-4 p-4 group"
         >
           {/* Ad Image */}
-          <div className="w-full sm:w-48 h-24 rounded-lg overflow-hidden flex-shrink-0">
-            <img
+          <div className="relative w-full sm:w-48 h-24 rounded-lg overflow-hidden flex-shrink-0">
+            <Image
               src={getImageProxyUrl(currentAd.imageUrl)}
               alt={currentAd.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              unoptimized
             />
           </div>
 

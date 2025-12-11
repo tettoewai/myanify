@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
@@ -63,13 +64,16 @@ export function MobileNowPlaying({
         <div className="flex items-center gap-3">
           {/* Album art with subtle animation */}
           <div className="relative">
-            <img
-              src={song.coverUrl || "/placeholder.svg"}
+            <Image
+              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
               alt={song.title}
+              width={48}
+              height={48}
               className={cn(
                 "w-12 h-12 rounded-lg object-cover shadow-lg ring-1 ring-amber-500/20",
                 isPlaying && "animate-pulse"
               )}
+              unoptimized
             />
           </div>
 

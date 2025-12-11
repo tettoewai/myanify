@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +77,7 @@ export default function EditAdPage() {
       setImageUrl(data.imageUrl || "");
     } catch (error) {
       console.error("Error fetching ad:", error);
-      alert("Failed to load ad");
+      toast.error("Failed to load ad");
       router.push("/admin/ads");
     } finally {
       setLoading(false);
@@ -106,9 +107,10 @@ export default function EditAdPage() {
 
       const data = await response.json();
       setImageUrl(data.url);
+      toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -118,7 +120,7 @@ export default function EditAdPage() {
     e.preventDefault();
 
     if (!formData.title || !formData.linkUrl || !formData.sponsor) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -142,6 +144,7 @@ export default function EditAdPage() {
         throw new Error("Failed to update ad");
       }
 
+      toast.success("Ad updated successfully");
       router.push("/admin/ads");
     } catch (error) {
       console.error("Error updating ad:", error);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import { ListMusic, Heart, Clock, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,7 +64,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
         <TabsContent value="playlists" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {/* Create Playlist Card */}
-            <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground">
+            <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground cursor-pointer">
               <Plus className="w-12 h-12" />
               <span className="font-medium">Create Playlist</span>
             </button>
@@ -72,13 +73,15 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
               <button
                 key={playlist.id}
                 onClick={() => navigate("playlist", playlist.id)}
-                className="group text-left"
+                className="group text-left cursor-pointer"
               >
-                <div className="aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
-                  <img
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
+                  <Image
                     src={playlist.coverUrl || "/placeholder.svg"}
                     alt={playlist.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
                   />
                 </div>
                 <h3 className="font-semibold truncate">{playlist.name}</h3>
@@ -109,15 +112,20 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
               <button
                 key={song.id}
                 onClick={() => onPlaySong(song)}
-                className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group"
+                className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
               >
                 <span className="w-6 text-center text-sm text-muted-foreground">
                   {index + 1}
                 </span>
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
@@ -141,15 +149,20 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
               <button
                 key={song.id}
                 onClick={() => onPlaySong(song)}
-                className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group"
+                className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
               >
                 <span className="w-6 text-center text-sm text-muted-foreground">
                   {index + 1}
                 </span>
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-medium truncate">{song.title}</p>

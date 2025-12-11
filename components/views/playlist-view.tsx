@@ -10,6 +10,7 @@ import {
   Share2,
   Pencil,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { usePlaylist } from "@/lib/swr";
@@ -57,11 +58,13 @@ export function PlaylistView({
     <div className="min-h-full">
       {/* Playlist Header */}
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-start md:items-end bg-gradient-to-b from-primary/20 to-background">
-        <div className="w-48 h-48 md:w-56 md:h-56 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
-          <img
+        <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
+          <Image
             src={playlist.coverUrl || "/placeholder.svg"}
             alt={playlist.name}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         </div>
         <div className="flex-1">
@@ -133,7 +136,7 @@ export function PlaylistView({
               key={song.id}
               onClick={() => onPlaySong(song)}
               className={cn(
-                "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
+                "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                 currentSong?.id === song.id && "bg-primary/10"
               )}
             >
@@ -147,10 +150,13 @@ export function PlaylistView({
                   <Play className="w-4 h-4 text-primary" />
                 )}
               </span>
-              <img
-                src={song.coverUrl || "/placeholder.svg"}
+              <Image
+                src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
                 alt={song.title}
+                width={48}
+                height={48}
                 className="w-10 h-10 md:w-12 md:h-12 rounded-md object-cover"
+                unoptimized
               />
               <div className="flex-1 text-left min-w-0">
                 <p

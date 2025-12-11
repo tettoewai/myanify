@@ -1,34 +1,35 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { X, Music2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { Song } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { X, Music2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { Song } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface LyricsPanelProps {
-  song: Song
-  currentTime: number
-  onClose: () => void
+  song: Song;
+  currentTime: number;
+  onClose: () => void;
 }
 
 export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
-  const activeRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentLyricIndex = song.lyrics.reduce((prevIndex, curr, index) => {
-    if (curr.time <= currentTime) return index
-    return prevIndex
-  }, 0)
+    if (curr.time <= currentTime) return index;
+    return prevIndex;
+  }, 0);
 
   useEffect(() => {
     if (activeRef.current && containerRef.current) {
       activeRef.current.scrollIntoView({
         behavior: "smooth",
         block: "center",
-      })
+      });
     }
-  }, [currentLyricIndex])
+  }, [currentLyricIndex]);
 
   return (
     <aside className="w-80 lg:w-[420px] h-full bg-gradient-to-b from-amber-950/20 via-background to-background border-l border-amber-900/20 flex-col hidden lg:flex">
@@ -43,7 +44,12 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-5 h-5" />
           </Button>
         </div>
@@ -52,15 +58,20 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
       <div className="p-5 border-b border-amber-900/20">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <img
-              src={song.coverUrl || "/placeholder.svg"}
+            <Image
+              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
               alt={song.title}
+              width={64}
+              height={64}
               className="w-16 h-16 rounded-xl object-cover shadow-xl ring-2 ring-amber-500/20"
+              unoptimized
             />
             <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/40 to-transparent" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-lg truncate text-foreground">{song.title}</p>
+            <p className="font-semibold text-lg truncate text-foreground">
+              {song.title}
+            </p>
             <p className="text-sm text-amber-500/80 truncate">{song.artist}</p>
             <p className="text-xs text-muted-foreground mt-1">{song.album}</p>
           </div>
@@ -75,9 +86,9 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
           {song.lyrics.length > 0 ? (
             <div className="space-y-8">
               {song.lyrics.map((line, index) => {
-                const isActive = index === currentLyricIndex
-                const isPast = index < currentLyricIndex
-                const isFuture = index > currentLyricIndex
+                const isActive = index === currentLyricIndex;
+                const isPast = index < currentLyricIndex;
+                const isFuture = index > currentLyricIndex;
 
                 return (
                   <div
@@ -87,7 +98,7 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
                       "transition-all duration-500 ease-out relative group cursor-pointer",
                       isActive && "scale-100",
                       isPast && "opacity-40",
-                      isFuture && "opacity-60",
+                      isFuture && "opacity-60"
                     )}
                   >
                     {/* Active indicator line */}
@@ -99,16 +110,22 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
                     <p
                       className={cn(
                         "text-xl leading-relaxed transition-all duration-500 font-medium",
-                        isActive ? "text-amber-400 text-2xl" : isPast ? "text-muted-foreground" : "text-foreground/80",
+                        isActive
+                          ? "text-amber-400 text-2xl"
+                          : isPast
+                          ? "text-muted-foreground"
+                          : "text-foreground/80"
                       )}
                     >
                       {line.text}
                     </p>
 
                     {/* Subtle glow effect for active lyric */}
-                    {isActive && <div className="absolute -inset-4 bg-amber-500/5 rounded-2xl -z-10 blur-xl" />}
+                    {isActive && (
+                      <div className="absolute -inset-4 bg-amber-500/5 rounded-2xl -z-10 blur-xl" />
+                    )}
                   </div>
-                )
+                );
               })}
             </div>
           ) : (
@@ -116,8 +133,12 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
               <div className="w-20 h-20 mx-auto rounded-full bg-amber-900/20 flex items-center justify-center mb-4">
                 <Music2 className="w-10 h-10 text-amber-500/50" />
               </div>
-              <p className="text-muted-foreground font-medium">No lyrics available</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">Lyrics for this song haven't been added yet</p>
+              <p className="text-muted-foreground font-medium">
+                No lyrics available
+              </p>
+              <p className="text-sm text-muted-foreground/60 mt-1">
+                Lyrics for this song haven't been added yet
+              </p>
             </div>
           )}
         </div>
@@ -130,5 +151,5 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
         </div>
       </div>
     </aside>
-  )
+  );
 }

@@ -20,12 +20,15 @@ const fetcher = async (url: string) => {
 export function useSongs(options?: {
   genreId?: string;
   artistId?: string;
+  albumId?: string;
   isPublished?: boolean;
   search?: string;
+  admin?: boolean; // If true, return raw data without transformation
 }) {
   const params = new URLSearchParams();
   if (options?.genreId) params.set("genreId", options.genreId);
   if (options?.artistId) params.set("artistId", options.artistId);
+  if (options?.albumId) params.set("albumId", options.albumId);
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
   if (options?.search) params.set("search", options.search);
@@ -34,15 +37,23 @@ export function useSongs(options?: {
     ? `/api/songs?${params.toString()}`
     : "/api/songs";
 
-  const { data, error, isLoading, mutate } = useSWR(
-    options ? key : null, // Don't fetch if options is undefined
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-    }
-  );
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
 
+  // For admin pages, return raw data without transformation
+  if (options?.admin) {
+    const songs = data?.data || data || [];
+    return {
+      songs: Array.isArray(songs) ? songs : [],
+      isLoading,
+      isError: error,
+      mutate,
+    };
+  }
+
+  // For public pages, transform the data
   const songs: Song[] =
     data?.data?.map(transformSong) || data?.map(transformSong) || [];
 
@@ -62,14 +73,10 @@ export function useArtists(options?: { search?: string }) {
     ? `/api/artists?${params.toString()}`
     : "/api/artists";
 
-  const { data, error, isLoading, mutate } = useSWR(
-    options ? key : null, // Don't fetch if options is undefined
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-    }
-  );
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
 
   const artists: Artist[] =
     data?.data?.map(transformArtist) || data?.map(transformArtist) || [];
@@ -129,7 +136,7 @@ export function usePlaylists(options?: {
 }
 
 // Hook for fetching a single song
-export function useSong(id: string | null) {
+export function useSong(id: string | null, admin?: boolean) {
   const { data, error, isLoading, mutate } = useSWR(
     id ? `/api/songs/${id}` : null,
     fetcher,
@@ -137,6 +144,16 @@ export function useSong(id: string | null) {
       revalidateOnFocus: false,
     }
   );
+
+  // For admin pages, return raw data without transformation
+  if (admin) {
+    return {
+      song: data || null,
+      isLoading,
+      isError: error,
+      mutate,
+    };
+  }
 
   return {
     song: data ? transformSong(data) : null,
@@ -208,6 +225,89 @@ export function usePlaylist(id: string | null) {
 
   return {
     playlist: data ? transformPlaylist(data) : null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching albums
+export function useAlbums(options?: { search?: string }) {
+  const params = new URLSearchParams();
+  if (options?.search) params.set("search", options.search);
+
+  const key = params.toString()
+    ? `/api/albums?${params.toString()}`
+    : "/api/albums";
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  const albums = data?.data || data || [];
+
+  return {
+    albums: Array.isArray(albums) ? albums : [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching a single album
+export function useAlbum(id: string | null) {
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? `/api/albums/${id}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    album: data || null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching ads
+export function useAds(options?: { limit?: number }) {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set("limit", String(options.limit));
+
+  const key = params.toString() ? `/api/ads?${params.toString()}` : "/api/ads";
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  const ads = data?.data || data || [];
+
+  return {
+    ads: Array.isArray(ads) ? ads : [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching admin stats
+export function useAdminStats() {
+  const { data, error, isLoading, mutate } = useSWR(
+    "/api/admin/stats",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  return {
+    stats: data || null,
     isLoading,
     isError: error,
     mutate,

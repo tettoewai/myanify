@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
+import { useArtists, useGenres, useAlbums, useSong } from "@/lib/swr";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Upload,
@@ -28,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DurationPicker } from "@/components/ui/duration-picker";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +41,11 @@ interface Artist {
 }
 
 interface Genre {
+  id: string;
+  name: string;
+}
+
+interface Album {
   id: string;
   name: string;
 }
@@ -65,9 +72,7 @@ export default function EditSongPage() {
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingLyrics, setUploadingLyrics] = useState(false);
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [genres, setGenres] = useState<Genre[]>([]);
-  const [song, setSong] = useState<Song | null>(null);
+  // Use fetched data directly instead of storing in state to avoid infinite loops
   const [formData, setFormData] = useState({
     title: "",
     duration: 0, // Duration in seconds
@@ -83,60 +88,101 @@ export default function EditSongPage() {
   const [audioFileName, setAudioFileName] = useState("");
   const [imageFileName, setImageFileName] = useState("");
   const [lyricsFileName, setLyricsFileName] = useState("");
+  const initializedSongIdRef = useRef<string | null>(null);
 
+  const { song, isLoading: songLoading } = useSong(songId, true); // Use admin mode to get raw data
+  const { artists: fetchedArtists } = useArtists();
+  const { genres: fetchedGenres } = useGenres();
+  const { albums: fetchedAlbums } = useAlbums();
+
+  // Reset when songId changes
   useEffect(() => {
-    fetchSong();
-    fetchArtists();
-    fetchGenres();
+    initializedSongIdRef.current = null;
+    setLoading(true);
+    // Reset form data
+    setFormData({
+      title: "",
+      duration: 0,
+      artistId: "",
+      genreId: "",
+      albumId: "",
+      isPremium: false,
+      isPublished: false,
+    });
+    setAudioUrl("");
+    setCoverUrl("");
+    setLyricsData([]);
   }, [songId]);
 
-  const fetchSong = async () => {
-    try {
-      const response = await fetch(`/api/songs/${songId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch song");
+  // Use useMemo to determine if we should initialize (only recomputes when deps change)
+  const shouldInitialize = useMemo(() => {
+    // Don't initialize if already done
+    if (initializedSongIdRef.current === songId) {
+      return false;
+    }
+    // Don't initialize if still loading
+    if (songLoading) {
+      return false;
+    }
+    // Initialize if we have valid song data
+    return !!(song && song.id === songId);
+  }, [songId, songLoading, song?.id]);
+
+  // Single effect that only runs when shouldInitialize changes
+  useEffect(() => {
+    if (!shouldInitialize) {
+      // Handle error case separately
+      if (!songLoading && !song && initializedSongIdRef.current !== songId) {
+        toast.error("Failed to load song");
+        router.push("/admin/songs");
       }
-      const data = await response.json();
-      setSong(data);
+      return;
+    }
+
+    // Mark as initialized FIRST to prevent re-runs
+    initializedSongIdRef.current = songId;
+
+    // Then update all state (song is guaranteed to exist here due to shouldInitialize check)
+    if (song && song.id === songId) {
       setFormData({
-        title: data.title,
-        duration: data.duration, // Already in seconds
-        artistId: data.artistId,
-        genreId: data.genreId || "",
-        albumId: data.albumId || "",
-        isPremium: data.isPremium,
-        isPublished: data.isPublished,
+        title: song.title,
+        duration: song.duration,
+        artistId: song.artistId,
+        genreId: song.genreId || "",
+        albumId: song.albumId || "",
+        isPremium: song.isPremium,
+        isPublished: song.isPublished,
       });
-      setAudioUrl(data.audioUrl);
-      setCoverUrl(data.coverUrl || "");
-      setLyricsData(data.lyrics || []);
-    } catch (error) {
-      console.error("Error fetching song:", error);
-      alert("Failed to load song");
-      router.push("/admin/songs");
-    } finally {
+      setAudioUrl(song.audioUrl);
+      setCoverUrl(song.coverUrl || "");
+      setLyricsData((song as any).lyrics || []);
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldInitialize]); // Only depend on the computed flag
 
-  const fetchArtists = async () => {
-    try {
-      const response = await fetch("/api/artists");
-      const data = await response.json();
-      setArtists(data.data || []);
-    } catch (error) {
-      console.error("Error fetching artists:", error);
-    }
-  };
+  // Use fetched data directly - no need to store in state
+  const artists = fetchedArtists || [];
+  const genres = fetchedGenres || [];
+  const albums = fetchedAlbums || [];
 
-  const fetchGenres = async () => {
-    try {
-      const response = await fetch("/api/genres");
-      const data = await response.json();
-      setGenres(data.data || []);
-    } catch (error) {
-      console.error("Error fetching genres:", error);
-    }
+  const getAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+
+      audio.addEventListener("loadedmetadata", () => {
+        URL.revokeObjectURL(url);
+        resolve(Math.round(audio.duration));
+      });
+
+      audio.addEventListener("error", (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load audio metadata"));
+      });
+
+      audio.src = url;
+    });
   };
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,6 +193,10 @@ export default function EditSongPage() {
     setAudioFileName(file.name);
 
     try {
+      // Get duration from audio file
+      const duration = await getAudioDuration(file);
+      setFormData((prev) => ({ ...prev, duration }));
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("type", "audio");
@@ -162,9 +212,10 @@ export default function EditSongPage() {
 
       const data = await response.json();
       setAudioUrl(data.url);
+      toast.success("Audio file uploaded successfully");
     } catch (error) {
       console.error("Error uploading audio:", error);
-      alert("Failed to upload audio file");
+      toast.error("Failed to upload audio file");
     } finally {
       setUploadingAudio(false);
     }
@@ -193,9 +244,10 @@ export default function EditSongPage() {
 
       const data = await response.json();
       setCoverUrl(data.url);
+      toast.success("Cover image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -216,16 +268,17 @@ export default function EditSongPage() {
       const { parseLRC, parsePlainText } = await import("@/lib/lyric-parser");
       const parsedLyrics = file.name.endsWith(".lrc")
         ? parseLRC(text)
-        : parsePlainText(text, formData.duration || song?.duration || 180);
+        : parsePlainText(text, formData.duration || 180);
 
       if (parsedLyrics.length === 0) {
         throw new Error("No lyrics found in file");
       }
 
       setLyricsData(parsedLyrics);
+      toast.success(`Lyrics uploaded successfully (${parsedLyrics.length} lines)`);
     } catch (error) {
       console.error("Error uploading lyrics:", error);
-      alert("Failed to upload lyrics file");
+      toast.error("Failed to upload lyrics file");
       setLyricsData([]);
       setLyricsFileName("");
     } finally {
@@ -237,12 +290,17 @@ export default function EditSongPage() {
     e.preventDefault();
 
     if (!audioUrl) {
-      alert("Please upload an audio file");
+      toast.error("Please upload an audio file");
       return;
     }
 
-    if (!formData.title || formData.duration <= 0 || !formData.artistId) {
-      alert("Please fill in all required fields");
+    if (!formData.title || !formData.artistId) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!formData.duration || formData.duration <= 0) {
+      toast.error("Please upload an audio file to get the duration");
       return;
     }
 
@@ -269,21 +327,22 @@ export default function EditSongPage() {
         throw new Error("Failed to update song");
       }
 
+      toast.success("Song updated successfully");
       router.push("/admin/songs");
     } catch (error) {
       console.error("Error updating song:", error);
-      alert("Failed to update song");
+      toast.error("Failed to update song");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loading || songLoading) {
     return <div className="text-center py-12">Loading song...</div>;
   }
 
   if (!song) {
-    return null;
+    return <div className="text-center py-12">Song not found</div>;
   }
 
   return (
@@ -354,7 +413,9 @@ export default function EditSongPage() {
                 Cover Image
               </CardTitle>
               <CardDescription>
-                Upload a new cover image or keep the existing one
+                Upload a new cover image or keep the existing one. If not
+                provided, the album cover will be used if the song is assigned
+                to an album.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -383,13 +444,25 @@ export default function EditSongPage() {
                         ? `✓ Image uploaded: ${imageFileName}`
                         : "✓ Using existing cover image"}
                     </p>
-                    <img
+                    <Image
                       src={coverUrl || song.coverUrl || "/placeholder.svg"}
                       alt="Cover preview"
+                      width={128}
+                      height={128}
                       className="w-32 h-32 rounded-md object-cover border border-border"
+                      unoptimized
                     />
                   </div>
                 )}
+                {!coverUrl &&
+                  !song.coverUrl &&
+                  formData.albumId &&
+                  formData.albumId !== "none" && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      No cover image uploaded. The album cover will be used as
+                      fallback.
+                    </p>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -462,14 +535,6 @@ export default function EditSongPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DurationPicker
-                value={formData.duration}
-                onChange={(seconds) =>
-                  setFormData({ ...formData, duration: seconds })
-                }
-                required
-              />
-
               <div>
                 <Label htmlFor="artistId">Artist *</Label>
                 <Select
@@ -516,16 +581,28 @@ export default function EditSongPage() {
               </div>
 
               <div>
-                <Label htmlFor="albumId">Album ID</Label>
-                <Input
-                  id="albumId"
-                  value={formData.albumId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, albumId: e.target.value })
+                <Label htmlFor="albumId">Album</Label>
+                <Select
+                  value={formData.albumId || "none"}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      albumId: value === "none" ? "" : value,
+                    })
                   }
-                  className="mt-2"
-                  placeholder="Optional"
-                />
+                >
+                  <SelectTrigger className="mt-2" id="albumId">
+                    <SelectValue placeholder="Select an album (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {albums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>
+                        {album.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -571,7 +648,7 @@ export default function EditSongPage() {
           </CardContent>
         </Card>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 justify-end">
           <Button
             type="submit"
             disabled={

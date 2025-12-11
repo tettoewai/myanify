@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
+import Image from "next/image";
 import { Plus, Edit, Trash2, Eye, EyeOff, Search } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +15,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useSongs } from "@/lib/swr";
+import { mutate } from "swr";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +32,7 @@ interface Song {
   isPremium: boolean;
   isPublished: boolean;
   playCount: number;
+  albumId: string | null;
   artist: {
     id: string;
     name: string;
@@ -36,37 +41,35 @@ interface Song {
     id: string;
     name: string;
   } | null;
+  album: {
+    id: string;
+    name: string;
+    coverUrl: string | null;
+  } | null;
   createdAt: string;
 }
 
 export default function SongsPage() {
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    fetchSongs(filterStatus);
-  }, [filterStatus]);
+  const isPublishedParam =
+    filterStatus === "all"
+      ? undefined
+      : filterStatus === "published"
+      ? true
+      : false;
 
-  const fetchSongs = async (status: FilterStatus = "all") => {
-    setLoading(true);
-    try {
-      const query =
-        status === "all"
-          ? ""
-          : `?isPublished=${status === "published" ? "true" : "false"}`;
-      const response = await fetch(`/api/songs${query}`);
-      const data = await response.json();
-      setSongs(data.data || []);
-    } catch (error) {
-      console.error("Error fetching songs:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    songs: allSongs,
+    isLoading,
+    mutate: mutateSongs,
+  } = useSongs({
+    isPublished: isPublishedParam,
+    admin: true, // Use raw data for admin page
+  });
 
   const togglePublish = async (songId: string, currentStatus: boolean) => {
     try {
@@ -77,10 +80,17 @@ export default function SongsPage() {
       });
 
       if (response.ok) {
-        fetchSongs();
+        toast.success(`Song ${!currentStatus ? "published" : "unpublished"} successfully`);
+        mutateSongs();
+        mutate(`/api/songs?isPublished=${!currentStatus}`);
+        mutate(`/api/songs?isPublished=${currentStatus}`);
+        mutate("/api/songs");
+      } else {
+        toast.error("Failed to update publish status");
       }
     } catch (error) {
       console.error("Error toggling publish status:", error);
+      toast.error("Failed to update publish status");
     }
   };
 
@@ -92,20 +102,31 @@ export default function SongsPage() {
       });
 
       if (response.ok) {
-        fetchSongs();
+        toast.success("Song deleted successfully");
+        mutateSongs();
+        mutate("/api/songs");
+        mutate("/api/songs?isPublished=true");
+        mutate("/api/songs?isPublished=false");
+      } else {
+        toast.error("Failed to delete song");
       }
     } catch (error) {
       console.error("Error deleting song:", error);
+      toast.error("Failed to delete song");
     } finally {
       setDeleting(false);
       setSongToDelete(null);
     }
   };
 
-  const filteredSongs = songs.filter(
-    (song) =>
-      song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      song.artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSongs = useMemo(
+    () =>
+      (allSongs || []).filter(
+        (song) =>
+          song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          song.artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [allSongs, searchQuery]
   );
 
   const formatDuration = (seconds: number) => {
@@ -129,7 +150,7 @@ export default function SongsPage() {
     </Button>
   );
 
-  if (loading) {
+  if (isLoading) {
     return <div className="text-center py-12">Loading songs...</div>;
   }
 
@@ -199,10 +220,17 @@ export default function SongsPage() {
                     className="border-t border-border hover:bg-muted/30"
                   >
                     <td className="p-4">
-                      <img
-                        src={song.coverUrl || "/placeholder.svg"}
+                      <Image
+                        src={
+                          song.album?.coverUrl ||
+                          song.coverUrl ||
+                          "/placeholder.svg"
+                        }
                         alt={song.title}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-md object-cover"
+                        unoptimized
                       />
                     </td>
                     <td className="p-4">
@@ -223,7 +251,7 @@ export default function SongsPage() {
                       {formatDuration(song.duration)}
                     </td>
                     <td className="p-4 text-muted-foreground">
-                      {song.playCount.toLocaleString()}
+                      {(song.playCount ?? 0).toLocaleString()}
                     </td>
                     <td className="p-4">
                       <span

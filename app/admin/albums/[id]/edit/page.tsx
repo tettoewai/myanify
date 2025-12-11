@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
+import {
+  ArrowLeft,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
+  Music,
+} from "lucide-react";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,57 +21,59 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { useAlbum } from "@/lib/swr";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-interface Genre {
+interface Album {
   id: string;
   name: string;
-  imageUrl: string | null;
+  coverUrl: string | null;
   description: string | null;
+  releaseDate: string | null;
+  songs?: Array<{
+    id: string;
+    title: string;
+    artist: {
+      id: string;
+      name: string;
+    };
+    genre: {
+      id: string;
+      name: string;
+    } | null;
+  }>;
 }
 
-export default function EditGenrePage() {
+export default function EditAlbumPage() {
   const router = useRouter();
   const params = useParams();
-  const genreId = params.id as string;
-  const [loading, setLoading] = useState(true);
+  const albumId = params.id as string;
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [genre, setGenre] = useState<Genre | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    releaseDate: "",
   });
-  const [imageUrl, setImageUrl] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
-  useEffect(() => {
-    fetchGenre();
-  }, [genreId]);
+  const { album, isLoading: albumLoading } = useAlbum(albumId);
 
-  const fetchGenre = async () => {
-    try {
-      const response = await fetch(`/api/genres/${genreId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch genre");
-      }
-      const data = await response.json();
-      setGenre(data);
+  useEffect(() => {
+    if (album) {
       setFormData({
-        name: data.name,
-        description: data.description || "",
+        name: album.name,
+        description: album.description || "",
+        releaseDate: album.releaseDate
+          ? new Date(album.releaseDate).toISOString().split("T")[0]
+          : "",
       });
-      setImageUrl(data.imageUrl || "");
-    } catch (error) {
-      console.error("Error fetching genre:", error);
-      toast.error("Failed to load genre");
-      router.push("/admin/genres");
-    } finally {
-      setLoading(false);
+      setCoverUrl(album.coverUrl || "");
     }
-  };
+  }, [album]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,8 +97,8 @@ export default function EditGenrePage() {
       }
 
       const data = await response.json();
-      setImageUrl(data.url);
-      toast.success("Image uploaded successfully");
+      setCoverUrl(data.url);
+      toast.success("Cover image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error("Failed to upload image file");
@@ -102,83 +111,82 @@ export default function EditGenrePage() {
     e.preventDefault();
 
     if (!formData.name) {
-      toast.error("Please fill in the genre name");
+      toast.error("Please fill in the album name");
       return;
     }
 
     setSaving(true);
 
     try {
-      const response = await fetch(`/api/genres/${genreId}`, {
+      const response = await fetch(`/api/albums/${albumId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...formData,
-          imageUrl: imageUrl || null,
+          name: formData.name,
+          coverUrl: coverUrl || null,
           description: formData.description || null,
+          releaseDate: formData.releaseDate || null,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update genre");
+        throw new Error("Failed to update album");
       }
 
-      toast.success("Genre updated successfully");
-      router.push("/admin/genres");
+      toast.success("Album updated successfully");
+      router.push("/admin/albums");
     } catch (error) {
-      console.error("Error updating genre:", error);
-      toast.error("Failed to update genre");
+      console.error("Error updating album:", error);
+      toast.error("Failed to update album");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12">Loading genre...</div>;
+  if (albumLoading) {
+    return <div className="text-center py-12">Loading album...</div>;
   }
 
-  if (!genre) {
-    return null;
+  if (!album) {
+    return <div className="text-center py-12">Album not found</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/admin/genres">
+          <Link href="/admin/albums">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Link>
         </Button>
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Edit Genre</h2>
-          <p className="text-muted-foreground mt-1">
-            Update genre information
-          </p>
+          <h2 className="text-3xl font-bold text-foreground">Edit Album</h2>
+          <p className="text-muted-foreground mt-1">Update album information</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Image Upload */}
+          {/* Cover Image Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5" />
-                Genre Image
+                Album Cover
               </CardTitle>
               <CardDescription>
-                Upload the genre cover image (JPG, PNG, WEBP)
+                Upload a new cover image or keep the existing one
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="image">Cover Image</Label>
+                <Label htmlFor="cover">Cover Image</Label>
                 <div className="mt-2">
                   <Input
-                    id="image"
+                    id="cover"
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
@@ -192,27 +200,33 @@ export default function EditGenrePage() {
                     Uploading...
                   </div>
                 )}
-                {imageUrl && !uploadingImage && (
+                {(coverUrl || album.coverUrl) && !uploadingImage && (
                   <div className="mt-4">
                     <p className="text-sm text-green-600 dark:text-green-400 mb-2">
-                      {imageFileName ? `✓ Image uploaded: ${imageFileName}` : "Current image"}
+                      {imageFileName
+                        ? `✓ Image uploaded: ${imageFileName}`
+                        : "Current image"}
                     </p>
-                    <img
-                      src={imageUrl}
-                      alt="Genre preview"
-                      className="w-full aspect-square rounded-md object-cover border border-border"
-                    />
+                    <div className="relative w-full aspect-square rounded-md border border-border overflow-hidden">
+                      <Image
+                        src={coverUrl || album.coverUrl || "/placeholder.svg"}
+                        alt="Album cover preview"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Genre Details */}
+          {/* Album Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Genre Details</CardTitle>
-              <CardDescription>Enter the genre information</CardDescription>
+              <CardTitle>Album Details</CardTitle>
+              <CardDescription>Update the album information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -229,6 +243,19 @@ export default function EditGenrePage() {
               </div>
 
               <div>
+                <Label htmlFor="releaseDate">Release Date</Label>
+                <Input
+                  id="releaseDate"
+                  type="date"
+                  value={formData.releaseDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, releaseDate: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="description">Description</Label>
                 <textarea
                   id="description"
@@ -238,14 +265,50 @@ export default function EditGenrePage() {
                   }
                   rows={8}
                   className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Enter genre description..."
+                  placeholder="Enter album description..."
                 />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Songs in Album */}
+        {album.songs && album.songs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Music className="w-5 h-5" />
+                Songs in Album ({album.songs.length})
+              </CardTitle>
+              <CardDescription>
+                Songs that are currently linked to this album
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {album.songs.map((song: any) => (
+                  <div
+                    key={song.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium">{song.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {song.artist.name}
+                        {song.genre && ` • ${song.genre.name}`}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/admin/songs/${song.id}/edit`}>Edit</Link>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="flex items-center gap-4 justify-end">
           <Button type="submit" disabled={saving || uploadingImage}>
             {saving ? (
               <>
@@ -257,11 +320,10 @@ export default function EditGenrePage() {
             )}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link href="/admin/genres">Cancel</Link>
+            <Link href="/admin/albums">Cancel</Link>
           </Button>
         </div>
       </form>
     </div>
   );
 }
-

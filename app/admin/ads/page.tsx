@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, Edit, Trash2, Search, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +14,8 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useAds } from "@/lib/swr";
+import { mutate } from "swr";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -33,28 +36,11 @@ interface Ad {
 }
 
 export default function AdsPage() {
-  const [ads, setAds] = useState<Ad[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [adToDelete, setAdToDelete] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAds();
-  }, []);
-
-  const fetchAds = async () => {
-    try {
-      // Fetch all ads (both active and inactive) for admin
-      const response = await fetch("/api/ads?limit=100");
-      const data = await response.json();
-      setAds(data.data || []);
-    } catch (error) {
-      console.error("Error fetching ads:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { ads: allAds, isLoading, mutate: mutateAds } = useAds({ limit: 100 });
 
   const toggleActive = async (adId: string, currentStatus: boolean) => {
     try {
@@ -65,10 +51,15 @@ export default function AdsPage() {
       });
 
       if (response.ok) {
-        fetchAds();
+        toast.success(`Ad ${!currentStatus ? "activated" : "deactivated"} successfully`);
+        mutateAds();
+        mutate("/api/ads");
+      } else {
+        toast.error("Failed to update ad status");
       }
     } catch (error) {
       console.error("Error toggling ad status:", error);
+      toast.error("Failed to update ad status");
     }
   };
 
@@ -86,22 +77,31 @@ export default function AdsPage() {
       });
 
       if (response.ok) {
-        fetchAds();
+        toast.success("Ad deleted successfully");
+        mutateAds();
+        mutate("/api/ads");
         setDeleteDialogOpen(false);
         setAdToDelete(null);
+      } else {
+        toast.error("Failed to delete ad");
       }
     } catch (error) {
       console.error("Error deleting ad:", error);
+      toast.error("Failed to delete ad");
     }
   };
 
-  const filteredAds = ads.filter(
-    (ad) =>
-      ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ad.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAds = useMemo(
+    () =>
+      (allAds || []).filter(
+        (ad: Ad) =>
+          ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ad.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [allAds, searchQuery]
   );
 
-  if (loading) {
+  if (isLoading) {
     return <div className="text-center py-12">Loading ads...</div>;
   }
 
@@ -238,8 +238,8 @@ export default function AdsPage() {
           <DialogHeader>
             <DialogTitle>Are you absolutely sure?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete the
-              ad and remove all associated data from our servers.
+              This action cannot be undone. This will permanently delete the ad
+              and remove all associated data from our servers.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

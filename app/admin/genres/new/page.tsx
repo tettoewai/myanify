@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,9 +52,10 @@ export default function NewGenrePage() {
 
       const data = await response.json();
       setImageUrl(data.url);
+      toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Failed to upload image file");
+      toast.error("Failed to upload image file");
     } finally {
       setUploadingImage(false);
     }
@@ -63,7 +65,7 @@ export default function NewGenrePage() {
     e.preventDefault();
 
     if (!formData.name) {
-      alert("Please fill in the genre name");
+      toast.error("Please fill in the genre name");
       return;
     }
 
@@ -86,10 +88,11 @@ export default function NewGenrePage() {
         throw new Error("Failed to create genre");
       }
 
+      toast.success("Genre created successfully");
       router.push("/admin/genres");
     } catch (error) {
       console.error("Error creating genre:", error);
-      alert("Failed to create genre");
+      toast.error("Failed to create genre");
     } finally {
       setLoading(false);
     }

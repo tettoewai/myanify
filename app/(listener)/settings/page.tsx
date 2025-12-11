@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { User, Mail, Calendar, Save, Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,13 +70,18 @@ export default function SettingsPage() {
         const updated = await response.json();
         setProfile(updated);
         await update();
+        toast.success("Profile updated successfully");
         setSuccess("Profile updated successfully");
       } else {
         const data = await response.json();
-        setError(data.error || "Failed to update profile");
+        const errorMsg = data.error || "Failed to update profile";
+        toast.error(errorMsg);
+        setError(errorMsg);
       }
     } catch (error) {
-      setError("An error occurred while updating profile");
+      const errorMsg = "An error occurred while updating profile";
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -83,7 +89,9 @@ export default function SettingsPage() {
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      const errorMsg = "New passwords do not match";
+      toast.error(errorMsg);
+      setError(errorMsg);
       return;
     }
 
@@ -99,16 +107,21 @@ export default function SettingsPage() {
       });
 
       if (response.ok) {
+        toast.success("Password updated successfully");
         setSuccess("Password updated successfully");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       } else {
         const data = await response.json();
-        setError(data.error || "Failed to update password");
+        const errorMsg = data.error || "Failed to update password";
+        toast.error(errorMsg);
+        setError(errorMsg);
       }
     } catch (error) {
-      setError("An error occurred while updating password");
+      const errorMsg = "An error occurred while updating password";
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setPasswordSaving(false);
     }

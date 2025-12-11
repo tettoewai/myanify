@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { User, Mail, Calendar, Save, Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,13 +70,18 @@ export default function AdminSettingsPage() {
         const updated = await response.json();
         setProfile(updated);
         await update();
+        toast.success("Profile updated successfully");
         setSuccess("Profile updated successfully");
       } else {
         const data = await response.json();
-        setError(data.error || "Failed to update profile");
+        const errorMsg = data.error || "Failed to update profile";
+        toast.error(errorMsg);
+        setError(errorMsg);
       }
     } catch (error) {
-      setError("An error occurred while updating profile");
+      const errorMsg = "An error occurred while updating profile";
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setSaving(false);
     }

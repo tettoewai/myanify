@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Search, Play, Pause, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Song } from "@/lib/types";
@@ -110,13 +111,14 @@ export function SearchView({
               <button
                 key={genre.id}
                 onClick={() => navigate("genre", genre.id)}
-                className="group relative aspect-[4/3] rounded-xl overflow-hidden"
+                className="group relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer"
               >
-                <img
+                <Image
                   src={genre.imageUrl || "/placeholder.svg"}
                   alt={genre.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  onError={handleImageError}
+                  fill
+                  className="object-cover group-hover:scale-110 transition-transform duration-300"
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -156,13 +158,15 @@ export function SearchView({
               <button
                 key={artist.id}
                 onClick={() => navigate("artist", artist.id)}
-                className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors"
+                className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer"
               >
-                <img
+                <Image
                   src={artist.imageUrl || "/placeholder.svg"}
                   alt={artist.name}
-                  className="w-24 h-24 rounded-full object-cover shadow-lg"
-                  onError={handleImageError}
+                  width={96}
+                  height={96}
+                  className="rounded-full object-cover shadow-lg"
+                  unoptimized
                 />
                 <div className="text-center">
                   <p className="font-semibold text-sm">{artist.name}</p>
@@ -184,7 +188,7 @@ export function SearchView({
                 key={song.id}
                 onClick={() => onPlaySong(song)}
                 className={cn(
-                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
+                  "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
@@ -198,11 +202,15 @@ export function SearchView({
                     <Play className="w-4 h-4 text-primary" />
                   )}
                 </span>
-                <img
-                  src={song.coverUrl || "/placeholder.svg"}
+                <Image
+                  src={
+                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                  }
                   alt={song.title}
-                  className="w-12 h-12 rounded-md object-cover"
-                  onError={handleImageError}
+                  width={48}
+                  height={48}
+                  className="rounded-md object-cover"
+                  unoptimized
                 />
                 <div className="flex-1 text-left min-w-0">
                   <p

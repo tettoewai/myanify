@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,15 +19,16 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default function NewArtistPage() {
+export default function NewAlbumPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    bio: "",
+    description: "",
+    releaseDate: "",
   });
-  const [imageUrl, setImageUrl] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,8 +53,8 @@ export default function NewArtistPage() {
       }
 
       const data = await response.json();
-      setImageUrl(data.url);
-      toast.success("Image uploaded successfully");
+      setCoverUrl(data.url);
+      toast.success("Cover image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error("Failed to upload image file");
@@ -65,34 +67,35 @@ export default function NewArtistPage() {
     e.preventDefault();
 
     if (!formData.name) {
-      toast.error("Please fill in the artist name");
+      toast.error("Please fill in the album name");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch("/api/artists", {
+      const response = await fetch("/api/albums", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...formData,
-          imageUrl: imageUrl || null,
-          bio: formData.bio || null,
+          name: formData.name,
+          coverUrl: coverUrl || null,
+          description: formData.description || null,
+          releaseDate: formData.releaseDate || null,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create artist");
+        throw new Error("Failed to create album");
       }
 
-      toast.success("Artist created successfully");
-      router.push("/admin/artists");
+      toast.success("Album created successfully");
+      router.push("/admin/albums");
     } catch (error) {
-      console.error("Error creating artist:", error);
-      toast.error("Failed to create artist");
+      console.error("Error creating album:", error);
+      toast.error("Failed to create album");
     } finally {
       setLoading(false);
     }
@@ -102,38 +105,36 @@ export default function NewArtistPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/admin/artists">
+          <Link href="/admin/albums">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Link>
         </Button>
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Add New Artist</h2>
-          <p className="text-muted-foreground mt-1">
-            Create a new artist profile
-          </p>
+          <h2 className="text-3xl font-bold text-foreground">Add New Album</h2>
+          <p className="text-muted-foreground mt-1">Create a new music album</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Image Upload */}
+          {/* Cover Image Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5" />
-                Artist Image
+                Album Cover
               </CardTitle>
               <CardDescription>
-                Upload the artist profile image (JPG, PNG, WEBP)
+                Upload the album cover image (JPG, PNG, WEBP)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="image">Profile Image</Label>
+                <Label htmlFor="cover">Cover Image</Label>
                 <div className="mt-2">
                   <Input
-                    id="image"
+                    id="cover"
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
@@ -147,27 +148,31 @@ export default function NewArtistPage() {
                     Uploading...
                   </div>
                 )}
-                {imageUrl && !uploadingImage && (
+                {coverUrl && !uploadingImage && (
                   <div className="mt-4">
                     <p className="text-sm text-green-600 dark:text-green-400 mb-2">
                       ✓ Image uploaded: {imageFileName}
                     </p>
-                    <img
-                      src={imageUrl}
-                      alt="Artist preview"
-                      className="w-32 h-32 rounded-full object-cover border border-border"
-                    />
+                    <div className="relative w-full aspect-square rounded-md border border-border overflow-hidden">
+                      <Image
+                        src={coverUrl}
+                        alt="Album cover preview"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Artist Details */}
+          {/* Album Details */}
           <Card>
             <CardHeader>
-              <CardTitle>Artist Details</CardTitle>
-              <CardDescription>Enter the artist information</CardDescription>
+              <CardTitle>Album Details</CardTitle>
+              <CardDescription>Enter the album information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -184,23 +189,36 @@ export default function NewArtistPage() {
               </div>
 
               <div>
-                <Label htmlFor="bio">Biography</Label>
-                <textarea
-                  id="bio"
-                  value={formData.bio}
+                <Label htmlFor="releaseDate">Release Date</Label>
+                <Input
+                  id="releaseDate"
+                  type="date"
+                  value={formData.releaseDate}
                   onChange={(e) =>
-                    setFormData({ ...formData, bio: e.target.value })
+                    setFormData({ ...formData, releaseDate: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
                   }
                   rows={8}
                   className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Enter artist biography..."
+                  placeholder="Enter album description..."
                 />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 justify-end">
           <Button type="submit" disabled={loading || uploadingImage}>
             {loading ? (
               <>
@@ -208,15 +226,14 @@ export default function NewArtistPage() {
                 Creating...
               </>
             ) : (
-              "Create Artist"
+              "Create Album"
             )}
           </Button>
           <Button type="button" variant="outline" asChild>
-            <Link href="/admin/artists">Cancel</Link>
+            <Link href="/admin/albums">Cancel</Link>
           </Button>
         </div>
       </form>
     </div>
   );
 }
-
