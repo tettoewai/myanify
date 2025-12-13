@@ -40,7 +40,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 h-full bg-card border-r border-border flex flex-col">
+    <aside className="hidden md:flex w-64 h-full bg-card border-r border-border flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <Link href="/" className="flex items-center gap-3 group">
