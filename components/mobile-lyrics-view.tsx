@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { usePlayer } from "@/components/player-context";
 
 interface MobileLyricsViewProps {
   song: Song;
@@ -31,6 +32,27 @@ interface MobileLyricsViewProps {
   onTimeChange: (time: number) => void;
 }
 
+function findLyricIndexByTime(times: number[], time: number) {
+  if (!times.length) return 0;
+
+  let lo = 0;
+  let hi = times.length - 1;
+
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] === time) {
+      return mid;
+    }
+    if (times[mid] < time) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  return Math.max(0, lo - 1);
+}
+
 export function MobileLyricsView({
   song,
   currentTime,
@@ -41,23 +63,145 @@ export function MobileLyricsView({
   onPrev,
   onTimeChange,
 }: MobileLyricsViewProps) {
+  const { audioRef } = usePlayer();
   const activeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRaf = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isUserScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollTimeRef = useRef(0);
   const [showLyrics, setShowLyrics] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  // Lead slightly so lines flip just ahead of the beat
+  const SYNC_LEAD_SECONDS = 0.12;
+  const SCROLL_THROTTLE_MS = 100;
 
-  const currentLyricIndex = song.lyrics.reduce((prevIndex, curr, index) => {
-    if (curr.time <= currentTime) return index;
-    return prevIndex;
-  }, 0);
+  const lyrics = useMemo(() => song.lyrics || [], [song.lyrics]);
+  const lyricTimes = useMemo(
+    () => lyrics.map((l) => Math.max(0, l.time ?? 0)),
+    [lyrics]
+  );
+
+  const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
+  const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+
+  // Smooth scroll function
+  const smoothScrollToElement = useCallback(
+    (element: HTMLElement, container: HTMLElement) => {
+      const now = Date.now();
+      if (now - lastScrollTimeRef.current < SCROLL_THROTTLE_MS) {
+        return;
+      }
+      lastScrollTimeRef.current = now;
+
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+
+      scrollRaf.current = requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        const containerScrollTop = container.scrollTop;
+        const elementRelativeTop = elementRect.top - containerRect.top;
+        const scrollOffset =
+          elementRelativeTop +
+          containerScrollTop -
+          containerRect.height / 2 +
+          elementRect.height / 2;
+
+        container.scrollTo({
+          top: scrollOffset,
+          behavior: "smooth",
+        });
+      });
+    },
+    []
+  );
+
+  // Handle user scrolling
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 2000);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // High-precision time tracking using requestAnimationFrame
+  useEffect(() => {
+    if (!audioRef.current || !lyrics.length) return;
+
+    const updateLyricIndex = () => {
+      if (!audioRef.current) return;
+
+      const preciseTime = audioRef.current.currentTime;
+      const targetTime = Math.max(0, preciseTime + SYNC_LEAD_SECONDS);
+      const nextIndex = findLyricIndexByTime(lyricTimes, targetTime);
+
+      setCurrentLyricIndex((prev) => {
+        return prev === nextIndex ? prev : nextIndex;
+      });
+
+      animationFrameRef.current = requestAnimationFrame(updateLyricIndex);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateLyricIndex);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [audioRef, lyrics.length, lyricTimes]);
 
   useEffect(() => {
-    if (activeRef.current && showLyrics) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    setCurrentLyricIndex(0);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
     }
-  }, [currentLyricIndex, showLyrics]);
+  }, [lyrics]);
+
+  useEffect(() => {
+    if (
+      activeRef.current &&
+      containerRef.current &&
+      showLyrics &&
+      !isUserScrollingRef.current
+    ) {
+      smoothScrollToElement(activeRef.current, containerRef.current);
+    }
+  }, [currentLyricIndex, showLyrics, smoothScrollToElement]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -78,7 +222,7 @@ export function MobileLyricsView({
           backgroundPosition: "center",
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-stone-950/80 via-stone-950/60 to-stone-950" />
+      <div className="absolute inset-0 bg-linear-to-b from-stone-950/80 via-stone-950/60 to-stone-950" />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4 pt-safe">
@@ -97,20 +241,35 @@ export function MobileLyricsView({
           </p>
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
-        >
-          <MoreHorizontal className="w-6 h-6" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {(["sm", "md", "lg"] as const).map((s) => (
+            <Button
+              key={s}
+              variant={size === s ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-2 text-xs font-semibold rounded-full cursor-pointer",
+                size === s
+                  ? "bg-white/20 text-white"
+                  : "text-white/70 hover:text-white"
+              )}
+              onClick={() => setSize(s)}
+            >
+              {s.toUpperCase()}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Main content area - switches between album art and lyrics */}
       <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
         {showLyrics ? (
           /* Lyrics View */
-          <div className="flex-1 overflow-y-auto px-6">
+          <div
+            ref={containerRef}
+            className="flex-1 overflow-y-auto px-6"
+            style={{ scrollBehavior: "smooth" }}
+          >
             <div className="py-[20vh]">
               {song.lyrics.length > 0 ? (
                 <div className="space-y-8">
@@ -124,14 +283,23 @@ export function MobileLyricsView({
                         ref={isActive ? activeRef : null}
                         className={cn(
                           "transition-all duration-500 text-center",
+                          isActive && "will-change-transform",
                           isPast && "opacity-30",
                           !isActive && !isPast && "opacity-50"
                         )}
+                        style={
+                          isActive
+                            ? { willChange: "transform, opacity" }
+                            : undefined
+                        }
                       >
                         <p
                           className={cn(
-                            "text-xl leading-relaxed font-medium transition-all duration-500",
-                            isActive ? "text-white text-2xl" : "text-white/70"
+                            "leading-relaxed font-medium transition-all duration-500",
+                            size === "sm" && "text-base",
+                            size === "md" && "text-xl",
+                            size === "lg" && "text-2xl md:text-3xl",
+                            isActive ? "text-white" : "text-white/70"
                           )}
                         >
                           {line.text}
@@ -165,7 +333,7 @@ export function MobileLyricsView({
       </div>
 
       {/* Bottom section */}
-      <div className="relative z-10 px-6 pb-safe bg-gradient-to-t from-stone-950 to-transparent pt-8">
+      <div className="relative z-10 px-6 pb-safe bg-linear-to-t from-stone-950 to-transparent pt-8">
         {/* Toggle between lyrics and artwork */}
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center bg-white/10 rounded-full p-1">
@@ -224,7 +392,7 @@ export function MobileLyricsView({
             max={song.duration}
             step={1}
             onValueChange={(v) => onTimeChange(v[0])}
-            className="[&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_.bg-primary]:bg-amber-400"
+            className="**:[[role=slider]]:bg-white **:[[role=slider]]:border-0 **:[[role=slider]]:w-4 **:[[role=slider]]:h-4 [&_.bg-primary]:bg-amber-400"
           />
           <div className="flex justify-between mt-2">
             <span className="text-xs text-white/50 font-mono">

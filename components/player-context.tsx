@@ -6,7 +6,8 @@ import {
   useState,
   useEffect,
   useRef,
-  ReactNode,
+  type ReactNode,
+  type RefObject,
 } from "react";
 import type { Song } from "@/lib/types";
 import { useSongs } from "@/lib/swr";
@@ -21,6 +22,7 @@ interface PlayerContextType {
   showFullscreenLyrics: boolean;
   volume: number;
   isMuted: boolean;
+  audioRef: RefObject<HTMLAudioElement | null>;
   setCurrentSong: (song: Song | null) => void;
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (time: number) => void;
@@ -84,7 +86,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current = new Audio();
       audioRef.current.preload = "auto";
 
-      // Handle time updates
+      // Handle time updates - keep for UI components that don't need high precision
       const handleTimeUpdate = () => {
         if (audioRef.current) {
           setCurrentTime(Math.floor(audioRef.current.currentTime));
@@ -227,6 +229,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         showFullscreenLyrics,
         volume,
         isMuted,
+        audioRef,
         setCurrentSong,
         setIsPlaying,
         setCurrentTime,

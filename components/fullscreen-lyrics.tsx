@@ -14,7 +14,8 @@ import {
   SkipBack,
   SkipForward,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { usePlayer } from "@/components/player-context";
 
 interface FullscreenLyricsProps {
   song: Song;
@@ -27,6 +28,27 @@ interface FullscreenLyricsProps {
   onTimeChange: (time: number) => void;
 }
 
+function findLyricIndexByTime(times: number[], time: number) {
+  if (!times.length) return 0;
+
+  let lo = 0;
+  let hi = times.length - 1;
+
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] === time) {
+      return mid;
+    }
+    if (times[mid] < time) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  return Math.max(0, lo - 1);
+}
+
 export function FullscreenLyrics({
   song,
   currentTime,
@@ -37,22 +59,143 @@ export function FullscreenLyrics({
   onPrev,
   onTimeChange,
 }: FullscreenLyricsProps) {
+  const { audioRef } = usePlayer();
   const activeRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRaf = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isUserScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollTimeRef = useRef(0);
   const [isLiked, setIsLiked] = useState(false);
+  // Lead a bit so lines flip slightly before the beat to feel on-time
+  const SYNC_LEAD_SECONDS = 0.12;
+  const SCROLL_THROTTLE_MS = 100;
 
-  const currentLyricIndex = song.lyrics.reduce((prevIndex, curr, index) => {
-    if (curr.time <= currentTime) return index;
-    return prevIndex;
-  }, 0);
+  const lyrics = useMemo(() => song.lyrics || [], [song.lyrics]);
+  const lyricTimes = useMemo(
+    () => lyrics.map((l) => Math.max(0, l.time ?? 0)),
+    [lyrics]
+  );
+
+  const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
+  const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+
+  // Smooth scroll function
+  const smoothScrollToElement = useCallback(
+    (element: HTMLElement, container: HTMLElement) => {
+      const now = Date.now();
+      if (now - lastScrollTimeRef.current < SCROLL_THROTTLE_MS) {
+        return;
+      }
+      lastScrollTimeRef.current = now;
+
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+
+      scrollRaf.current = requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        const containerScrollTop = container.scrollTop;
+        const elementRelativeTop = elementRect.top - containerRect.top;
+        const scrollOffset =
+          elementRelativeTop +
+          containerScrollTop -
+          containerRect.height / 2 +
+          elementRect.height / 2;
+
+        container.scrollTo({
+          top: scrollOffset,
+          behavior: "smooth",
+        });
+      });
+    },
+    []
+  );
+
+  // Handle user scrolling
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      isUserScrollingRef.current = true;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 2000);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // High-precision time tracking using requestAnimationFrame
+  useEffect(() => {
+    if (!audioRef.current || !lyrics.length) return;
+
+    const updateLyricIndex = () => {
+      if (!audioRef.current) return;
+
+      const preciseTime = audioRef.current.currentTime;
+      const targetTime = Math.max(0, preciseTime + SYNC_LEAD_SECONDS);
+      const nextIndex = findLyricIndexByTime(lyricTimes, targetTime);
+
+      setCurrentLyricIndex((prev) => {
+        return prev === nextIndex ? prev : nextIndex;
+      });
+
+      animationFrameRef.current = requestAnimationFrame(updateLyricIndex);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateLyricIndex);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [audioRef, lyrics.length, lyricTimes]);
 
   useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    setCurrentLyricIndex(0);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
     }
-  }, [currentLyricIndex]);
+  }, [lyrics]);
+
+  useEffect(() => {
+    if (
+      activeRef.current &&
+      containerRef.current &&
+      !isUserScrollingRef.current
+    ) {
+      smoothScrollToElement(activeRef.current, containerRef.current);
+    }
+  }, [currentLyricIndex, smoothScrollToElement]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRaf.current) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -61,7 +204,7 @@ export function FullscreenLyrics({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-gradient-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col">
+    <div className="fixed inset-0 z-100 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col">
       {/* Background blur effect with album art */}
       <div
         className="absolute inset-0 opacity-30 blur-3xl scale-110"
@@ -73,7 +216,7 @@ export function FullscreenLyrics({
           backgroundPosition: "center",
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
+      <div className="absolute inset-0 bg-linear-to-b from-black/60 via-transparent to-black/80" />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4 md:p-6">
@@ -92,10 +235,33 @@ export function FullscreenLyrics({
           </p>
           <p className="text-sm text-white/60 mt-0.5">{song.album}</p>
         </div>
+
+        <div className="flex items-center gap-1">
+          {(["sm", "md", "lg"] as const).map((s) => (
+            <Button
+              key={s}
+              variant={size === s ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-2 text-xs font-semibold rounded-full cursor-pointer",
+                size === s
+                  ? "bg-white/20 text-white"
+                  : "text-white/70 hover:text-white"
+              )}
+              onClick={() => setSize(s)}
+            >
+              {s.toUpperCase()}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Lyrics area */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-6 md:px-12 lg:px-24">
+      <div
+        ref={containerRef}
+        className="relative z-10 flex-1 overflow-y-auto px-6 md:px-12 lg:px-24"
+        style={{ scrollBehavior: "smooth" }}
+      >
         <div className="max-w-3xl mx-auto py-[30vh]">
           {song.lyrics.length > 0 ? (
             <div className="space-y-12">
@@ -109,14 +275,22 @@ export function FullscreenLyrics({
                     ref={isActive ? activeRef : null}
                     className={cn(
                       "transition-all duration-700 ease-out text-center",
-                      isActive && "scale-105",
+                      isActive && "scale-105 will-change-transform",
                       isPast && "opacity-30",
                       !isActive && !isPast && "opacity-50"
                     )}
+                    style={
+                      isActive
+                        ? { willChange: "transform, opacity" }
+                        : undefined
+                    }
                   >
                     <p
                       className={cn(
-                        "text-2xl md:text-4xl lg:text-5xl leading-relaxed font-medium transition-all duration-700",
+                        "leading-relaxed font-medium transition-all duration-700",
+                        size === "sm" && "text-xl md:text-2xl lg:text-3xl",
+                        size === "md" && "text-2xl md:text-4xl lg:text-5xl",
+                        size === "lg" && "text-3xl md:text-5xl lg:text-6xl",
                         isActive
                           ? "text-white drop-shadow-[0_0_30px_rgba(251,191,36,0.3)]"
                           : "text-white/70"
@@ -139,7 +313,7 @@ export function FullscreenLyrics({
       </div>
 
       {/* Bottom controls */}
-      <div className="relative z-10 p-6 md:p-8 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="relative z-10 p-6 md:p-8 bg-linear-to-t from-black/80 to-transparent">
         <div className="max-w-2xl mx-auto">
           {/* Song info */}
           <div className="flex items-center gap-4 mb-6">
@@ -191,7 +365,7 @@ export function FullscreenLyrics({
               max={song.duration}
               step={1}
               onValueChange={(v) => onTimeChange(v[0])}
-              className="flex-1 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_.bg-primary]:bg-amber-400"
+              className="flex-1 **:[[role=slider]]:bg-white **:[[role=slider]]:border-0 [&_.bg-primary]:bg-amber-400"
             />
             <span className="text-xs text-white/60 w-10 font-mono">
               {formatTime(song.duration)}

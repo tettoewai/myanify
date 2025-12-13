@@ -86,6 +86,12 @@ function LoginForm() {
           {isLoading ? "Signing in..." : "Sign in"}
         </Button>
       </form>
+
+      <div className="text-sm text-muted-foreground w-full text-center">
+        <p>Demo Account:</p>
+        <p>Email: listener@myanify.com</p>
+        <p>Password: listener123</p>
+      </div>
     </div>
   );
 }
