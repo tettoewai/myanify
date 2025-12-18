@@ -16,7 +16,8 @@ export async function POST(request: Request) {
       duration,
       audioUrl,
       coverUrl,
-      artistId,
+      artistId, // Support single artistId for backward compatibility
+      artistIds, // Support multiple artistIds
       genreId,
       albumId,
       isPremium,
@@ -24,28 +25,38 @@ export async function POST(request: Request) {
       lyrics,
     } = body;
 
-    // Validate required fields
-    if (!title || !duration || !audioUrl || !artistId) {
+    // Validate required fields - support both single and multiple artists
+    const artistIdsArray = artistIds && Array.isArray(artistIds) && artistIds.length > 0
+      ? artistIds
+      : artistId
+      ? [artistId]
+      : [];
+
+    if (!title || !duration || !audioUrl || artistIdsArray.length === 0) {
       return NextResponse.json(
         {
-          error: "Missing required fields: title, duration, audioUrl, artistId",
+          error: "Missing required fields: title, duration, audioUrl, and at least one artistId",
         },
         { status: 400 }
       );
     }
 
-    // Create song with lyrics
+    // Create song with lyrics and artists
     const song = await prisma.song.create({
       data: {
         title,
         duration: parseInt(duration),
         audioUrl,
         coverUrl: coverUrl || null,
-        artistId,
         genreId: genreId || null,
         albumId: albumId || null,
         isPremium: isPremium || false,
         isPublished: isPublished || false,
+        artists: {
+          create: artistIdsArray.map((id: string) => ({
+            artistId: id,
+          })),
+        },
         lyrics: lyrics && Array.isArray(lyrics) && lyrics.length > 0
           ? {
               create: lyrics.map((lyric: any) => ({
@@ -58,7 +69,11 @@ export async function POST(request: Request) {
           : undefined,
       },
       include: {
-        artist: true,
+        artists: {
+          include: {
+            artist: true,
+          },
+        },
         album: true,
         genre: true,
         lyrics: {
@@ -94,15 +109,23 @@ export async function GET(request: Request) {
     const where: any = {
       ...(isPublished !== undefined && { isPublished }),
       ...(genreId && { genreId }),
-      ...(artistId && { artistId }),
       ...(albumId && { albumId }),
     };
+
+    // Filter by artistId if provided (using the many-to-many relationship)
+    if (artistId) {
+      where.artists = {
+        some: {
+          artistId: artistId,
+        },
+      };
+    }
 
     // Add search filter if provided
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
-        { artist: { name: { contains: search, mode: "insensitive" } } },
+        { artists: { some: { artist: { name: { contains: search, mode: "insensitive" } } } } },
       ];
     }
 
@@ -112,7 +135,11 @@ export async function GET(request: Request) {
       prisma.song.findMany({
         where,
         include: {
-          artist: true,
+          artists: {
+            include: {
+              artist: true,
+            },
+          },
           album: true,
           genre: true,
           lyrics: {

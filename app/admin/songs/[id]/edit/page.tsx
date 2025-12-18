@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ export default function EditSongPage() {
   const [formData, setFormData] = useState({
     title: "",
     duration: 0, // Duration in seconds
-    artistId: "",
+    artistIds: [] as string[], // Support multiple artists
     genreId: "",
     albumId: "",
     isPremium: false,
@@ -103,7 +104,7 @@ export default function EditSongPage() {
     setFormData({
       title: "",
       duration: 0,
-      artistId: "",
+      artistIds: [],
       genreId: "",
       albumId: "",
       isPremium: false,
@@ -144,10 +145,14 @@ export default function EditSongPage() {
 
     // Then update all state (song is guaranteed to exist here due to shouldInitialize check)
     if (song && song.id === songId) {
+      // Extract artist IDs from the song's artists array
+      const artistIds = (song as any).artists?.map((sa: any) => sa.artistId || sa.artist?.id) || 
+                        ((song as any).artistId ? [(song as any).artistId] : []);
+      
       setFormData({
         title: song.title,
         duration: song.duration,
-        artistId: song.artistId,
+        artistIds: artistIds,
         genreId: song.genreId || "",
         albumId: song.albumId || "",
         isPremium: song.isPremium,
@@ -294,8 +299,8 @@ export default function EditSongPage() {
       return;
     }
 
-    if (!formData.title || !formData.artistId) {
-      toast.error("Please fill in all required fields");
+    if (!formData.title || formData.artistIds.length === 0) {
+      toast.error("Please fill in all required fields and select at least one artist");
       return;
     }
 
@@ -314,6 +319,7 @@ export default function EditSongPage() {
         },
         body: JSON.stringify({
           ...formData,
+          artistIds: formData.artistIds, // Send array of artist IDs
           duration: formData.duration, // Already in seconds
           audioUrl,
           coverUrl: coverUrl || null,
@@ -534,27 +540,20 @@ export default function EditSongPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="artistId">Artist *</Label>
-                <Select
-                  value={formData.artistId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, artistId: value })
+            <div>
+              <Label htmlFor="artists">Artists *</Label>
+              <div className="mt-2">
+                <MultiSelect
+                  options={artists.map((artist) => ({
+                    value: artist.id,
+                    label: artist.name,
+                  }))}
+                  value={formData.artistIds}
+                  onChange={(selectedIds) =>
+                    setFormData({ ...formData, artistIds: selectedIds })
                   }
-                  required
-                >
-                  <SelectTrigger className="mt-2" id="artistId">
-                    <SelectValue placeholder="Select an artist" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {artists.map((artist) => (
-                      <SelectItem key={artist.id} value={artist.id}>
-                        {artist.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select artists..."
+                />
               </div>
             </div>
 

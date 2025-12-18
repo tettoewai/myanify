@@ -313,3 +313,100 @@ export function useAdminStats() {
     mutate,
   };
 }
+
+// Hook for fetching play history
+export function usePlayHistory(options?: {
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set("limit", String(options.limit));
+
+  const key =
+    options?.enabled !== false
+      ? params.toString()
+        ? `/api/play-history?${params.toString()}`
+        : "/api/play-history"
+      : null;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  const songs: Song[] =
+    data?.data?.map(transformSong) || data?.map(transformSong) || [];
+
+  return {
+    songs,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching liked songs
+export function useLikedSongs(options?: { enabled?: boolean }) {
+  const key = options?.enabled !== false ? "/api/liked-songs" : null;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  const songs: Song[] =
+    data?.data?.map(transformSong) || data?.map(transformSong) || [];
+
+  // Extract song IDs for quick lookup
+  const likedSongIds: Set<string> = new Set(songs.map((s) => s.id));
+
+  return {
+    songs,
+    likedSongIds,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Helper functions for liking/unliking songs
+export async function likeSong(songId: string): Promise<boolean> {
+  try {
+    const response = await fetch("/api/liked-songs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ songId }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function unlikeSong(songId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/liked-songs?songId=${songId}`, {
+      method: "DELETE",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Helper function for tracking ad events
+export async function trackAdEvent(
+  adId: string,
+  type: "click" | "impression"
+): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/ads/${adId}/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

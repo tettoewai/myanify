@@ -9,8 +9,14 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnRoot = nextUrl.pathname === "/";
+      const isOnLanding = nextUrl.pathname.startsWith("/landing");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
+
+      // Allow landing page (public)
+      if (isOnLanding) {
+        return true;
+      }
 
       if (isOnLogin) {
         if (isLoggedIn) {
@@ -28,7 +34,7 @@ export const authConfig = {
       // Protect root route - require authentication
       if (isOnRoot) {
         if (!isLoggedIn) {
-          return false; // Redirect to login page
+          return false; // Redirect to landing page (handled by proxy.ts)
         }
         // Allow authenticated users (both ADMIN and LISTENER)
         // ADMIN users will be redirected to /admin by proxy.ts
@@ -39,7 +45,7 @@ export const authConfig = {
         if (isLoggedIn && auth.user?.role === UserRole.ADMIN) {
           return true;
         }
-        return false; // Redirect unauthenticated users to login page
+        return false; // Redirect unauthenticated users to landing page (handled by proxy.ts)
       }
 
       return true;

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { MobileLyricsView } from "./mobile-lyrics-view";
+import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface MobileNowPlayingProps {
   song: Song;
@@ -27,8 +29,26 @@ export function MobileNowPlaying({
   onPrev,
   onTimeChange,
 }: MobileNowPlayingProps) {
+  const { data: session } = useSession();
   const [showFullView, setShowFullView] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
+  
+  // Fetch liked songs from database
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({ 
+    enabled: !!session?.user?.id 
+  });
+  
+  const isLiked = likedSongIds.has(song.id);
+  
+  const handleToggleLike = async () => {
+    if (!session?.user?.id) return;
+    
+    if (isLiked) {
+      await unlikeSong(song.id);
+    } else {
+      await likeSong(song.id);
+    }
+    mutateLikedSongs();
+  };
 
   const progress = (currentTime / song.duration) * 100;
 
@@ -91,8 +111,9 @@ export function MobileNowPlaying({
               className="text-white/70 hover:text-white h-10 w-10"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsLiked(!isLiked);
+                handleToggleLike();
               }}
+              disabled={!session?.user?.id}
             >
               <Heart
                 className={cn(

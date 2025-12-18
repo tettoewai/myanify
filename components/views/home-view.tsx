@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { Play, Pause, ChevronRight, Sparkles } from "lucide-react";
+import { Play, Pause, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import { useSongs, useArtists, usePlaylists, useGenres } from "@/lib/swr";
 import { cn } from "@/lib/utils";
+import { useRef, useState, useEffect, useMemo } from "react";
+import { usePlayer } from "@/components/player-context";
 
 interface HomeViewProps {
   onPlaySong: (song: Song) => void;
@@ -20,6 +22,38 @@ export function HomeView({
   isPlaying,
 }: HomeViewProps) {
   const { navigate } = useNavigation();
+  const { getRecentlyPlayed } = usePlayer();
+
+  // Refs for scrollable containers
+  const genresScrollRef = useRef<HTMLDivElement>(null);
+  const artistsScrollRef = useRef<HTMLDivElement>(null);
+  const initializedRef = useRef(false);
+
+  // State for scroll position tracking
+  const [genresScrollState, setGenresScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: true,
+  });
+  const [artistsScrollState, setArtistsScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: true,
+  });
+
+  // Check scroll position
+  const checkScrollPosition = (
+    container: HTMLDivElement | null,
+    setState: (state: {
+      canScrollLeft: boolean;
+      canScrollRight: boolean;
+    }) => void
+  ) => {
+    if (!container) return;
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    setState({
+      canScrollLeft: scrollLeft > 0,
+      canScrollRight: scrollLeft < scrollWidth - clientWidth - 1,
+    });
+  };
 
   // Use SWR hooks for data fetching
   const { songs, isLoading: songsLoading } = useSongs({ isPublished: true });
@@ -29,8 +63,117 @@ export function HomeView({
   });
   const { genres, isLoading: genresLoading } = useGenres();
 
+  // Scroll handlers
+  const scrollGenres = (direction: "left" | "right") => {
+    if (!genresScrollRef.current) return;
+    const scrollAmount = genresScrollRef.current.clientWidth * 0.8;
+    const newScrollLeft =
+      genresScrollRef.current.scrollLeft +
+      (direction === "right" ? scrollAmount : -scrollAmount);
+    genresScrollRef.current.scrollTo({
+      left: newScrollLeft,
+      behavior: "smooth",
+    });
+  };
+
+  const scrollArtists = (direction: "left" | "right") => {
+    if (!artistsScrollRef.current) return;
+    const scrollAmount = artistsScrollRef.current.clientWidth * 0.8;
+    const newScrollLeft =
+      artistsScrollRef.current.scrollLeft +
+      (direction === "right" ? scrollAmount : -scrollAmount);
+    artistsScrollRef.current.scrollTo({
+      left: newScrollLeft,
+      behavior: "smooth",
+    });
+  };
+
+  // Update scroll state on scroll
+  useEffect(() => {
+    // Only initialize once when containers are available and data is loaded
+    if (initializedRef.current || genres.length === 0 || artists.length === 0) {
+      return;
+    }
+
+    const genresContainer = genresScrollRef.current;
+    const artistsContainer = artistsScrollRef.current;
+
+    if (!genresContainer && !artistsContainer) return;
+
+    const handleGenresScroll = () => {
+      if (genresContainer) {
+        checkScrollPosition(genresContainer, setGenresScrollState);
+      }
+    };
+
+    const handleArtistsScroll = () => {
+      if (artistsContainer) {
+        checkScrollPosition(artistsContainer, setArtistsScrollState);
+      }
+    };
+
+    if (genresContainer) {
+      genresContainer.addEventListener("scroll", handleGenresScroll);
+      // Initial check after a delay to ensure DOM is ready
+      setTimeout(() => handleGenresScroll(), 100);
+    }
+
+    if (artistsContainer) {
+      artistsContainer.addEventListener("scroll", handleArtistsScroll);
+      // Initial check after a delay to ensure DOM is ready
+      setTimeout(() => handleArtistsScroll(), 100);
+    }
+
+    // Check on resize with debounce
+    let resizeTimeout: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        handleGenresScroll();
+        handleArtistsScroll();
+      }, 150);
+    };
+    window.addEventListener("resize", handleResize);
+
+    initializedRef.current = true;
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      if (genresContainer) {
+        genresContainer.removeEventListener("scroll", handleGenresScroll);
+      }
+      if (artistsContainer) {
+        artistsContainer.removeEventListener("scroll", handleArtistsScroll);
+      }
+      window.removeEventListener("resize", handleResize);
+      initializedRef.current = false;
+    };
+  }, [genres.length, artists.length]); // Only depend on lengths, not the arrays themselves
+
   const loading =
     songsLoading || artistsLoading || playlistsLoading || genresLoading;
+
+  // Get recently played songs and filter to only include songs that exist in the current songs list
+  const recentlyPlayed = useMemo(() => {
+    const played = getRecentlyPlayed();
+    // Filter to only include songs that are in the current songs list (in case songs were deleted)
+    const songIds = new Set(songs.map((s) => s.id));
+    const validPlayed = played.filter((song) => songIds.has(song.id));
+
+    // Deduplicate songs (keep only the first occurrence - most recent play)
+    const seenIds = new Set<string>();
+    const uniquePlayed = validPlayed.filter((song) => {
+      if (seenIds.has(song.id)) return false;
+      seenIds.add(song.id);
+      return true;
+    });
+
+    // Map to full song objects from the current songs list to ensure we have latest data
+    return uniquePlayed
+      .map((playedSong) => songs.find((s) => s.id === playedSong.id))
+      .filter((song): song is Song => song !== undefined)
+      .slice(0, 6); // Show only the 6 most recent
+  }, [getRecentlyPlayed, songs]);
 
   if (loading) {
     return (
@@ -129,7 +272,7 @@ export function HomeView({
       </section>
 
       {/* Browse Genres */}
-      <section>
+      <section className="relative">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Browse Genres
@@ -138,31 +281,58 @@ export function HomeView({
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {genres.map((genre) => (
+        <div className="relative">
+          {/* Left scroll button */}
+          {genresScrollState.canScrollLeft && (
             <button
-              key={genre.id}
-              onClick={() => navigate("genre", genre.id)}
-              className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer"
+              onClick={() => scrollGenres("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 hover:bg-background border border-border shadow-lg flex items-center justify-center transition-opacity"
+              aria-label="Scroll left"
             >
-              <Image
-                src={genre.imageUrl || "/placeholder.svg"}
-                alt={genre.name}
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-300"
-                unoptimized
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h3 className="font-bold text-white">{genre.name}</h3>
-              </div>
+              <ChevronLeft className="w-5 h-5" />
             </button>
-          ))}
+          )}
+          {/* Scrollable container */}
+          <div
+            ref={genresScrollRef}
+            className="flex gap-4 overflow-x-auto scroll-smooth pb-2"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {genres.map((genre) => (
+              <button
+                key={genre.id}
+                onClick={() => navigate("genre", genre.id)}
+                className="group relative aspect-square w-40 md:w-48 lg:w-56 shrink-0 rounded-xl overflow-hidden cursor-pointer"
+              >
+                <Image
+                  src={genre.imageUrl || "/placeholder.svg"}
+                  alt={genre.name}
+                  fill
+                  className="object-cover group-hover:scale-110 transition-transform duration-300"
+                  unoptimized
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="font-bold text-white">{genre.name}</h3>
+                </div>
+              </button>
+            ))}
+          </div>
+          {/* Right scroll button */}
+          {genresScrollState.canScrollRight && (
+            <button
+              onClick={() => scrollGenres("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 hover:bg-background border border-border shadow-lg flex items-center justify-center transition-opacity"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </section>
 
       {/* Popular Artists */}
-      <section>
+      <section className="relative">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Popular Artists
@@ -171,32 +341,59 @@ export function HomeView({
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
-          {artists.map((artist) => (
+        <div className="relative">
+          {/* Left scroll button */}
+          {artistsScrollState.canScrollLeft && (
+            <button
+              onClick={() => scrollArtists("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 hover:bg-background border border-border shadow-lg flex items-center justify-center transition-opacity"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          {/* Scrollable container */}
+          <div
+            ref={artistsScrollRef}
+            className="flex gap-4 overflow-x-auto scroll-smooth pb-2"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {artists.map((artist) => (
               <button
                 key={artist.id}
                 onClick={() => navigate("artist", artist.id)}
-                className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer"
+                className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer shrink-0 w-32 md:w-36"
               >
-              <div className="relative">
-                <Image
-                  src={artist.imageUrl || "/placeholder.svg"}
-                  alt={artist.name}
-                  width={112}
-                  height={112}
-                  className="w-24 h-24 md:w-28 md:h-28 rounded-md object-cover shadow-lg group-hover:shadow-xl transition-shadow"
-                  unoptimized
-                />
-                <div className="absolute inset-0 rounded-md ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all" />
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-sm truncate max-w-[100px]">
-                  {artist.name}
-                </p>
-                <p className="text-xs text-muted-foreground">Artist</p>
-              </div>
+                <div className="relative">
+                  <Image
+                    src={artist.imageUrl || "/placeholder.svg"}
+                    alt={artist.name}
+                    width={112}
+                    height={112}
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-md object-cover shadow-lg group-hover:shadow-xl transition-shadow"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 rounded-md ring-2 ring-primary/0 group-hover:ring-primary/50 transition-all" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-sm truncate max-w-[100px]">
+                    {artist.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Artist</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          {/* Right scroll button */}
+          {artistsScrollState.canScrollRight && (
+            <button
+              onClick={() => scrollArtists("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-background/80 hover:bg-background border border-border shadow-lg flex items-center justify-center transition-opacity"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5" />
             </button>
-          ))}
+          )}
         </div>
       </section>
 
@@ -212,11 +409,11 @@ export function HomeView({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {playlists.map((playlist) => (
-              <button
-                key={playlist.id}
-                onClick={() => navigate("playlist", playlist.id)}
-                className="group text-left cursor-pointer"
-              >
+            <button
+              key={playlist.id}
+              onClick={() => navigate("playlist", playlist.id)}
+              className="group text-left cursor-pointer"
+            >
               <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
                 <Image
                   src={playlist.coverUrl || "/placeholder.svg"}
@@ -241,50 +438,52 @@ export function HomeView({
       </section>
 
       {/* Recently Played */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">
-            Recently Played
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {songs.slice(0, 6).map((song) => (
-            <button
-              key={song.id}
-              onClick={() => onPlaySong(song)}
-              className="group text-left"
-            >
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
-                <Image
-                  src={
-                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                  }
-                  alt={song.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  {currentSong?.id === song.id && isPlaying ? (
-                    <Pause className="w-10 h-10 text-white" />
-                  ) : (
-                    <Play className="w-10 h-10 text-white" />
+      {recentlyPlayed.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground">
+              Recently Played
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {recentlyPlayed.map((song) => (
+              <button
+                key={song.id}
+                onClick={() => onPlaySong(song)}
+                className="group text-left"
+              >
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
+                  <Image
+                    src={
+                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                    }
+                    alt={song.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {currentSong?.id === song.id && isPlaying ? (
+                      <Pause className="w-10 h-10 text-white" />
+                    ) : (
+                      <Play className="w-10 h-10 text-white" />
+                    )}
+                  </div>
+                  {song.isPremium && (
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                      Premium
+                    </div>
                   )}
                 </div>
-                {song.isPremium && (
-                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                    Premium
-                  </div>
-                )}
-              </div>
-              <h3 className="font-medium text-sm truncate">{song.title}</h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {song.artist}
-              </p>
-            </button>
-          ))}
-        </div>
-      </section>
+                <h3 className="font-medium text-sm truncate">{song.title}</h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {song.artist}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

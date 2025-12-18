@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import {
   ChevronDown,
   Heart,
@@ -20,6 +21,7 @@ import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/components/player-context";
+import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface MobileLyricsViewProps {
   song: Song;
@@ -63,6 +65,7 @@ export function MobileLyricsView({
   onPrev,
   onTimeChange,
 }: MobileLyricsViewProps) {
+  const { data: session } = useSession();
   const { audioRef } = usePlayer();
   const activeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,7 +75,25 @@ export function MobileLyricsView({
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollTimeRef = useRef(0);
   const [showLyrics, setShowLyrics] = useState(true);
-  const [isLiked, setIsLiked] = useState(false);
+
+  // Fetch liked songs from database
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+    enabled: !!session?.user?.id,
+  });
+
+  const isLiked = likedSongIds.has(song.id);
+
+  const handleToggleLike = async () => {
+    if (!session?.user?.id) return;
+
+    if (isLiked) {
+      await unlikeSong(song.id);
+    } else {
+      await likeSong(song.id);
+    }
+    mutateLikedSongs();
+  };
+
   // Lead slightly so lines flip just ahead of the beat
   const SYNC_LEAD_SECONDS = 0.12;
   const SCROLL_THROTTLE_MS = 100;
@@ -86,15 +107,9 @@ export function MobileLyricsView({
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
   const [size, setSize] = useState<"sm" | "md" | "lg">("md");
 
-  // Smooth scroll function
+  // Smooth scroll function to center the current lyric line
   const smoothScrollToElement = useCallback(
     (element: HTMLElement, container: HTMLElement) => {
-      const now = Date.now();
-      if (now - lastScrollTimeRef.current < SCROLL_THROTTLE_MS) {
-        return;
-      }
-      lastScrollTimeRef.current = now;
-
       if (scrollRaf.current) {
         cancelAnimationFrame(scrollRaf.current);
       }
@@ -102,18 +117,41 @@ export function MobileLyricsView({
       scrollRaf.current = requestAnimationFrame(() => {
         const containerRect = container.getBoundingClientRect();
         const elementRect = element.getBoundingClientRect();
-        const containerScrollTop = container.scrollTop;
-        const elementRelativeTop = elementRect.top - containerRect.top;
-        const scrollOffset =
-          elementRelativeTop +
-          containerScrollTop -
-          containerRect.height / 2 +
-          elementRect.height / 2;
+        const currentScrollTop = container.scrollTop;
 
-        container.scrollTo({
-          top: scrollOffset,
-          behavior: "smooth",
-        });
+        // Calculate element's position relative to the scroll container
+        // elementRect.top is relative to viewport, containerRect.top is container's viewport position
+        const elementTopRelativeToContainer =
+          elementRect.top - containerRect.top;
+        const elementTopInScroll =
+          elementTopRelativeToContainer + currentScrollTop;
+        const elementHeight = elementRect.height;
+        const containerHeight = containerRect.height;
+
+        // Calculate where to scroll to center the element
+        // We want: element center = container center
+        // element center position = elementTopInScroll + elementHeight/2
+        // container center position = targetScrollTop + containerHeight/2
+        // So: elementTopInScroll + elementHeight/2 = targetScrollTop + containerHeight/2
+        // Therefore: targetScrollTop = elementTopInScroll + elementHeight/2 - containerHeight/2
+        const targetScrollTop =
+          elementTopInScroll + elementHeight / 2 - containerHeight / 2;
+
+        // Check current offset from center
+        const currentElementCenter =
+          elementTopRelativeToContainer + elementHeight / 2;
+        const containerCenter = containerHeight / 2;
+        const offsetFromCenter = Math.abs(
+          currentElementCenter - containerCenter
+        );
+
+        // Scroll to center if element is off-center (threshold of 30px for smoother experience)
+        if (offsetFromCenter > 30) {
+          container.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: "smooth",
+          });
+        }
       });
     },
     []
@@ -373,7 +411,8 @@ export function MobileLyricsView({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleToggleLike}
+            disabled={!session?.user?.id}
             className="text-white/70 hover:text-white rounded-full"
           >
             <Heart

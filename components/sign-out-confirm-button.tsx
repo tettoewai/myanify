@@ -29,7 +29,7 @@ export function SignOutConfirmButton({
   label = "Sign Out",
   fullWidth = false,
   className,
-  variant = "destructive",
+  variant = "default",
   ...buttonProps
 }: SignOutConfirmButtonProps) {
   const [open, setOpen] = useState(false);
@@ -50,19 +50,15 @@ export function SignOutConfirmButton({
         <DialogHeader>
           <DialogTitle>Sign out</DialogTitle>
           <DialogDescription>
-            You will need to sign in again to access your account. Do you want to
-            continue?
+            You will need to sign in again to access your account. Do you want
+            to continue?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button
-            variant="destructive"
-            onClick={() => signOut({ callbackUrl })}
-            autoFocus
-          >
+          <Button onClick={() => signOut({ callbackUrl })} autoFocus>
             Sign Out
           </Button>
         </DialogFooter>
@@ -70,4 +66,3 @@ export function SignOutConfirmButton({
     </Dialog>
   );
 }
-

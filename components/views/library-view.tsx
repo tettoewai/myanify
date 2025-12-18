@@ -3,26 +3,41 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import { ListMusic, Heart, Clock, Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { usePlaylists, useSongs } from "@/lib/swr";
+import { usePlaylists, useSongs, useLikedSongs, usePlayHistory } from "@/lib/swr";
 
 interface LibraryViewProps {
   onPlaySong: (song: Song) => void;
 }
 
 export function LibraryView({ onPlaySong }: LibraryViewProps) {
+  const { data: session } = useSession();
   const { navigate } = useNavigation();
   const [activeTab, setActiveTab] = useState("playlists");
 
   // Use SWR hooks for data fetching
   const { playlists } = usePlaylists({ isPublic: true });
   const { songs } = useSongs({ isPublished: true });
-
-  // TODO: Replace with actual liked songs from API
-  const likedSongs = useMemo(() => songs.slice(0, 5), [songs]);
+  
+  // Fetch liked songs from database
+  const { songs: likedSongs } = useLikedSongs({ enabled: !!session?.user?.id });
+  
+  // Fetch recent play history from database
+  const { songs: recentSongsRaw } = usePlayHistory({ limit: 50, enabled: !!session?.user?.id });
+  
+  // Deduplicate recent songs (keep only the first occurrence - most recent play)
+  const recentSongs = useMemo(() => {
+    const seenIds = new Set<string>();
+    return recentSongsRaw.filter((song) => {
+      if (seenIds.has(song.id)) return false;
+      seenIds.add(song.id);
+      return true;
+    });
+  }, [recentSongsRaw]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -145,7 +160,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
 
         <TabsContent value="recent" className="mt-6">
           <div className="space-y-2">
-            {songs.map((song, index) => (
+            {(recentSongs.length > 0 ? recentSongs : songs).map((song, index) => (
               <button
                 key={song.id}
                 onClick={() => onPlaySong(song)}

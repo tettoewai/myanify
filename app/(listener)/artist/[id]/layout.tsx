@@ -22,7 +22,14 @@ export async function generateMetadata({
     }
 
     const songCount = await prisma.song.count({
-      where: { artistId: id, isPublished: true },
+      where: {
+        artists: {
+          some: {
+            artistId: id,
+          },
+        },
+        isPublished: true,
+      },
     });
 
     const title = `${artist.name} | Myanify - Myanmar Music Streaming`;
@@ -95,7 +102,14 @@ export default async function ArtistLayout({
 
     if (artist) {
       const songCount = await prisma.song.count({
-        where: { artistId: id, isPublished: true },
+        where: {
+          artists: {
+            some: {
+              artistId: id,
+            },
+          },
+          isPublished: true,
+        },
       });
 
       structuredData = (

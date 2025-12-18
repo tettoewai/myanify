@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAds } from "@/lib/api";
+import { trackAdEvent } from "@/lib/swr";
 import type { Ad } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { getImageProxyUrl } from "@/lib/image-proxy";
@@ -13,6 +14,7 @@ export function AdBanner() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
+  const trackedImpressions = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     getAds().then(setAds).catch(console.error);
@@ -28,6 +30,21 @@ export function AdBanner() {
   }, [ads.length]);
 
   const currentAd = ads[currentAdIndex];
+
+  // Track impression when ad is displayed
+  useEffect(() => {
+    if (currentAd && !trackedImpressions.current.has(currentAd.id)) {
+      trackedImpressions.current.add(currentAd.id);
+      trackAdEvent(currentAd.id, "impression");
+    }
+  }, [currentAd]);
+
+  // Handle ad click
+  const handleAdClick = () => {
+    if (currentAd) {
+      trackAdEvent(currentAd.id, "click");
+    }
+  };
 
   if (isDismissed || !currentAd || ads.length === 0) return null;
 
@@ -48,6 +65,7 @@ export function AdBanner() {
           href={currentAd.linkUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleAdClick}
           className="flex flex-col sm:flex-row items-center gap-4 p-4 group"
         >
           {/* Ad Image */}

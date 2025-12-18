@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const [totalSongs, publishedSongs, totalArtists, totalGenres, totalPlays] =
+    const [totalSongs, publishedSongs, totalArtists, totalGenres, totalPlays, totalLikes] =
       await Promise.all([
         prisma.song.count(),
         prisma.song.count({ where: { isPublished: true } }),
@@ -21,6 +21,7 @@ export async function GET() {
             playCount: true,
           },
         }),
+        prisma.likedSong.count(),
       ]);
 
     return NextResponse.json({
@@ -29,6 +30,7 @@ export async function GET() {
       totalArtists,
       totalGenres,
       totalPlays: totalPlays._sum.playCount || 0,
+      totalLikes,
     });
   } catch (error) {
     console.error("Error fetching admin stats:", error);

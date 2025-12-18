@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Music, Users, Tag, TrendingUp, Play } from "lucide-react";
+import { Music, Users, Tag, TrendingUp, Play, Heart } from "lucide-react";
 import { prisma } from "@/db";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ interface DashboardStats {
   totalArtists: number;
   totalGenres: number;
   totalPlays: number;
+  totalLikes: number;
 }
 
 export default function AdminDashboard() {
@@ -74,6 +75,13 @@ export default function AdminDashboard() {
       icon: TrendingUp,
       color: "text-pink-500",
       bgColor: "bg-pink-500/10",
+    },
+    {
+      title: "Total Likes",
+      value: stats?.totalLikes || 0,
+      icon: Heart,
+      color: "text-red-500",
+      bgColor: "bg-red-500/10",
     },
   ];
 

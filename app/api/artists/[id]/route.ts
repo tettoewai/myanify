@@ -17,10 +17,23 @@ export async function GET(
           },
         },
         songs: {
-          where: { isPublished: true },
+          where: {
+            song: {
+              isPublished: true,
+            },
+          },
           include: {
-            album: true,
-            genre: true,
+            song: {
+              include: {
+                album: true,
+                genre: true,
+                artists: {
+                  include: {
+                    artist: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

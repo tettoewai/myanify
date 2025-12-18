@@ -41,16 +41,16 @@ enum UserRole {
 
 // Artist model
 model Artist {
-  id               String   @id @default(cuid())
+  id               String       @id @default(cuid())
   name             String
   imageUrl         String?
-  bio              String?  @db.Text
-  monthlyListeners Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  bio              String?      @db.Text
+  monthlyListeners Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   // Relations
-  songs        Song[]
+  songs        SongArtist[]
   artistGenres ArtistGenre[]
 
   @@index([name])
@@ -103,6 +103,21 @@ model Album {
   @@index([name])
 }
 
+// Many-to-many relationship between Song and Artist
+model SongArtist {
+  id        String   @id @default(cuid())
+  songId    String
+  artistId  String
+  createdAt DateTime @default(now())
+
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([songId, artistId])
+  @@index([songId])
+  @@index([artistId])
+}
+
 // Song model - main music track
 model Song {
   id          String   @id @default(cuid())
@@ -117,12 +132,11 @@ model Song {
   updatedAt   DateTime @updatedAt
 
   // Foreign keys
-  artistId String
   albumId  String?
   genreId  String?
 
   // Relations
-  artist        Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  artists       SongArtist[]
   album         Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
   genre         Genre?         @relation(fields: [genreId], references: [id], onDelete: SetNull)
   lyrics        LyricLine[]
@@ -131,7 +145,6 @@ model Song {
   playlistSongs PlaylistSong[]
 
   @@index([title])
-  @@index([artistId])
   @@index([albumId])
   @@index([genreId])
   @@index([isPublished])

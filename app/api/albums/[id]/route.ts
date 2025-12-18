@@ -13,7 +13,11 @@ export async function GET(
       include: {
         songs: {
           include: {
-            artist: true,
+            artists: {
+              include: {
+                artist: true,
+              },
+            },
             genre: true,
           },
           orderBy: { createdAt: "asc" },

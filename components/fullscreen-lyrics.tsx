@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
@@ -8,14 +9,16 @@ import { cn } from "@/lib/utils";
 import {
   ChevronDown,
   Heart,
+  Loader2,
   Pause,
   Play,
   Share2,
   SkipBack,
   SkipForward,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { usePlayer } from "@/components/player-context";
+import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface FullscreenLyricsProps {
   song: Song;
@@ -59,6 +62,7 @@ export function FullscreenLyrics({
   onPrev,
   onTimeChange,
 }: FullscreenLyricsProps) {
+  const { data: session } = useSession();
   const { audioRef } = usePlayer();
   const activeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,7 +71,32 @@ export function FullscreenLyrics({
   const isUserScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollTimeRef = useRef(0);
-  const [isLiked, setIsLiked] = useState(false);
+
+  // Fetch liked songs from database
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+    enabled: !!session?.user?.id,
+  });
+
+  const isLiked = likedSongIds.has(song.id);
+
+  const handleToggleLike = async () => {
+    if (!session?.user?.id || isLikeLoading) return;
+
+    setIsLikeLoading(true);
+    try {
+      if (isLiked) {
+        await unlikeSong(song.id);
+      } else {
+        await likeSong(song.id);
+      }
+      mutateLikedSongs();
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    } finally {
+      setIsLikeLoading(false);
+    }
+  };
+
   // Lead a bit so lines flip slightly before the beat to feel on-time
   const SYNC_LEAD_SECONDS = 0.12;
   const SCROLL_THROTTLE_MS = 100;
@@ -80,8 +109,21 @@ export function FullscreenLyrics({
 
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
   const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+  const [isMobile, setIsMobile] = useState(false);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
 
-  // Smooth scroll function
+  // Detect mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Smooth scroll function to center the current lyric
   const smoothScrollToElement = useCallback(
     (element: HTMLElement, container: HTMLElement) => {
       const now = Date.now();
@@ -99,6 +141,7 @@ export function FullscreenLyrics({
         const elementRect = element.getBoundingClientRect();
         const containerScrollTop = container.scrollTop;
         const elementRelativeTop = elementRect.top - containerRect.top;
+        // Center the element vertically in the container
         const scrollOffset =
           elementRelativeTop +
           containerScrollTop -
@@ -106,7 +149,7 @@ export function FullscreenLyrics({
           elementRect.height / 2;
 
         container.scrollTo({
-          top: scrollOffset,
+          top: Math.max(0, scrollOffset),
           behavior: "smooth",
         });
       });
@@ -262,45 +305,131 @@ export function FullscreenLyrics({
         className="relative z-10 flex-1 overflow-y-auto px-6 md:px-12 lg:px-24"
         style={{ scrollBehavior: "smooth" }}
       >
-        <div className="max-w-3xl mx-auto py-[30vh]">
+        <div className="max-w-3xl mx-auto">
           {song.lyrics.length > 0 ? (
             <div className="space-y-12">
-              {song.lyrics.map((line, index) => {
-                const isActive = index === currentLyricIndex;
-                const isPast = index < currentLyricIndex;
+              {/* Mobile: show all lyrics, Desktop: show only 3 lyrics */}
+              {isMobile ? (
+                // Mobile view: show all lyrics
+                <>
+                  <div className="h-[calc(30vh)] min-h-[1px]" />
+                  {song.lyrics.map((line, index) => {
+                    const isActive = index === currentLyricIndex;
+                    const isPast = index < currentLyricIndex;
 
-                return (
-                  <div
-                    key={index}
-                    ref={isActive ? activeRef : null}
-                    className={cn(
-                      "transition-all duration-700 ease-out text-center",
-                      isActive && "scale-105 will-change-transform",
-                      isPast && "opacity-30",
-                      !isActive && !isPast && "opacity-50"
-                    )}
-                    style={
-                      isActive
-                        ? { willChange: "transform, opacity" }
-                        : undefined
-                    }
-                  >
-                    <p
-                      className={cn(
-                        "leading-relaxed font-medium transition-all duration-700",
-                        size === "sm" && "text-xl md:text-2xl lg:text-3xl",
-                        size === "md" && "text-2xl md:text-4xl lg:text-5xl",
-                        size === "lg" && "text-3xl md:text-5xl lg:text-6xl",
-                        isActive
-                          ? "text-white drop-shadow-[0_0_30px_rgba(251,191,36,0.3)]"
-                          : "text-white/70"
-                      )}
-                    >
-                      {line.text}
-                    </p>
-                  </div>
-                );
-              })}
+                    return (
+                      <div
+                        key={index}
+                        ref={isActive ? activeRef : null}
+                        className={cn(
+                          "transition-all duration-700 ease-out text-center",
+                          isActive && "scale-105 will-change-transform",
+                          isPast && "opacity-30",
+                          !isActive && !isPast && "opacity-50"
+                        )}
+                        style={
+                          isActive
+                            ? { willChange: "transform, opacity" }
+                            : undefined
+                        }
+                      >
+                        <p
+                          className={cn(
+                            "leading-relaxed font-medium transition-all duration-700",
+                            size === "sm" && "text-xl md:text-2xl lg:text-3xl",
+                            size === "md" && "text-2xl md:text-4xl lg:text-5xl",
+                            size === "lg" && "text-3xl md:text-5xl lg:text-6xl",
+                            isActive
+                              ? "text-white drop-shadow-[0_0_30px_rgba(251,191,36,0.3)]"
+                              : "text-white/70"
+                          )}
+                        >
+                          {line.text}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  <div className="h-[calc(30vh)] min-h-[1px]" />
+                </>
+              ) : (
+                // Desktop view: show only 3 lyrics (previous, current, next)
+                (() => {
+                  const prevIndex = Math.max(0, currentLyricIndex - 1);
+                  const nextIndex = Math.min(
+                    song.lyrics.length - 1,
+                    currentLyricIndex + 1
+                  );
+
+                  // Determine which 3 lyrics to show
+                  let indicesToShow: number[] = [];
+
+                  if (currentLyricIndex === 0) {
+                    // At the start: show current, next, next+1
+                    indicesToShow = [
+                      currentLyricIndex,
+                      Math.min(song.lyrics.length - 1, currentLyricIndex + 1),
+                      Math.min(song.lyrics.length - 1, currentLyricIndex + 2),
+                    ];
+                  } else if (currentLyricIndex === song.lyrics.length - 1) {
+                    // At the end: show prev-1, prev, current
+                    indicesToShow = [
+                      Math.max(0, currentLyricIndex - 2),
+                      Math.max(0, currentLyricIndex - 1),
+                      currentLyricIndex,
+                    ];
+                  } else {
+                    // In the middle: show prev, current, next
+                    indicesToShow = [prevIndex, currentLyricIndex, nextIndex];
+                  }
+
+                  return (
+                    <>
+                      <div className="h-[calc(50vh-12rem)] min-h-[1px]" />
+                      {indicesToShow.map((index) => {
+                        const line = song.lyrics[index];
+                        const isActive = index === currentLyricIndex;
+                        const isPast = index < currentLyricIndex;
+
+                        return (
+                          <div
+                            key={`${index}-${currentLyricIndex}`}
+                            ref={isActive ? activeRef : null}
+                            className={cn(
+                              "transition-all duration-700 ease-out text-center",
+                              isActive && "scale-105 will-change-transform",
+                              isPast && "opacity-30",
+                              !isActive && !isPast && "opacity-50"
+                            )}
+                            style={
+                              isActive
+                                ? { willChange: "transform, opacity" }
+                                : undefined
+                            }
+                          >
+                            <p
+                              className={cn(
+                                "leading-relaxed font-medium transition-all duration-700",
+                                size === "sm" &&
+                                  "text-xl md:text-2xl lg:text-3xl",
+                                size === "md" &&
+                                  "text-2xl md:text-4xl lg:text-5xl",
+                                size === "lg" &&
+                                  "text-3xl md:text-5xl lg:text-6xl",
+                                isActive
+                                  ? "text-white drop-shadow-[0_0_30px_rgba(251,191,36,0.3)]"
+                                  : "text-white/70"
+                              )}
+                            >
+                              {line.text}
+                            </p>
+                          </div>
+                        );
+                      })}
+                      <div className="h-[calc(50vh-12rem)] min-h-[1px]" />
+                    </>
+                  );
+                })()
+              )}
             </div>
           ) : (
             <div className="text-center py-20">
@@ -335,15 +464,20 @@ export function FullscreenLyrics({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={handleToggleLike}
+                disabled={!session?.user?.id || isLikeLoading}
                 className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
               >
-                <Heart
-                  className={cn(
-                    "w-6 h-6",
-                    isLiked && "fill-amber-400 text-amber-400"
-                  )}
-                />
+                {isLikeLoading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <Heart
+                    className={cn(
+                      "w-6 h-6",
+                      isLiked && "fill-amber-400 text-amber-400"
+                    )}
+                  />
+                )}
               </Button>
               <Button
                 variant="ghost"

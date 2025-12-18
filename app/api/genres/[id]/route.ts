@@ -14,7 +14,11 @@ export async function GET(
         songs: {
           where: { isPublished: true },
           include: {
-            artist: true,
+            artists: {
+              include: {
+                artist: true,
+              },
+            },
             album: true,
           },
         },

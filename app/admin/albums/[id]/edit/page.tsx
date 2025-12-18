@@ -294,7 +294,9 @@ export default function EditAlbumPage() {
                     <div className="flex-1">
                       <p className="font-medium">{song.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {song.artist.name}
+                        {(song as any).artists?.map((sa: any) => sa.artist?.name).join(", ") ||
+                         (song as any).artist?.name ||
+                         "Unknown Artist"}
                         {song.genre && ` • ${song.genre.name}`}
                       </p>
                     </div>

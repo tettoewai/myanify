@@ -32,7 +32,11 @@ export async function GET(request: Request) {
             include: {
               song: {
                 include: {
-                  artist: true,
+                  artists: {
+                    include: {
+                      artist: true,
+                    },
+                  },
                   album: true,
                 },
               },

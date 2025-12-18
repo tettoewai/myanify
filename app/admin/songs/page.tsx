@@ -121,11 +121,14 @@ export default function SongsPage() {
 
   const filteredSongs = useMemo(
     () =>
-      (allSongs || []).filter(
-        (song) =>
-          song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          song.artist.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
+      (allSongs || []).filter((song) => {
+        const titleMatch = song.title.toLowerCase().includes(searchQuery.toLowerCase());
+        // Handle multiple artists - check if any artist name matches
+        const artistMatch = (song as any).artists?.some((sa: any) =>
+          sa.artist?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+        ) || (song as any).artist?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+        return titleMatch || artistMatch;
+      }),
     [allSongs, searchQuery]
   );
 
@@ -242,7 +245,9 @@ export default function SongsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-muted-foreground">
-                      {song.artist.name}
+                      {(song as any).artists?.map((sa: any) => sa.artist?.name || sa.artist?.name).join(", ") ||
+                       (song as any).artist?.name ||
+                       "Unknown Artist"}
                     </td>
                     <td className="p-4 text-muted-foreground">
                       {song.genre?.name || "—"}

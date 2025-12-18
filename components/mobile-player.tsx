@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import {
   Play,
   Pause,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface MobilePlayerProps {
   currentSong: Song;
@@ -41,10 +43,28 @@ export function MobilePlayer({
   onTimeChange,
   onClose,
 }: MobilePlayerProps) {
-  const [isLiked, setIsLiked] = useState(false);
+  const { data: session } = useSession();
   const [showLyrics, setShowLyrics] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeRef = useRef(currentTime);
+  
+  // Fetch liked songs from database
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({ 
+    enabled: !!session?.user?.id 
+  });
+  
+  const isLiked = likedSongIds.has(currentSong.id);
+  
+  const handleToggleLike = async () => {
+    if (!session?.user?.id) return;
+    
+    if (isLiked) {
+      await unlikeSong(currentSong.id);
+    } else {
+      await likeSong(currentSong.id);
+    }
+    mutateLikedSongs();
+  };
 
   useEffect(() => {
     timeRef.current = currentTime;
@@ -178,7 +198,8 @@ export function MobilePlayer({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleToggleLike}
+            disabled={!session?.user?.id}
           >
             <Heart
               className={cn("w-6 h-6", isLiked && "fill-primary text-primary")}

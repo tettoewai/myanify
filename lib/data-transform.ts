@@ -2,10 +2,16 @@
 import type { Song, Artist, Playlist, Genre, Ad, LyricLine } from "./types";
 
 export function transformSong(prismaSong: any): Song {
+  // Handle multiple artists - support both old single artist and new many-to-many
+  const artists = prismaSong.artists?.map((sa: any) => sa.artist?.name).filter(Boolean) || 
+                  (prismaSong.artist ? [prismaSong.artist.name] : []);
+  const artistNames = artists.join(", ") || "Unknown Artist";
+  
   return {
     id: prismaSong.id,
     title: prismaSong.title,
-    artist: prismaSong.artist?.name || "Unknown Artist",
+    artist: artistNames,
+    artists: artists.filter((name: string) => name),
     album: prismaSong.album?.name || "",
     duration: prismaSong.duration,
     coverUrl: prismaSong.coverUrl || "/placeholder.svg",

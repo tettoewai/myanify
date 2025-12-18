@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import {
   Play,
   Pause,
@@ -15,6 +16,7 @@ import {
   ListMusic,
   Mic2,
   Maximize2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -27,6 +29,7 @@ import {
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "./player-context";
+import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -55,10 +58,36 @@ export function PlayerBar({
   isPremium,
   onOpenFullscreenLyrics,
 }: PlayerBarProps) {
+  const { data: session } = useSession();
   const { volume, isMuted, setVolume, setIsMuted } = usePlayer();
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+
+  // Fetch liked songs from database
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+    enabled: !!session?.user?.id,
+  });
+
+  const isLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
+
+  const handleToggleLike = async () => {
+    if (!currentSong || !session?.user?.id || isLikeLoading) return;
+
+    setIsLikeLoading(true);
+    try {
+      if (isLiked) {
+        await unlikeSong(currentSong.id);
+      } else {
+        await likeSong(currentSong.id);
+      }
+      mutateLikedSongs();
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    } finally {
+      setIsLikeLoading(false);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -125,18 +154,27 @@ export function PlayerBar({
                     variant="ghost"
                     size="icon"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => setIsLiked(!isLiked)}
+                    onClick={handleToggleLike}
+                    disabled={!session?.user?.id || isLikeLoading}
                   >
-                    <Heart
-                      className={cn(
-                        "w-4 h-4",
-                        isLiked && "fill-amber-500 text-amber-500"
-                      )}
-                    />
+                    {isLikeLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Heart
+                        className={cn(
+                          "w-4 h-4",
+                          isLiked && "fill-amber-500 text-amber-500"
+                        )}
+                      />
+                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isLiked ? "Remove from favorites" : "Add to favorites"}
+                  {!session?.user?.id
+                    ? "Sign in to like songs"
+                    : isLiked
+                    ? "Remove from favorites"
+                    : "Add to favorites"}
                 </TooltipContent>
               </Tooltip>
             </div>

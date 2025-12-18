@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export default function NewSongPage() {
   const [formData, setFormData] = useState({
     title: "",
     duration: 0, // Duration in seconds
-    artistId: "",
+    artistIds: [] as string[], // Support multiple artists
     genreId: "",
     albumId: "",
     isPremium: false,
@@ -190,7 +191,9 @@ export default function NewSongPage() {
       }
 
       setLyricsData(parsedLyrics);
-      toast.success(`Lyrics uploaded successfully (${parsedLyrics.length} lines)`);
+      toast.success(
+        `Lyrics uploaded successfully (${parsedLyrics.length} lines)`
+      );
     } catch (error) {
       console.error("Error uploading lyrics:", error);
       toast.error("Failed to upload lyrics file");
@@ -209,8 +212,10 @@ export default function NewSongPage() {
       return;
     }
 
-    if (!formData.title || !formData.artistId) {
-      toast.error("Please fill in all required fields");
+    if (!formData.title || formData.artistIds.length === 0) {
+      toast.error(
+        "Please fill in all required fields and select at least one artist"
+      );
       return;
     }
 
@@ -229,6 +234,7 @@ export default function NewSongPage() {
         },
         body: JSON.stringify({
           ...formData,
+          artistIds: formData.artistIds, // Send array of artist IDs
           duration: formData.duration, // Already in seconds
           audioUrl,
           coverUrl: coverUrl || null,
@@ -435,25 +441,20 @@ export default function NewSongPage() {
                 />
               </div>
               <div className="col-span-1">
-                <Label htmlFor="artistId">Artist *</Label>
-                <Select
-                  value={formData.artistId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, artistId: value })
-                  }
-                  required
-                >
-                  <SelectTrigger className="mt-2" id="artistId">
-                    <SelectValue placeholder="Select an artist" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {artists.map((artist) => (
-                      <SelectItem key={artist.id} value={artist.id}>
-                        {artist.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="artists">Artists *</Label>
+                <div className="mt-2">
+                  <MultiSelect
+                    options={artists.map((artist) => ({
+                      value: artist.id,
+                      label: artist.name,
+                    }))}
+                    value={formData.artistIds}
+                    onChange={(selectedIds) =>
+                      setFormData({ ...formData, artistIds: selectedIds })
+                    }
+                    placeholder="Select artists..."
+                  />
+                </div>
               </div>
             </div>
 

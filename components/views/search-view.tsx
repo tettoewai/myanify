@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
-import { Search, Play, Pause, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { useSongs, useArtists, useGenres } from "@/lib/swr";
+import { useArtists, useGenres, useSongs } from "@/lib/swr";
+import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Pause, Play, Search, X } from "lucide-react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface SearchViewProps {
   onPlaySong: (song: Song) => void;
@@ -26,32 +26,71 @@ export function SearchView({
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const isUpdatingFromUserInput = useRef(false);
+  const isInitialMount = useRef(true);
+  const lastUrlQuery = useRef<string>("");
 
-  // Initialize query from URL on mount
+  // Initialize query from URL on mount only
   useEffect(() => {
-    const urlQuery = searchParams.get("q") || "";
-    setQuery(urlQuery);
-    setDebouncedQuery(urlQuery);
+    if (isInitialMount.current) {
+      const urlQuery = searchParams.get("q") || "";
+      setQuery(urlQuery);
+      setDebouncedQuery(urlQuery);
+      lastUrlQuery.current = urlQuery;
+      isInitialMount.current = false;
+    }
   }, [searchParams]);
 
   // Debounce query for URL updates and API calls
   useEffect(() => {
+    // Skip if this is the initial mount (we already set debouncedQuery above)
+    if (isInitialMount.current) {
+      return;
+    }
+
+    isUpdatingFromUserInput.current = true;
     const timeoutId = setTimeout(() => {
-      setDebouncedQuery(query.trim());
+      const trimmedQuery = query.trim();
+      setDebouncedQuery(trimmedQuery);
+
       const params = new URLSearchParams(searchParams.toString());
-      if (query.trim()) {
-        params.set("q", query.trim());
+      if (trimmedQuery) {
+        params.set("q", trimmedQuery);
       } else {
         params.delete("q");
       }
       const newUrl = params.toString()
         ? `/search?${params.toString()}`
         : "/search";
+
+      lastUrlQuery.current = trimmedQuery;
       router.replace(newUrl, { scroll: false });
+
+      // Reset flag after URL update completes
+      setTimeout(() => {
+        isUpdatingFromUserInput.current = false;
+      }, 200);
     }, 600);
 
     return () => clearTimeout(timeoutId);
   }, [query, router, searchParams]);
+
+  // Sync from URL only if it's an external change (back/forward navigation)
+  useEffect(() => {
+    // Skip on initial mount or if we're updating from user input
+    if (isInitialMount.current || isUpdatingFromUserInput.current) {
+      return;
+    }
+
+    const urlQuery = searchParams.get("q") || "";
+    // Only update if URL query is different from what we last set
+    // This handles cases like browser back/forward or external navigation
+    if (urlQuery !== lastUrlQuery.current && urlQuery !== query) {
+      setQuery(urlQuery);
+      setDebouncedQuery(urlQuery);
+      lastUrlQuery.current = urlQuery;
+    }
+  }, [searchParams, query]);
 
   // Use SWR hooks for data fetching - only fetch when there's a search query
   const shouldSearch = debouncedQuery.trim().length > 0;
@@ -66,11 +105,6 @@ export function SearchView({
   const hasResults = songs.length > 0 || artists.length > 0;
   const showBrowse = !debouncedQuery.trim();
   const isLoading = songsLoading || artistsLoading;
-
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.onerror = null;
-    e.currentTarget.src = "/placeholder.svg";
-  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8">
@@ -150,7 +184,7 @@ export function SearchView({
       )}
 
       {/* Artists Results */}
-      {artists.length > 0 && (
+      {debouncedQuery && artists.length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Artists</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -179,7 +213,7 @@ export function SearchView({
       )}
 
       {/* Songs Results */}
-      {songs.length > 0 && (
+      {debouncedQuery && songs.length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-foreground mb-4">Songs</h2>
           <div className="space-y-2">

@@ -11,7 +11,11 @@ export async function GET(
     const song = await prisma.song.findUnique({
       where: { id },
       include: {
-        artist: true,
+        artists: {
+          include: {
+            artist: true,
+          },
+        },
         album: true,
         genre: true,
         lyrics: {
@@ -47,7 +51,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { isPublished, lyrics, ...updateData } = body;
+    const { isPublished, lyrics, artistIds, ...updateData } = body;
 
     // Handle lyrics update if provided
     if (lyrics !== undefined) {
@@ -70,14 +74,37 @@ export async function PATCH(
       }
     }
 
+    // Handle artists update if provided
+    const updateSongData: any = {
+      ...updateData,
+      ...(isPublished !== undefined && { isPublished }),
+    };
+
+    if (artistIds !== undefined && Array.isArray(artistIds)) {
+      // Delete existing artist relationships
+      await prisma.songArtist.deleteMany({
+        where: { songId: id },
+      });
+
+      // Create new artist relationships
+      if (artistIds.length > 0) {
+        updateSongData.artists = {
+          create: artistIds.map((artistId: string) => ({
+            artistId: artistId,
+          })),
+        };
+      }
+    }
+
     const song = await prisma.song.update({
       where: { id },
-      data: {
-        ...updateData,
-        ...(isPublished !== undefined && { isPublished }),
-      },
+      data: updateSongData,
       include: {
-        artist: true,
+        artists: {
+          include: {
+            artist: true,
+          },
+        },
         album: true,
         genre: true,
         lyrics: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
@@ -26,6 +26,54 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     isPremium,
   } = usePlayer();
   const [showMobilePlayer, setShowMobilePlayer] = useState(false);
+  const hasPushedHistoryState = useRef(false);
+
+  // Handle back button when fullscreen lyrics is open
+  useEffect(() => {
+    // Listen for popstate (back button)
+    const handlePopState = (event: PopStateEvent) => {
+      // If we're in fullscreen lyrics and back is pressed, close it instead of navigating
+      if (showFullscreenLyrics) {
+        setShowFullscreenLyrics(false);
+        hasPushedHistoryState.current = false;
+        // Prevent the default navigation by pushing the state back
+        // This keeps the user on the current page
+        window.history.pushState(
+          { lyricsFullscreen: false },
+          "",
+          window.location.href
+        );
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [showFullscreenLyrics, setShowFullscreenLyrics]);
+
+  // Push history state when opening fullscreen lyrics
+  useEffect(() => {
+    if (showFullscreenLyrics && !hasPushedHistoryState.current) {
+      hasPushedHistoryState.current = true;
+      window.history.pushState(
+        { lyricsFullscreen: true },
+        "",
+        window.location.href
+      );
+    }
+  }, [showFullscreenLyrics]);
+
+  // Handle opening fullscreen lyrics with history state
+  const handleOpenFullscreenLyrics = () => {
+    setShowFullscreenLyrics(true);
+  };
+
+  // Handle closing fullscreen lyrics
+  const handleCloseFullscreenLyrics = () => {
+    setShowFullscreenLyrics(false);
+  };
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">
@@ -47,7 +95,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
             showLyrics={showLyrics}
             onToggleLyrics={() => setShowLyrics(!showLyrics)}
             isPremium={isPremium}
-            onOpenFullscreenLyrics={() => setShowFullscreenLyrics(true)}
+            onOpenFullscreenLyrics={handleOpenFullscreenLyrics}
           />
           <MobileNowPlaying
             song={currentSong}
@@ -84,7 +132,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
           song={currentSong}
           currentTime={currentTime}
           isPlaying={isPlaying}
-          onClose={() => setShowFullscreenLyrics(false)}
+          onClose={handleCloseFullscreenLyrics}
           onTogglePlay={togglePlay}
           onNext={nextSong}
           onPrev={prevSong}

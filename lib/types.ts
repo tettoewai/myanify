@@ -1,7 +1,8 @@
 export interface Song {
   id: string
   title: string
-  artist: string
+  artist: string // Comma-separated artist names for display
+  artists?: string[] // Array of artist names (optional, for when full list is needed)
   album: string
   duration: number
   coverUrl: string

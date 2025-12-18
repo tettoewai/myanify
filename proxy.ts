@@ -7,11 +7,17 @@ export default auth((req) => {
   const pathname = nextUrl.pathname;
   const isOnApiAuth = pathname.startsWith("/api/auth");
   const isOnLogin = pathname.startsWith("/login");
+  const isOnLanding = pathname.startsWith("/landing");
   const isOnAdmin = pathname.startsWith("/admin");
   const isOnRoot = pathname === "/";
 
   // Allow API auth routes (NextAuth handles its own authentication)
   if (isOnApiAuth) {
+    return NextResponse.next();
+  }
+
+  // Allow landing page (public)
+  if (isOnLanding) {
     return NextResponse.next();
   }
 
@@ -28,11 +34,11 @@ export default auth((req) => {
   }
 
   // Protect all routes - require authentication
-  // If no session, redirect to login page
+  // If no session, redirect to landing page
   if (!isLoggedIn) {
     const callbackUrl = encodeURIComponent(pathname);
     return NextResponse.redirect(
-      new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl)
+      new URL(`/landing?callbackUrl=${callbackUrl}`, nextUrl)
     );
   }
 

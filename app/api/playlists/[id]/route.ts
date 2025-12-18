@@ -21,7 +21,11 @@ export async function GET(
           include: {
             song: {
               include: {
-                artist: true,
+                artists: {
+                  include: {
+                    artist: true,
+                  },
+                },
                 album: true,
                 genre: true,
                 lyrics: {
