@@ -24,6 +24,7 @@ model User {
   // Relations
   playlists     Playlist[]
   likedSongs    LikedSong[]
+  likedArtists  LikedArtist[]
   playHistory   PlayHistory[]
   subscriptions PremiumSubscription[]
   uploads       Upload[]
@@ -52,6 +53,7 @@ model Artist {
   // Relations
   songs        SongArtist[]
   artistGenres ArtistGenre[]
+  likedBy      LikedArtist[]
 
   @@index([name])
 }
@@ -219,6 +221,21 @@ model LikedSong {
   @@unique([userId, songId])
   @@index([userId])
   @@index([songId])
+}
+
+// LikedArtist model - tracks which users like which artists
+model LikedArtist {
+  id       String   @id @default(cuid())
+  userId   String
+  artistId String
+  likedAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, artistId])
+  @@index([userId])
+  @@index([artistId])
 }
 
 // PlayHistory model - tracks user listening history

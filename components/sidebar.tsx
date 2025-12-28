@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlaylists } from "@/lib/swr";
 import { cn } from "@/lib/utils";
+import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
+import { useSession } from "next-auth/react";
 
 interface SidebarProps {
   isPremium: boolean;
@@ -24,7 +26,11 @@ interface SidebarProps {
 export function Sidebar({ isPremium }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { playlists } = usePlaylists({ isPublic: true });
+  const { data: session } = useSession();
+  const { playlists } = usePlaylists({
+    userId: session?.user?.id,
+    isPublic: true
+  });
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },
@@ -62,7 +68,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
               isActive(item.path)
-                ? "bg-primary/10 text-primary"
+                ? "bg-primary/80 text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}
           >
@@ -98,14 +104,18 @@ export function Sidebar({ isPremium }: SidebarProps) {
           <span className="text-sm font-semibold text-muted-foreground">
             Your Playlists
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 cursor-pointer"
-            title="Create new playlist"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
+          <CreatePlaylistDialog
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 cursor-pointer"
+                title="Create new playlist"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            }
+          />
         </div>
         <ScrollArea className="flex-1 px-2">
           <div className="space-y-1">

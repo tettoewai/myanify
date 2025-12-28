@@ -32,6 +32,9 @@ export async function GET(
                     artist: true,
                   },
                 },
+                lyrics: {
+                  orderBy: { time: "asc" },
+                },
               },
             },
           },

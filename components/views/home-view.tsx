@@ -9,6 +9,7 @@ import { useSongs, useArtists, usePlaylists, useGenres } from "@/lib/swr";
 import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { usePlayer } from "@/components/player-context";
+import { AddToPlaylistDialog, AddToPlaylistDropdown } from "@/components/add-to-playlist-dialog";
 
 interface HomeViewProps {
   onPlaySong: (song: Song) => void;
@@ -232,41 +233,48 @@ export function HomeView({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {songs.slice(0, 4).map((song) => (
-            <button
+            <div
               key={song.id}
-              onClick={() => onPlaySong(song)}
               className={cn(
-                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer",
+                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative",
                 currentSong?.id === song.id &&
                   "bg-primary/10 ring-1 ring-primary/30"
               )}
             >
-              <div className="relative">
-                <Image
-                  src={
-                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                  }
-                  alt={song.title}
-                  width={56}
-                  height={56}
-                  className="w-14 h-14 rounded-md object-cover"
-                  unoptimized
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
-                  {currentSong?.id === song.id && isPlaying ? (
-                    <Pause className="w-5 h-5 text-white" />
-                  ) : (
-                    <Play className="w-5 h-5 text-white" />
-                  )}
+              <button
+                onClick={() => onPlaySong(song)}
+                className="flex items-center gap-3 flex-1 min-w-0"
+              >
+                <div className="relative">
+                  <Image
+                    src={
+                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                    }
+                    alt={song.title}
+                    width={56}
+                    height={56}
+                    className="w-14 h-14 rounded-md object-cover"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
+                    {currentSong?.id === song.id && isPlaying ? (
+                      <Pause className="w-5 h-5 text-white" />
+                    ) : (
+                      <Play className="w-5 h-5 text-white" />
+                    )}
+                  </div>
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate text-sm text-start">{song.title}</p>
+                  <p className="text-xs text-muted-foreground truncate text-start">
+                    {song.artist}
+                  </p>
+                </div>
+              </button>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <AddToPlaylistDialog songId={song.id} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate text-sm">{song.title}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {song.artist}
-                </p>
-              </div>
-            </button>
+            </div>
           ))}
         </div>
       </section>
@@ -408,32 +416,63 @@ export function HomeView({
           </Button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {playlists.map((playlist) => (
-            <button
-              key={playlist.id}
-              onClick={() => navigate("playlist", playlist.id)}
-              className="group text-left cursor-pointer"
-            >
-              <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
-                <Image
-                  src={playlist.coverUrl || "/placeholder.svg"}
-                  alt={playlist.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  unoptimized
-                />
-                <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-xl">
-                    <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+          {playlists.map((playlist) => {
+            // Get up to 4 song covers for the composite image
+            const songCovers = playlist.songs
+              .slice(0, 4)
+              .map(song => song.albumCoverUrl || song.coverUrl)
+              .filter(url => url && url !== "/placeholder.svg");
+
+            return (
+              <button
+                key={playlist.id}
+                onClick={() => navigate("playlist", playlist.id)}
+                className="group text-left cursor-pointer"
+              >
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg bg-muted">
+                  {songCovers.length > 0 ? (
+                    <div className="grid grid-cols-2 grid-rows-2 w-full h-full">
+                      {songCovers.map((coverUrl, index) => (
+                        <div key={index} className="relative">
+                          <Image
+                            src={coverUrl}
+                            alt={`${playlist.name} song ${index + 1}`}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            unoptimized
+                          />
+                        </div>
+                      ))}
+                      {/* Fill empty slots with placeholder if less than 4 songs */}
+                      {Array.from({ length: 4 - songCovers.length }).map((_, index) => (
+                        <div key={`placeholder-${index}`} className="relative bg-muted flex items-center justify-center">
+                          <div className="w-8 h-8 rounded bg-muted-foreground/20" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Fallback to single cover or placeholder
+                    <Image
+                      src={playlist.coverUrl || "/placeholder.svg"}
+                      alt={playlist.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  )}
+                  <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                    <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-xl">
+                      <Play className="w-5 h-5 text-primary-foreground ml-0.5" />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <h3 className="font-semibold truncate">{playlist.name}</h3>
-              <p className="text-sm text-muted-foreground truncate">
-                {playlist.description}
-              </p>
-            </button>
-          ))}
+                <h3 className="font-semibold truncate">{playlist.name}</h3>
+                <p className="text-sm text-muted-foreground truncate">
+                  {playlist.description}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -447,39 +486,40 @@ export function HomeView({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {recentlyPlayed.map((song) => (
-              <button
-                key={song.id}
-                onClick={() => onPlaySong(song)}
-                className="group text-left"
-              >
-                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
-                  <Image
-                    src={
-                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                    }
-                    alt={song.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    unoptimized
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    {currentSong?.id === song.id && isPlaying ? (
-                      <Pause className="w-10 h-10 text-white" />
-                    ) : (
-                      <Play className="w-10 h-10 text-white" />
+              <div key={song.id} className="group text-left relative">
+                <button
+                  onClick={() => onPlaySong(song)}
+                  className="w-full"
+                >
+                  <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
+                    <Image
+                      src={
+                        song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                      }
+                      alt={song.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {currentSong?.id === song.id && isPlaying ? (
+                        <Pause className="w-10 h-10 text-white" />
+                      ) : (
+                        <Play className="w-10 h-10 text-white" />
+                      )}
+                    </div>
+                    {song.isPremium && (
+                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                        Premium
+                      </div>
                     )}
                   </div>
-                  {song.isPremium && (
-                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                      Premium
-                    </div>
-                  )}
-                </div>
-                <h3 className="font-medium text-sm truncate">{song.title}</h3>
-                <p className="text-xs text-muted-foreground truncate">
-                  {song.artist}
-                </p>
-              </button>
+                  <h3 className="font-medium text-sm truncate">{song.title}</h3>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {song.artist}
+                  </p>
+                </button>
+              </div>
             ))}
           </div>
         </section>

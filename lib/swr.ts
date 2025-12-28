@@ -176,7 +176,9 @@ export function useArtist(id: string | null) {
   const artist = data
     ? {
         ...transformArtist(data),
-        songs: (data.songs || []).map(transformSong),
+        songs: (data.songs || []).map((item: any) =>
+          transformSong(item.song || item)
+        ),
       }
     : null;
 
@@ -369,6 +371,30 @@ export function useLikedSongs(options?: { enabled?: boolean }) {
   };
 }
 
+// Hook for fetching liked artists
+export function useLikedArtists(options?: { enabled?: boolean }) {
+  const key = options?.enabled !== false ? "/api/liked-artists" : null;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  const artists: Artist[] =
+    data?.data?.map(transformArtist) || data?.map(transformArtist) || [];
+
+  // Extract artist IDs for quick lookup
+  const likedArtistIds: Set<string> = new Set(artists.map((a) => a.id));
+
+  return {
+    artists,
+    likedArtistIds,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 // Helper functions for liking/unliking songs
 export async function likeSong(songId: string): Promise<boolean> {
   try {
@@ -386,6 +412,31 @@ export async function likeSong(songId: string): Promise<boolean> {
 export async function unlikeSong(songId: string): Promise<boolean> {
   try {
     const response = await fetch(`/api/liked-songs?songId=${songId}`, {
+      method: "DELETE",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Helper functions for liking/unliking artists
+export async function likeArtist(artistId: string): Promise<boolean> {
+  try {
+    const response = await fetch("/api/liked-artists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artistId }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function unlikeArtist(artistId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/liked-artists?artistId=${artistId}`, {
       method: "DELETE",
     });
     return response.ok;

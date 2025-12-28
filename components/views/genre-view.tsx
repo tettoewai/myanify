@@ -7,6 +7,7 @@ import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import { useGenre } from "@/lib/swr";
 import { cn } from "@/lib/utils";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 
 interface GenreViewProps {
   genreId: string;
@@ -96,55 +97,62 @@ export function GenreView({
         <div className="space-y-2">
           {genre.songs.length > 0 ? (
             genre.songs.map((song: Song, index: number) => (
-              <button
+              <div
                 key={song.id}
-                onClick={() => onPlaySong(song)}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
-                <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
-                  {index + 1}
-                </span>
-                <span className="w-6 hidden group-hover:flex items-center justify-center">
-                  {currentSong?.id === song.id && isPlaying ? (
-                    <Pause className="w-4 h-4 text-primary" />
-                  ) : (
-                    <Play className="w-4 h-4 text-primary" />
-                  )}
-                </span>
-                <Image
-                  src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
-                  alt={song.title}
-                  width={48}
-                  height={48}
-                  className="w-12 h-12 rounded-md object-cover"
-                  unoptimized
-                />
-                <div className="flex-1 text-left min-w-0">
-                  <p
-                    className={cn(
-                      "font-medium truncate",
-                      currentSong?.id === song.id && "text-primary"
-                    )}
-                  >
-                    {song.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {song.artist}
-                  </p>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:
-                  {(song.duration % 60).toString().padStart(2, "0")}
-                </span>
-                {song.isPremium && (
-                  <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
-                    Premium
+                <button
+                  onClick={() => onPlaySong(song)}
+                  className="flex items-center gap-4 flex-1 min-w-0"
+                >
+                  <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
+                    {index + 1}
                   </span>
-                )}
-              </button>
+                  <span className="w-6 hidden group-hover:flex items-center justify-center">
+                    {currentSong?.id === song.id && isPlaying ? (
+                      <Pause className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Play className="w-4 h-4 text-primary" />
+                    )}
+                  </span>
+                  <Image
+                    src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+                    alt={song.title}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 rounded-md object-cover"
+                    unoptimized
+                  />
+                  <div className="flex-1 text-left min-w-0">
+                    <p
+                      className={cn(
+                        "font-medium truncate",
+                        currentSong?.id === song.id && "text-primary"
+                      )}
+                    >
+                      {song.title}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {song.artist}
+                    </p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.floor(song.duration / 60)}:
+                    {(song.duration % 60).toString().padStart(2, "0")}
+                  </span>
+                  {song.isPremium && (
+                    <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                      Premium
+                    </span>
+                  )}
+                </button>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AddToPlaylistDialog songId={song.id} />
+                </div>
+              </div>
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground">

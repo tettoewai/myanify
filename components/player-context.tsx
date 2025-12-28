@@ -23,6 +23,8 @@ interface PlayerContextType {
   showFullscreenLyrics: boolean;
   volume: number;
   isMuted: boolean;
+  isShuffled: boolean;
+  repeatMode: "off" | "all" | "one";
   audioRef: RefObject<HTMLAudioElement | null>;
   setCurrentSong: (song: Song | null) => void;
   setIsPlaying: (playing: boolean) => void;
@@ -33,6 +35,8 @@ interface PlayerContextType {
   setShowFullscreenLyrics: (show: boolean) => void;
   setVolume: (volume: number) => void;
   setIsMuted: (muted: boolean) => void;
+  setIsShuffled: (shuffled: boolean) => void;
+  setRepeatMode: (mode: "off" | "all" | "one") => void;
   playSong: (song: Song) => void;
   togglePlay: () => void;
   nextSong: () => void;
@@ -59,6 +63,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [showFullscreenLyrics, setShowFullscreenLyrics] = useState(false);
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const nextSongRef = useRef<() => void>(() => {});
   const isPlayingRef = useRef(false);
@@ -129,7 +135,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [songs, queue.length, currentSong]);
 
-  const nextSong = () => {
+  const handleNextSong = () => {
     if (!currentSong) return;
     const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
     const nextSong = queue[(currentIndex + 1) % queue.length];
@@ -356,6 +362,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Only save if user is logged in
     if (!session?.user?.id) return;
 
+    // Validate song ID exists
+    if (!song?.id) {
+      return;
+    }
+
+    // Only save if song exists in the loaded songs (to avoid saving non-existent songs)
+    const songExists = songs.some((s) => s.id === song.id);
+    if (!songExists) {
+      return;
+    }
+
     try {
       const response = await fetch("/api/play-history", {
         method: "POST",
@@ -372,10 +389,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         // Refresh play history
         mutatePlayHistory();
       } else {
-        console.error("Error saving to play history:", await response.text());
+        const errorText = await response.text();
+        // Only log errors that aren't "Song not found" (expected for deleted/missing songs)
+        if (!errorText.includes("Song not found")) {
+          console.error("Error saving to play history:", errorText);
+        }
       }
     } catch (error) {
-      console.error("Error saving to recently played:", error);
+      // Only log network/connection errors, not expected API errors
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        console.error("Network error saving to recently played:", error);
+      }
     }
   };
 
@@ -434,12 +458,65 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsPlaying(!isPlaying);
   };
 
+  const nextSong = () => {
+    if (!currentSong) return;
+
+    if (repeatMode === "one") {
+      // If repeat one, replay the current song
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+      return;
+    }
+
+    if (isShuffled) {
+      // If shuffled, pick a random song from the queue
+      const randomIndex = Math.floor(Math.random() * queue.length);
+      const randomSong = queue[randomIndex];
+      playSong(randomSong);
+      return;
+    }
+
+    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+    
+    // Check if we are at the end of the queue
+    if (currentIndex === queue.length - 1 && repeatMode === "off") {
+        // If repeat is off and we are at the end, stop playing
+        setIsPlaying(false);
+        return;
+    }
+
+    const nextSong = queue[(currentIndex + 1) % queue.length];
+    playSong(nextSong);
+  };
+
   const prevSong = () => {
     if (!currentSong) return;
+    
+    // If more than 3 seconds in, restart the song
+    if (audioRef.current && audioRef.current.currentTime > 3) {
+      audioRef.current.currentTime = 0;
+      return;
+    }
+
+    if (isShuffled) {
+       // If shuffled, pick a random song from the queue
+       const randomIndex = Math.floor(Math.random() * queue.length);
+       const randomSong = queue[randomIndex];
+       playSong(randomSong);
+       return;
+    }
+
     const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
     const prevSong = queue[(currentIndex - 1 + queue.length) % queue.length];
     playSong(prevSong);
   };
+
+  // Update nextSongRef so it can be called from effects
+  useEffect(() => {
+    nextSongRef.current = nextSong;
+  }, [nextSong]);
 
   const upgradePremium = () => {
     setIsPremium(true);
@@ -463,6 +540,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         showFullscreenLyrics,
         volume,
         isMuted,
+        isShuffled,
+        repeatMode,
         audioRef,
         setCurrentSong,
         setIsPlaying,
@@ -473,6 +552,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setShowFullscreenLyrics,
         setVolume,
         setIsMuted,
+        setIsShuffled,
+        setRepeatMode,
         playSong,
         togglePlay,
         nextSong,

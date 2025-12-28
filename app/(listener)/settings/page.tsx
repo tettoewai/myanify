@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { User, Mail, Calendar, Save, Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +21,11 @@ interface UserProfile {
   role: string;
   isPremium: boolean;
   createdAt: string;
+  hasPassword: boolean;
 }
 
 export default function SettingsPage() {
-  const { data: session, update } = useSession();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status, update } = useSession();
   const [saving, setSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [name, setName] = useState("");
@@ -36,23 +36,47 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch("/api/user/profile");
-      const data = await response.json();
-      setProfile(data);
-      setName(data.name || "");
-      setAvatarUrl(data.avatarUrl || "");
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setLoading(false);
+  const { data: profile, error: profileError, isLoading, mutate } = useSWR<UserProfile>(
+    session?.user ? "/api/user/profile" : null, // Only fetch if user is authenticated
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch profile");
+      }
+      return response.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
     }
-  };
+  );
+
+  console.log("Profile data:", profile);
+
+  // Update form fields when profile data loads
+  React.useEffect(() => {
+    if (profile) {
+      setName(profile.name || "");
+      setAvatarUrl(profile.avatarUrl || "");
+    }
+  }, [profile]);
+
+  // Show loading while session is loading
+  if (status === "loading") {
+    return <div className="text-center py-12">Loading...</div>;
+  }
+
+  // Redirect if not authenticated
+  if (status === "unauthenticated") {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground mb-4">Please sign in to access settings</p>
+        <a href="/login" className="text-primary hover:underline">
+          Go to Login
+        </a>
+      </div>
+    );
+  }
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -68,7 +92,7 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const updated = await response.json();
-        setProfile(updated);
+        mutate(updated, false); // Update cache without revalidation
         await update();
         toast.success("Profile updated successfully");
         setSuccess("Profile updated successfully");
@@ -127,10 +151,6 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12">Loading profile...</div>;
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-6 mb-24">
       <div className="mt-10">
@@ -155,7 +175,9 @@ export default function SettingsPage() {
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="password">Password</TabsTrigger>
+          {profile?.hasPassword && (
+            <TabsTrigger value="password">Password</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -258,74 +280,87 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="password" className="space-y-6">
-          <div className="bg-card rounded-lg border border-border p-6 space-y-6">
-            <h3 className="text-xl font-semibold">Change Password</h3>
+        {profile?.hasPassword && (
+          <TabsContent value="password" className="space-y-6">
+            <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+              <h3 className="text-xl font-semibold">Change Password</h3>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="pl-10"
-                    placeholder="Enter current password"
-                  />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="pl-10"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="pl-10"
+                      placeholder="Enter new password"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Must be at least 6 characters
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="pl-10"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="pl-10"
-                    placeholder="Enter new password"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 6 characters
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10"
-                    placeholder="Confirm new password"
-                  />
-                </div>
-              </div>
+              <Button
+                onClick={handleChangePassword}
+                disabled={
+                  passwordSaving ||
+                  !currentPassword ||
+                  !newPassword ||
+                  !confirmPassword
+                }
+                className="w-full"
+              >
+                <Lock className="w-4 h-4 mr-2" />
+                {passwordSaving ? "Updating..." : "Update Password"}
+              </Button>
             </div>
+            <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+              <h3 className="text-xl font-semibold">Account Actions</h3>
+              <p className="text-muted-foreground">
+                Sign out of your account. You will need to sign in again to access
+                your account.
+              </p>
+              <SignOutConfirmButton fullWidth />
+            </div>
+          </TabsContent>
+        )}
 
-            <Button
-              onClick={handleChangePassword}
-              disabled={
-                passwordSaving ||
-                !currentPassword ||
-                !newPassword ||
-                !confirmPassword
-              }
-              className="w-full"
-            >
-              <Lock className="w-4 h-4 mr-2" />
-              {passwordSaving ? "Updating..." : "Update Password"}
-            </Button>
-          </div>
+        {!profile?.hasPassword && (
           <div className="bg-card rounded-lg border border-border p-6 space-y-6">
             <h3 className="text-xl font-semibold">Account Actions</h3>
             <p className="text-muted-foreground">
@@ -334,7 +369,7 @@ export default function SettingsPage() {
             </p>
             <SignOutConfirmButton fullWidth />
           </div>
-        </TabsContent>
+        )}
       </Tabs>
     </div>
   );

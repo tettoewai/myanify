@@ -13,8 +13,13 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import { useArtist } from "@/lib/swr";
+import { useLikedArtists, likeArtist, unlikeArtist } from "@/lib/swr";
+import { usePlayer } from "@/components/player-context";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { useState } from "react";
+import { toast } from "sonner";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 
 interface ArtistViewProps {
   artistId: string;
@@ -31,6 +36,47 @@ export function ArtistView({
 }: ArtistViewProps) {
   const { navigate } = useNavigation();
   const { artist, isLoading } = useArtist(artistId);
+  const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists();
+  const { setQueue, setIsShuffled } = usePlayer();
+  const [isLiking, setIsLiking] = useState(false);
+
+  const isLiked = likedArtistIds.has(artistId);
+
+  const handleShufflePlay = () => {
+    if (!artist || artist.songs.length === 0) return;
+
+    // Shuffle the songs
+    const shuffledSongs = [...artist.songs].sort(() => Math.random() - 0.5);
+
+    // Set the queue to shuffled songs
+    setQueue(shuffledSongs);
+
+    // Enable shuffle mode
+    setIsShuffled(true);
+
+    // Play the first shuffled song
+    onPlaySong(shuffledSongs[0]);
+  };
+
+  const handleLikeToggle = async () => {
+    if (isLiking) return;
+
+    setIsLiking(true);
+    try {
+      if (isLiked) {
+        await unlikeArtist(artistId);
+        toast.success("Removed from your liked artists");
+      } else {
+        await likeArtist(artistId);
+        toast.success("Added to your liked artists");
+      }
+      mutateLikedArtists();
+    } catch (error) {
+      console.error("Failed to toggle like:", error);
+    } finally {
+      setIsLiking(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -77,12 +123,8 @@ export function ArtistView({
           </Button>
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-          <div className="flex items-center gap-2 text-muted-foreground mb-2">
-            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
-              Verified Artist
-            </span>
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-3">
+          
+          <h1 className="text-4xl md:text-4xl font-bold text-foreground mb-2">
             {artist.name}
           </h1>
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -108,12 +150,25 @@ export function ArtistView({
           size="lg"
           variant="outline"
           className="rounded-full bg-transparent"
+          onClick={handleShufflePlay}
+          disabled={!artist || artist.songs.length === 0}
         >
           <Shuffle className="w-5 h-5 mr-2" />
           Shuffle
         </Button>
-        <Button size="icon" variant="ghost" className="rounded-full">
-          <Heart className="w-5 h-5" />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="rounded-full"
+          onClick={handleLikeToggle}
+          disabled={isLiking}
+        >
+          <Heart
+            className={cn(
+              "w-5 h-5",
+              isLiked && "fill-current text-red-500"
+            )}
+          />
         </Button>
         <Button size="icon" variant="ghost" className="rounded-full">
           <MoreHorizontal className="w-5 h-5" />
@@ -141,56 +196,63 @@ export function ArtistView({
         <div className="space-y-2">
           {artist.songs.length > 0 ? (
             artist.songs.map((song: Song, index: number) => (
-              <button
+              <div
                 key={song.id}
-                onClick={() => onPlaySong(song)}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
-                <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
-                  {index + 1}
-                </span>
-                <span className="w-6 hidden group-hover:flex items-center justify-center">
-                  {currentSong?.id === song.id && isPlaying ? (
-                    <Pause className="w-4 h-4 text-primary" />
-                  ) : (
-                    <Play className="w-4 h-4 text-primary" />
-                  )}
-                </span>
-                <Image
-                  width={48}
-                  height={48}
-                  src={
-                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                  }
-                  alt={song.title}
-                  className="w-12 h-12 rounded-md object-cover"
-                />
-                <div className="flex-1 text-left min-w-0">
-                  <p
-                    className={cn(
-                      "font-medium truncate",
-                      currentSong?.id === song.id && "text-primary"
-                    )}
-                  >
-                    {song.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {song.album}
-                  </p>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:
-                  {(song.duration % 60).toString().padStart(2, "0")}
-                </span>
-                {song.isPremium && (
-                  <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
-                    Premium
+                <button
+                  onClick={() => onPlaySong(song)}
+                  className="flex items-center gap-4 flex-1 min-w-0"
+                >
+                  <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
+                    {index + 1}
                   </span>
-                )}
-              </button>
+                  <span className="w-6 hidden group-hover:flex items-center justify-center">
+                    {currentSong?.id === song.id && isPlaying ? (
+                      <Pause className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Play className="w-4 h-4 text-primary" />
+                    )}
+                  </span>
+                  <Image
+                    width={48}
+                    height={48}
+                    src={
+                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                    }
+                    alt={song.title || song.album || "Song cover"}
+                    className="w-12 h-12 rounded-md object-cover"
+                  />
+                  <div className="flex-1 text-left min-w-0">
+                    <p
+                      className={cn(
+                        "font-medium truncate",
+                        currentSong?.id === song.id && "text-primary"
+                      )}
+                    >
+                      {song.title}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {song.album}
+                    </p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.floor(song.duration / 60)}:
+                    {(song.duration % 60).toString().padStart(2, "0")}
+                  </span>
+                  {song.isPremium && (
+                    <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                      Premium
+                    </span>
+                  )}
+                </button>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AddToPlaylistDialog songId={song.id} />
+                </div>
+              </div>
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground">

@@ -93,7 +93,7 @@ export function LandingPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-y-auto">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-linear-to-br from-primary/20 via-background to-background pt-20 pb-32">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.1),transparent_50%)]" />

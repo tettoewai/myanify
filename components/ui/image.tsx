@@ -2,7 +2,7 @@ import { getImageProxyUrl } from "@/lib/image-proxy";
 import { ImgHTMLAttributes } from "react";
 
 interface ImageProps extends ImgHTMLAttributes<HTMLImageElement> {
-  src: string | null | undefined;
+  src: string  | undefined;
   alt: string;
 }
 

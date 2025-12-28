@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { auth } from "@/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
 
     if (!session?.user) {
+      // If caller asked for debug output, return session info (safe for dev)
+      if (request.headers.get("x-debug") === "1") {
+        return NextResponse.json({ error: "Unauthorized", session }, { status: 401 });
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -21,14 +25,47 @@ export async function GET() {
         isPremium: true,
         createdAt: true,
         updatedAt: true,
+        passwordHash: true,
       },
     });
 
+    // If user doesn't exist, create it (for OAuth users that might have been deleted)
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.log("[api/user/profile] User not found, creating new user for session.user.id:", session.user.id);
+      const newUser = await prisma.user.create({
+        data: {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.name || null,
+          avatarUrl: null, // Will be updated if available
+          role: session.user.role || "LISTENER",
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          avatarUrl: true,
+          role: true,
+          isPremium: true,
+          createdAt: true,
+          updatedAt: true,
+          passwordHash: true,
+        },
+      });
+      // Return user data with hasPassword flag
+      const { passwordHash, ...userData } = newUser;
+      return NextResponse.json({
+        ...userData,
+        hasPassword: !!passwordHash,
+      });
     }
 
-    return NextResponse.json(user);
+    // Return user data with hasPassword flag
+    const { passwordHash, ...userData } = user;
+    return NextResponse.json({
+      ...userData,
+      hasPassword: !!passwordHash,
+    });
   } catch (error) {
     console.error("Error fetching user profile:", error);
     return NextResponse.json(

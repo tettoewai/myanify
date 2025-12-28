@@ -29,7 +29,8 @@ import {
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "./player-context";
-import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { likeSong, unlikeSong, useLikedSongs } from "@/lib/swr";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -118,7 +119,7 @@ export function PlayerBar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
-                    className="relative group cursor-pointer"
+                    className="relative group cursor-pointer w-full"
                     onClick={onOpenFullscreenLyrics}
                   >
                     <Image
@@ -176,6 +177,25 @@ export function PlayerBar({
                     ? "Remove from favorites"
                     : "Add to favorites"}
                 </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="shrink-0">
+                    <AddToPlaylistDialog
+                      songId={currentSong.id}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <ListMusic className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Add to playlist</TooltipContent>
               </Tooltip>
             </div>
 

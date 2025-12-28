@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { usePlaylists, useSongs, useLikedSongs, usePlayHistory } from "@/lib/swr";
+import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
+import { usePlaylists, useSongs, useLikedSongs, usePlayHistory, useLikedArtists } from "@/lib/swr";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 
 interface LibraryViewProps {
   onPlaySong: (song: Song) => void;
@@ -20,11 +22,17 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
   const [activeTab, setActiveTab] = useState("playlists");
 
   // Use SWR hooks for data fetching
-  const { playlists } = usePlaylists({ isPublic: true });
+  const { playlists } = usePlaylists({
+    userId: session?.user?.id,
+    isPublic: true
+  });
   const { songs } = useSongs({ isPublished: true });
   
   // Fetch liked songs from database
   const { songs: likedSongs } = useLikedSongs({ enabled: !!session?.user?.id });
+  
+  // Fetch liked artists from database
+  const { artists: likedArtists } = useLikedArtists({ enabled: !!session?.user?.id });
   
   // Fetch recent play history from database
   const { songs: recentSongsRaw } = usePlayHistory({ limit: 50, enabled: !!session?.user?.id });
@@ -45,10 +53,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">
           Your Library
         </h1>
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Playlist
-        </Button>
+        <CreatePlaylistDialog />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -68,6 +73,13 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
             Liked Songs
           </TabsTrigger>
           <TabsTrigger
+            value="artists"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Heart className="w-4 h-4 mr-2" />
+            Liked Artists
+          </TabsTrigger>
+          <TabsTrigger
             value="recent"
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
@@ -79,10 +91,14 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
         <TabsContent value="playlists" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {/* Create Playlist Card */}
-            <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground cursor-pointer">
-              <Plus className="w-12 h-12" />
-              <span className="font-medium">Create Playlist</span>
-            </button>
+            <CreatePlaylistDialog
+              trigger={
+                <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground cursor-pointer">
+                  <Plus className="w-12 h-12" />
+                  <span className="font-medium">Create Playlist</span>
+                </button>
+              }
+            />
 
             {playlists.map((playlist) => (
               <button
@@ -124,35 +140,81 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
           {/* Liked Songs List */}
           <div className="space-y-2">
             {likedSongs.map((song, index) => (
-              <button
+              <div
                 key={song.id}
-                onClick={() => onPlaySong(song)}
                 className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
               >
-                <span className="w-6 text-center text-sm text-muted-foreground">
-                  {index + 1}
-                </span>
-                <Image
-                  src={
-                    song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                  }
-                  alt={song.title}
-                  width={48}
-                  height={48}
-                  className="w-12 h-12 rounded-md object-cover"
-                  unoptimized
-                />
-                <div className="flex-1 text-left min-w-0">
-                  <p className="font-medium truncate">{song.title}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {song.artist}
-                  </p>
+                <button
+                  onClick={() => onPlaySong(song)}
+                  className="flex items-center gap-4 flex-1 min-w-0"
+                >
+                  <span className="w-6 text-center text-sm text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <Image
+                    src={
+                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
+                    }
+                    alt={song.title}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 rounded-md object-cover"
+                    unoptimized
+                  />
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="font-medium truncate">{song.title}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {song.artist}
+                    </p>
+                  </div>
+                  <Heart className="w-4 h-4 text-primary fill-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    {Math.floor(song.duration / 60)}:
+                    {(song.duration % 60).toString().padStart(2, "0")}
+                  </span>
+                </button>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AddToPlaylistDialog songId={song.id} />
                 </div>
-                <Heart className="w-4 h-4 text-primary fill-primary" />
-                <span className="text-sm text-muted-foreground">
-                  {Math.floor(song.duration / 60)}:
-                  {(song.duration % 60).toString().padStart(2, "0")}
-                </span>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="artists" className="mt-6">
+          {/* Liked Artists Header */}
+          <div className="flex items-center gap-6 p-6 rounded-xl bg-gradient-to-br from-primary/30 to-card mb-6">
+            <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-xl">
+              <Heart className="w-16 h-16 text-white fill-white" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Collection</p>
+              <h2 className="text-3xl font-bold mb-2">Liked Artists</h2>
+              <p className="text-muted-foreground">{likedArtists.length} artists</p>
+            </div>
+          </div>
+
+          {/* Liked Artists Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {likedArtists.map((artist) => (
+              <button
+                key={artist.id}
+                onClick={() => navigate("artist", artist.id)}
+                className="group text-left cursor-pointer"
+              >
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
+                  <Image
+                    src={artist.imageUrl || "/placeholder.svg"}
+                    alt={artist.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
+                  />
+                </div>
+                <h3 className="font-semibold truncate">{artist.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {artist.monthlyListeners?.toLocaleString()} monthly listeners
+                </p>
               </button>
             ))}
           </div>

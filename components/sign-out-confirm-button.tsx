@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useState } from "react";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
@@ -17,6 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// Create a client-only version to avoid hydration mismatches
+const SignOutConfirmButtonContent = dynamic(() => Promise.resolve(SignOutConfirmButtonComponent), {
+  ssr: false,
+});
+
 interface SignOutConfirmButtonProps
   extends Omit<React.ComponentProps<typeof Button>, "onClick" | "children"> {
   callbackUrl?: string;
@@ -24,7 +30,7 @@ interface SignOutConfirmButtonProps
   fullWidth?: boolean;
 }
 
-export function SignOutConfirmButton({
+function SignOutConfirmButtonComponent({
   callbackUrl = "/login",
   label = "Sign Out",
   fullWidth = false,
@@ -65,4 +71,9 @@ export function SignOutConfirmButton({
       </DialogContent>
     </Dialog>
   );
+}
+
+// Export the client-only version to avoid hydration mismatches
+export function SignOutConfirmButton(props: SignOutConfirmButtonProps) {
+  return <SignOutConfirmButtonContent {...props} />;
 }
