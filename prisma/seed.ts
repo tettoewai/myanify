@@ -10,6 +10,7 @@ async function resetDatabase() {
   // Delete child records first
   await prisma.playlistSong.deleteMany();
   await prisma.likedSong.deleteMany();
+  await prisma.likedArtist.deleteMany();
   await prisma.playHistory.deleteMany();
   await prisma.lyricLine.deleteMany();
   await prisma.artistGenre.deleteMany();

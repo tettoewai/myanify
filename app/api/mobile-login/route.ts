@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { credentialsProvider } from "@/lib/auth-providers";
+import { authorizeCredentials } from "@/lib/auth-providers";
 import jwt from "jsonwebtoken";
 
 export async function POST(request: Request) {
@@ -14,8 +14,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Authenticate using the credentials provider logic
-    const user = await credentialsProvider.authorize(body, request);
+    // Authenticate using the shared logic
+    const user = await authorizeCredentials(body);
 
     if (!user) {
       return NextResponse.json(
