@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     // Check if user is admin - admins can see all ads
-    const session = await auth();
+    const session = await getSession();
     const isAdmin = session?.user?.role === "ADMIN";
 
     // Execute count and data queries in parallel for better performance
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -89,9 +89,6 @@ export async function POST(request: Request) {
     return NextResponse.json(ad, { status: 201 });
   } catch (error) {
     console.error("Error creating ad:", error);
-    return NextResponse.json(
-      { error: "Failed to create ad" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create ad" }, { status: 500 });
   }
 }

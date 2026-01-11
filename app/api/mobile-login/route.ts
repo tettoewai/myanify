@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { authorizeCredentials } from "@/lib/auth-providers";
 import jwt from "jsonwebtoken";
 
+export async function OPTIONS() {
+  return NextResponse.json({}, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -10,7 +20,10 @@ export async function POST(request: Request) {
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
       );
     }
 
@@ -20,7 +33,10 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json(
         { error: "Invalid credentials" },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: { "Access-Control-Allow-Origin": "*" }
+        }
       );
     }
 
@@ -31,12 +47,18 @@ export async function POST(request: Request) {
       { expiresIn: "7d" } // Token expires in 7 days
     );
 
-    return NextResponse.json({ token });
+    return NextResponse.json(
+      { token },
+      { headers: { "Access-Control-Allow-Origin": "*" } }
+    );
   } catch (error) {
     console.error("Mobile login error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { "Access-Control-Allow-Origin": "*" }
+      }
     );
   }
 }

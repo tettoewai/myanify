@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 import { updateMonthlyListenersForPlay } from "@/lib/monthly-listeners";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,12 +40,21 @@ export async function GET(request: Request) {
       skip,
     });
 
-    // Transform to return songs with play history metadata
-    const songs = playHistory.map((entry) => ({
-      ...entry.song,
-      playedAt: entry.playedAt,
-      duration: entry.duration,
-    }));
+    // Transform to return songs with play history metadata and artist names
+    const songs = playHistory.map((entry) => {
+      const song = entry.song;
+      const artistNames = song.artists
+        ?.map((sa: any) => sa.artist?.name)
+        .filter(Boolean)
+        .join(", ") || "Unknown Artist";
+
+      return {
+        ...song,
+        artist: artistNames,
+        playedAt: entry.playedAt,
+        duration: entry.duration,
+      };
+    });
 
     return NextResponse.json({ data: songs });
   } catch (error) {
@@ -59,7 +68,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 
 // GET - Fetch user's liked songs
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,6 +25,11 @@ export async function GET() {
             },
             album: true,
             genre: true,
+            lyrics: {
+              orderBy: {
+                order: "asc",
+              },
+            },
           },
         },
       },
@@ -33,11 +38,21 @@ export async function GET() {
       },
     });
 
-    // Transform to return songs with liked metadata
-    const songs = likedSongs.map((entry) => ({
-      ...entry.song,
-      likedAt: entry.likedAt,
-    }));
+    // Transform to return songs with liked metadata and artist names
+    const songs = likedSongs.map((entry) => {
+      const song = entry.song;
+      const artistNames =
+        song.artists
+          ?.map((sa: any) => sa.artist?.name)
+          .filter(Boolean)
+          .join(", ") || "Unknown Artist";
+
+      return {
+        ...song,
+        artist: artistNames,
+        likedAt: entry.likedAt,
+      };
+    });
 
     return NextResponse.json({ data: songs });
   } catch (error) {
@@ -52,7 +67,7 @@ export async function GET() {
 // POST - Like a song
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -110,12 +125,28 @@ export async function POST(request: Request) {
             },
             album: true,
             genre: true,
+            lyrics: {
+              orderBy: {
+                order: "asc",
+              },
+            },
           },
         },
       },
     });
 
-    return NextResponse.json(likedSong, { status: 201 });
+    // Transform to return song with liked metadata and artist names
+    const songWithMetadata = {
+      ...likedSong.song,
+      artist:
+        likedSong.song.artists
+          ?.map((sa: any) => sa.artist?.name)
+          .filter(Boolean)
+          .join(", ") || "Unknown Artist",
+      likedAt: likedSong.likedAt,
+    };
+
+    return NextResponse.json(songWithMetadata, { status: 201 });
   } catch (error) {
     console.error("Error liking song:", error);
     return NextResponse.json({ error: "Failed to like song" }, { status: 500 });
@@ -125,7 +156,7 @@ export async function POST(request: Request) {
 // DELETE - Unlike a song
 export async function DELETE(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

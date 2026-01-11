@@ -1,23 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { useSession } from "next-auth/react";
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  Repeat,
-  Shuffle,
-  Heart,
-  ListMusic,
-  Mic2,
-  Maximize2,
-  Loader2,
-} from "lucide-react";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -26,11 +9,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { likeSong, unlikeSong, useLikedSongs } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  Heart,
+  ListMusic,
+  Loader2,
+  Maximize2,
+  Mic2,
+  Pause,
+  Play,
+  Repeat,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import { useState } from "react";
 import { usePlayer } from "./player-context";
-import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
-import { likeSong, unlikeSong, useLikedSongs } from "@/lib/swr";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -60,9 +60,16 @@ export function PlayerBar({
   onOpenFullscreenLyrics,
 }: PlayerBarProps) {
   const { data: session } = useSession();
-  const { volume, isMuted, setVolume, setIsMuted } = usePlayer();
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  const {
+    volume,
+    isMuted,
+    setVolume,
+    setIsMuted,
+    isShuffled,
+    setIsShuffled,
+    repeatMode,
+    setRepeatMode,
+  } = usePlayer();
   const [isLikeLoading, setIsLikeLoading] = useState(false);
 
   // Fetch liked songs from database

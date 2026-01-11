@@ -1,33 +1,11 @@
-import type React from "react";
 import type { Metadata, Viewport } from "next";
+import type React from "react";
 
-import { Analytics } from "@vercel/analytics/next";
 import { Providers } from "@/components/providers";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { WebsiteStructuredData } from "@/components/structured-data";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
-
-import {
-  Geist,
-  Geist_Mono,
-  Geist as V0_Font_Geist,
-  Geist_Mono as V0_Font_Geist_Mono,
-  Source_Serif_4 as V0_Font_Source_Serif_4,
-} from "next/font/google";
-
-// Initialize fonts
-const _geist = V0_Font_Geist({
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
-const _geistMono = V0_Font_Geist_Mono({
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
-const _sourceSerif_4 = V0_Font_Source_Serif_4({
-  subsets: ["latin"],
-  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
-});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
 

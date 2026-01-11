@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 import {
   uploadImageToCloudinary,
   uploadAudioToCloudinary,
@@ -12,7 +12,7 @@ export const maxDuration = 300; // 5 minutes for large file uploads
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 import bcrypt from "bcryptjs";
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -12,7 +12,9 @@ import {
   Loader2,
   Pause,
   Play,
+  Repeat,
   Share2,
+  Shuffle,
   SkipBack,
   SkipForward,
 } from "lucide-react";
@@ -63,7 +65,8 @@ export function FullscreenLyrics({
   onTimeChange,
 }: FullscreenLyricsProps) {
   const { data: session } = useSession();
-  const { audioRef } = usePlayer();
+  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode } =
+    usePlayer();
   const activeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRaf = useRef<number | null>(null);
@@ -507,33 +510,66 @@ export function FullscreenLyrics({
           </div>
 
           {/* Playback controls */}
-          <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center gap-4 md:gap-8">
             <Button
               variant="ghost"
               size="icon"
-              onClick={onPrev}
-              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
-            >
-              <SkipBack className="w-6 h-6" />
-            </Button>
-            <Button
-              size="icon"
-              onClick={onTogglePlay}
-              className="w-16 h-16 rounded-full bg-white hover:bg-white/90 text-stone-900 shadow-xl shadow-white/20"
-            >
-              {isPlaying ? (
-                <Pause className="w-7 h-7" />
-              ) : (
-                <Play className="w-7 h-7 ml-1" />
+              onClick={() => setIsShuffled(!isShuffled)}
+              className={cn(
+                "text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+                isShuffled && "text-amber-400"
               )}
+            >
+              <Shuffle className="w-5 h-5" />
             </Button>
+
+            <div className="flex items-center gap-4 md:gap-6">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onPrev}
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
+              >
+                <SkipBack className="w-6 h-6" />
+              </Button>
+              <Button
+                size="icon"
+                onClick={onTogglePlay}
+                className="w-16 h-16 rounded-full bg-white hover:bg-white/90 text-stone-900 shadow-xl shadow-white/20"
+              >
+                {isPlaying ? (
+                  <Pause className="w-7 h-7" />
+                ) : (
+                  <Play className="w-7 h-7 ml-1" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNext}
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
+              >
+                <SkipForward className="w-6 h-6" />
+              </Button>
+            </div>
+
             <Button
               variant="ghost"
               size="icon"
-              onClick={onNext}
-              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
+              onClick={() => {
+                if (repeatMode === "off") setRepeatMode("all");
+                else if (repeatMode === "all") setRepeatMode("one");
+                else setRepeatMode("off");
+              }}
+              className={cn(
+                "relative text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+                repeatMode !== "off" && "text-amber-400"
+              )}
             >
-              <SkipForward className="w-6 h-6" />
+              <Repeat className="w-5 h-5" />
+              {repeatMode === "one" && (
+                <span className="absolute text-[8px] font-bold">1</span>
+              )}
             </Button>
           </div>
         </div>

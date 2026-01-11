@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
@@ -11,6 +12,7 @@ import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
   const {
     currentSong,
     isPlaying,
@@ -75,6 +77,8 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     setShowFullscreenLyrics(false);
   };
 
+  const showPlayer = currentSong && status === "authenticated";
+
   return (
     <div className="h-screen flex bg-background overflow-hidden">
       <Sidebar isPremium={isPremium} />
@@ -82,7 +86,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <MobileNav />
-      {currentSong && (
+      {showPlayer && (
         <>
           <PlayerBar
             currentSong={currentSong}

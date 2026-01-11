@@ -1,28 +1,34 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const [totalSongs, publishedSongs, totalArtists, totalGenres, totalPlays, totalLikes] =
-      await Promise.all([
-        prisma.song.count(),
-        prisma.song.count({ where: { isPublished: true } }),
-        prisma.artist.count(),
-        prisma.genre.count(),
-        prisma.song.aggregate({
-          _sum: {
-            playCount: true,
-          },
-        }),
-        prisma.likedSong.count(),
-      ]);
+    const [
+      totalSongs,
+      publishedSongs,
+      totalArtists,
+      totalGenres,
+      totalPlays,
+      totalLikes,
+    ] = await Promise.all([
+      prisma.song.count(),
+      prisma.song.count({ where: { isPublished: true } }),
+      prisma.artist.count(),
+      prisma.genre.count(),
+      prisma.song.aggregate({
+        _sum: {
+          playCount: true,
+        },
+      }),
+      prisma.likedSong.count(),
+    ]);
 
     return NextResponse.json({
       totalSongs,

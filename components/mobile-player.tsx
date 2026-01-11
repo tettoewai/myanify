@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { usePlayer } from "./player-context";
 import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface MobilePlayerProps {
@@ -44,20 +45,21 @@ export function MobilePlayer({
   onClose,
 }: MobilePlayerProps) {
   const { data: session } = useSession();
+  const { isShuffled, setIsShuffled, repeatMode, setRepeatMode } = usePlayer();
   const [showLyrics, setShowLyrics] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeRef = useRef(currentTime);
-  
+
   // Fetch liked songs from database
-  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({ 
-    enabled: !!session?.user?.id 
+  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+    enabled: !!session?.user?.id,
   });
-  
+
   const isLiked = likedSongIds.has(currentSong.id);
-  
+
   const handleToggleLike = async () => {
     if (!session?.user?.id) return;
-    
+
     if (isLiked) {
       await unlikeSong(currentSong.id);
     } else {
@@ -168,7 +170,12 @@ export function MobilePlayer({
 
         {/* Main Controls */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(isShuffled && "text-primary")}
+            onClick={() => setIsShuffled(!isShuffled)}
+          >
             <Shuffle className="w-5 h-5" />
           </Button>
           <Button variant="ghost" size="icon" onClick={onPrev}>
@@ -188,8 +195,20 @@ export function MobilePlayer({
           <Button variant="ghost" size="icon" onClick={onNext}>
             <SkipForward className="w-8 h-8" />
           </Button>
-          <Button variant="ghost" size="icon">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("relative", repeatMode !== "off" && "text-primary")}
+            onClick={() => {
+              if (repeatMode === "off") setRepeatMode("all");
+              else if (repeatMode === "all") setRepeatMode("one");
+              else setRepeatMode("off");
+            }}
+          >
             <Repeat className="w-5 h-5" />
+            {repeatMode === "one" && (
+              <span className="absolute text-[8px] font-bold">1</span>
+            )}
           </Button>
         </div>
 

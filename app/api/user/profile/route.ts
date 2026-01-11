@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       // If caller asked for debug output, return session info (safe for dev)
       if (request.headers.get("x-debug") === "1") {
-        return NextResponse.json({ error: "Unauthorized", session }, { status: 401 });
+        return NextResponse.json(
+          { error: "Unauthorized", session },
+          { status: 401 }
+        );
       }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -31,7 +34,10 @@ export async function GET(request: Request) {
 
     // If user doesn't exist, create it (for OAuth users that might have been deleted)
     if (!user) {
-      console.log("[api/user/profile] User not found, creating new user for session.user.id:", session.user.id);
+      console.log(
+        "[api/user/profile] User not found, creating new user for session.user.id:",
+        session.user.id
+      );
       const newUser = await prisma.user.create({
         data: {
           id: session.user.id,
@@ -77,7 +83,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

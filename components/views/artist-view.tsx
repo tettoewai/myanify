@@ -39,6 +39,7 @@ export function ArtistView({
   const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists();
   const { setQueue, setIsShuffled } = usePlayer();
   const [isLiking, setIsLiking] = useState(false);
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
 
   const isLiked = likedArtistIds.has(artistId);
 
@@ -123,7 +124,6 @@ export function ArtistView({
           </Button>
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-          
           <h1 className="text-4xl md:text-4xl font-bold text-foreground mb-2">
             {artist.name}
           </h1>
@@ -133,6 +133,38 @@ export function ArtistView({
               {formatListeners(artist.monthlyListeners)} monthly listeners
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Bio */}
+      <div className="px-6 md:px-8 mb-6">
+        <div className="relative">
+          <p
+            className={cn(
+              "text-muted-foreground transition-all duration-300",
+              !isBioExpanded && "line-clamp-2"
+            )}
+          >
+            {artist.bio}
+          </p>
+          {artist.bio && artist.bio.length > 150 && (
+            <button
+              onClick={() => setIsBioExpanded(!isBioExpanded)}
+              className="text-primary hover:underline text-sm font-medium mt-1"
+            >
+              {isBioExpanded ? "See less" : "See more"}
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2 mt-3">
+          {artist.genres.map((genre) => (
+            <span
+              key={genre}
+              className="px-3 py-1 rounded-full bg-card text-sm"
+            >
+              {genre}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -164,30 +196,12 @@ export function ArtistView({
           disabled={isLiking}
         >
           <Heart
-            className={cn(
-              "w-5 h-5",
-              isLiked && "fill-current text-red-500"
-            )}
+            className={cn("w-5 h-5", isLiked && "fill-current text-red-500")}
           />
         </Button>
         <Button size="icon" variant="ghost" className="rounded-full">
           <MoreHorizontal className="w-5 h-5" />
         </Button>
-      </div>
-
-      {/* Bio */}
-      <div className="px-6 md:px-8 mb-6">
-        <p className="text-muted-foreground">{artist.bio}</p>
-        <div className="flex gap-2 mt-3">
-          {artist.genres.map((genre) => (
-            <span
-              key={genre}
-              className="px-3 py-1 rounded-full bg-card text-sm"
-            >
-              {genre}
-            </span>
-          ))}
-        </div>
       </div>
 
       {/* Popular Songs */}

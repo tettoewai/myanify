@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
-import { auth } from "@/auth";
+import { getSession } from "@/lib/auth-utils";
 
 // GET - Fetch user's liked artists
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -42,7 +42,7 @@ export async function GET() {
       likedAt: entry.likedAt,
     }));
 
-    return NextResponse.json({ data: artists });
+    return NextResponse.json({ data: artists, user: session.user });
   } catch (error) {
     console.error("Error fetching liked artists:", error);
     return NextResponse.json(
@@ -55,7 +55,7 @@ export async function GET() {
 // POST - Like an artist
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -121,17 +121,23 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(likedArtist, { status: 201 });
+    return NextResponse.json(
+      { likedArtist, user: session.user },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error liking artist:", error);
-    return NextResponse.json({ error: "Failed to like artist" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to like artist" },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE - Unlike an artist
 export async function DELETE(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
