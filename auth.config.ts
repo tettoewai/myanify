@@ -14,6 +14,7 @@ export const authConfig = {
       const isOnLanding = nextUrl.pathname.startsWith("/landing");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
+      const isOnAuthCallback = nextUrl.pathname.startsWith("/auth/callback");
       const isOnListener = nextUrl.pathname.startsWith("/artist") || 
                            nextUrl.pathname.startsWith("/genre") || 
                            nextUrl.pathname.startsWith("/library") || 
@@ -24,6 +25,11 @@ export const authConfig = {
 
       // Allow landing page (public)
       if (isOnLanding) {
+        return true;
+      }
+
+      // Allow auth callback page (for OAuth redirects)
+      if (isOnAuthCallback) {
         return true;
       }
 
@@ -45,8 +51,11 @@ export const authConfig = {
         if (!isLoggedIn) {
           return Response.redirect(new URL("/landing", nextUrl));
         }
-        // Allow authenticated users (both ADMIN and LISTENER)
-        // ADMIN users will be redirected to /admin by middleware
+        // Redirect ADMIN users to admin dashboard
+        if (auth.user?.role === UserRole.ADMIN) {
+          return Response.redirect(new URL("/admin", nextUrl));
+        }
+        // Allow LISTENER users to access root
         return true;
       }
 

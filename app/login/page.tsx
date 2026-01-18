@@ -1,20 +1,30 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UserRole } from "@prisma/client";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const { update } = useSession();
+  const callbackUrl = searchParams.get("callbackUrl");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper function to get redirect URL based on user role
+  const getRedirectUrl = (role: UserRole) => {
+    if (callbackUrl) {
+      return callbackUrl;
+    }
+    return role === UserRole.ADMIN ? "/admin" : "/";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +42,22 @@ function LoginForm() {
         setError("Invalid email or password");
         setIsLoading(false);
       } else {
-        // Redirect based on user role or callback URL
-        router.push(callbackUrl);
-        router.refresh();
+        // Update session to get the latest user data including role
+        await update();
+
+        // Fetch session to get user role
+        const response = await fetch("/api/auth/session");
+        const sessionData = await response.json();
+
+        if (sessionData?.user?.role) {
+          const redirectUrl = getRedirectUrl(sessionData.user.role);
+          router.push(redirectUrl);
+          router.refresh();
+        } else {
+          // Fallback to callback URL or default
+          router.push(callbackUrl || "/");
+          router.refresh();
+        }
       }
     } catch (error) {
       setError("An error occurred. Please try again.");
@@ -44,7 +67,12 @@ function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signIn("google", { callbackUrl });
+      // For Google sign-in, redirect to a page that will check role and redirect accordingly
+      // The auth.config will handle the redirect after OAuth callback
+      await signIn("google", {
+        callbackUrl: "/auth/callback",
+        redirect: true
+      });
     } catch (error) {
       setError("An error occurred with Google sign-in. Please try again.");
     }

@@ -4,17 +4,20 @@ import { getSession } from "@/lib/auth-utils";
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-    const isPublic = searchParams.get("isPublic");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
-    // Execute count and data queries in parallel for better performance
+    // Force filtering by the authenticated user's ID
     const whereClause = {
-      ...(userId && { createdById: userId }),
-      ...(isPublic !== null && { isPublic: isPublic === "true" }),
+      createdById: session.user.id,
     };
 
     const [total, playlists] = await Promise.all([
