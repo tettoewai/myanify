@@ -26,8 +26,8 @@ export async function GET() {
             album: true,
             genre: true,
             lyrics: {
-              orderBy: {
-                order: "asc",
+              where: {
+                language: "my",
               },
             },
           },
@@ -47,8 +47,12 @@ export async function GET() {
           .filter(Boolean)
           .join(", ") || "Unknown Artist";
 
+      const lyricsRow = (song as any).lyrics?.[0];
+      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+
       return {
         ...song,
+        lyrics: lines,
         artist: artistNames,
         likedAt: entry.likedAt,
       };
@@ -126,8 +130,8 @@ export async function POST(request: Request) {
             album: true,
             genre: true,
             lyrics: {
-              orderBy: {
-                order: "asc",
+              where: {
+                language: "my",
               },
             },
           },
@@ -136,8 +140,11 @@ export async function POST(request: Request) {
     });
 
     // Transform to return song with liked metadata and artist names
+    const lyricsRow = (likedSong.song as any).lyrics?.[0];
+    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
     const songWithMetadata = {
       ...likedSong.song,
+      lyrics: lines,
       artist:
         likedSong.song.artists
           ?.map((sa: any) => sa.artist?.name)

@@ -11,6 +11,7 @@ import {
   Music2,
   Plus,
   Settings,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -150,8 +151,8 @@ export function Sidebar({ isPremium }: SidebarProps) {
         </ScrollArea>
       </div>
 
-      {/* Settings Link */}
-      <div className="p-4 border-t border-border">
+      {/* Settings and Admin Switch */}
+      <div className="p-4 border-t border-border space-y-2">
         <Link
           href="/settings"
           className={cn(
@@ -164,6 +165,20 @@ export function Sidebar({ isPremium }: SidebarProps) {
           <Settings className="w-5 h-5" />
           Settings
         </Link>
+        {session?.user?.role === "ADMIN" && (
+          <Link
+            href="/admin"
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+              pathname.startsWith("/admin")
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            Admin dashboard
+          </Link>
+        )}
       </div>
     </aside>
   );

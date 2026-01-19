@@ -42,12 +42,12 @@ export async function POST(
     }
 
     // Check if song exists
-    const song = await prisma.song.findUnique({
+    const existingSong = await prisma.song.findUnique({
       where: { id: songId },
       select: { id: true },
     });
 
-    if (!song) {
+    if (!existingSong) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
@@ -95,14 +95,27 @@ export async function POST(
             album: true,
             genre: true,
             lyrics: {
-              orderBy: { time: "asc" },
+              where: {
+                language: "my",
+              },
             },
           },
         },
       },
     });
 
-    return NextResponse.json(playlistSong, { status: 201 });
+    const song = playlistSong.song as any;
+    const lyricsRow = song?.lyrics?.[0];
+    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+    const responsePlaylistSong = {
+      ...playlistSong,
+      song: {
+        ...song,
+        lyrics: lines,
+      },
+    };
+
+    return NextResponse.json(responsePlaylistSong, { status: 201 });
   } catch (error) {
     console.error("Error adding song to playlist:", error);
     return NextResponse.json(

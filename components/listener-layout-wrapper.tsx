@@ -12,7 +12,7 @@ import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const {
     currentSong,
     isPlaying,
@@ -26,6 +26,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     showFullscreenLyrics,
     setShowFullscreenLyrics,
     isPremium,
+    getRecentlyPlayed,
   } = usePlayer();
   const [showMobilePlayer, setShowMobilePlayer] = useState(false);
   const hasPushedHistoryState = useRef(false);
@@ -72,12 +73,13 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     setShowFullscreenLyrics(true);
   };
 
-  // Handle closing fullscreen lyrics
   const handleCloseFullscreenLyrics = () => {
     setShowFullscreenLyrics(false);
   };
 
-  const showPlayer = currentSong && status === "authenticated";
+  const recentlyPlayed = getRecentlyPlayed();
+  const showPlayer =
+    currentSong && status === "authenticated" && recentlyPlayed.length > 0;
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">

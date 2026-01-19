@@ -137,7 +137,6 @@ CREATE TABLE "LikedSong" (
     CONSTRAINT "LikedSong_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "PlayHistory" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -280,7 +279,6 @@ CREATE INDEX "LikedSong_songId_idx" ON "LikedSong"("songId");
 -- CreateIndex
 CREATE UNIQUE INDEX "LikedSong_userId_songId_key" ON "LikedSong"("userId", "songId");
 
--- CreateIndex
 CREATE INDEX "PlayHistory_userId_idx" ON "PlayHistory"("userId");
 
 -- CreateIndex
@@ -352,7 +350,6 @@ ALTER TABLE "LikedSong" ADD CONSTRAINT "LikedSong_userId_fkey" FOREIGN KEY ("use
 -- AddForeignKey
 ALTER TABLE "LikedSong" ADD CONSTRAINT "LikedSong_songId_fkey" FOREIGN KEY ("songId") REFERENCES "Song"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "PlayHistory" ADD CONSTRAINT "PlayHistory_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey

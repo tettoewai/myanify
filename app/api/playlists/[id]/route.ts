@@ -36,7 +36,9 @@ export async function GET(
                 album: true,
                 genre: true,
                 lyrics: {
-                  orderBy: { time: "asc" },
+                  where: {
+                    language: "my",
+                  },
                 },
               },
             },
@@ -58,7 +60,25 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json(playlist);
+    const transformedSongs = playlist.songs.map((playlistSong: any) => {
+      const song = playlistSong.song;
+      const lyricsRow = song?.lyrics?.[0];
+      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+      return {
+        ...playlistSong,
+        song: {
+          ...song,
+          lyrics: lines,
+        },
+      };
+    });
+
+    const responsePlaylist = {
+      ...playlist,
+      songs: transformedSongs,
+    };
+
+    return NextResponse.json(responsePlaylist);
   } catch (error) {
     console.error("Error fetching playlist:", error);
     return NextResponse.json(
@@ -128,7 +148,9 @@ export async function PUT(
                 album: true,
                 genre: true,
                 lyrics: {
-                  orderBy: { time: "asc" },
+                  where: {
+                    language: "my",
+                  },
                 },
               },
             },
@@ -138,7 +160,25 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(playlist);
+    const transformedSongs = playlist.songs.map((playlistSong: any) => {
+      const song = playlistSong.song;
+      const lyricsRow = song?.lyrics?.[0];
+      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+      return {
+        ...playlistSong,
+        song: {
+          ...song,
+          lyrics: lines,
+        },
+      };
+    });
+
+    const responsePlaylist = {
+      ...playlist,
+      songs: transformedSongs,
+    };
+
+    return NextResponse.json(responsePlaylist);
   } catch (error) {
     console.error("Error updating playlist:", error);
     return NextResponse.json(

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Music,
   Users,
+  User,
   Tag,
   Megaphone,
   Settings,
@@ -21,6 +22,7 @@ const navItems = [
   { path: "/admin/albums", label: "Albums", icon: Disc },
   { path: "/admin/genres", label: "Genres", icon: Tag },
   { path: "/admin/ads", label: "Ads", icon: Megaphone },
+  { path: "/admin/users", label: "Users", icon: User },
   { path: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

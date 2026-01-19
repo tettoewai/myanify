@@ -23,7 +23,7 @@ function LoginForm() {
     if (callbackUrl) {
       return callbackUrl;
     }
-    return role === UserRole.ADMIN ? "/admin" : "/";
+    return "/";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

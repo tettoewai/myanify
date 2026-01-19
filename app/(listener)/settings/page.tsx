@@ -51,7 +51,6 @@ export default function SettingsPage() {
     }
   );
 
-  console.log("Profile data:", profile);
 
   // Update form fields when profile data loads
   React.useEffect(() => {

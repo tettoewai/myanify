@@ -33,7 +33,9 @@ export async function GET(
                   },
                 },
                 lyrics: {
-                  orderBy: { time: "asc" },
+                  where: {
+                    language: "my",
+                  },
                 },
               },
             },
@@ -46,7 +48,25 @@ export async function GET(
       return NextResponse.json({ error: "Artist not found" }, { status: 404 });
     }
 
-    return NextResponse.json(artist);
+    const transformedSongs = (artist as any).songs?.map((songArtist: any) => {
+      const song = songArtist.song;
+      const lyricsRow = song?.lyrics?.[0];
+      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+      return {
+        ...songArtist,
+        song: {
+          ...song,
+          lyrics: lines,
+        },
+      };
+    });
+
+    const responseArtist = {
+      ...artist,
+      songs: transformedSongs,
+    };
+
+    return NextResponse.json(responseArtist);
   } catch (error) {
     console.error("Error fetching artist:", error);
     return NextResponse.json(

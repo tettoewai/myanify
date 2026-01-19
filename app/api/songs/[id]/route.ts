@@ -19,7 +19,9 @@ export async function GET(
         album: true,
         genre: true,
         lyrics: {
-          orderBy: { time: "asc" },
+          where: {
+            language: "my",
+          },
         },
       },
     });
@@ -28,7 +30,14 @@ export async function GET(
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
-    return NextResponse.json(song);
+    const lyricsRow = (song as any).lyrics?.[0];
+    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+    const responseSong = {
+      ...song,
+      lyrics: lines,
+    };
+
+    return NextResponse.json(responseSong);
   } catch (error) {
     console.error("Error fetching song:", error);
     return NextResponse.json(
@@ -53,23 +62,18 @@ export async function PATCH(
     const body = await request.json();
     const { isPublished, lyrics, artistIds, ...updateData } = body;
 
-    // Handle lyrics update if provided
     if (lyrics !== undefined) {
-      // Delete existing lyrics
-      await prisma.lyricLine.deleteMany({
-        where: { songId: id },
+      await prisma.lyrics.deleteMany({
+        where: { songId: id, language: "my" },
       });
 
-      // Create new lyrics if provided
       if (Array.isArray(lyrics) && lyrics.length > 0) {
-        await prisma.lyricLine.createMany({
-          data: lyrics.map((lyric: any) => ({
+        await prisma.lyrics.create({
+          data: {
             songId: id,
-            time: lyric.time,
-            text: lyric.text,
-            translation: null,
-            order: lyric.order,
-          })),
+            language: "my",
+            lines: lyrics,
+          },
         });
       }
     }
@@ -81,12 +85,10 @@ export async function PATCH(
     };
 
     if (artistIds !== undefined && Array.isArray(artistIds)) {
-      // Delete existing artist relationships
       await prisma.songArtist.deleteMany({
         where: { songId: id },
       });
 
-      // Create new artist relationships
       if (artistIds.length > 0) {
         updateSongData.artists = {
           create: artistIds.map((artistId: string) => ({
@@ -108,12 +110,21 @@ export async function PATCH(
         album: true,
         genre: true,
         lyrics: {
-          orderBy: { time: "asc" },
+          where: {
+            language: "my",
+          },
         },
       },
     });
 
-    return NextResponse.json(song);
+    const lyricsRow = (song as any).lyrics?.[0];
+    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+    const responseSong = {
+      ...song,
+      lyrics: lines,
+    };
+
+    return NextResponse.json(responseSong);
   } catch (error) {
     console.error("Error updating song:", error);
     return NextResponse.json(

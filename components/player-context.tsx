@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { Song } from "@/lib/types";
 import { useSongs, usePlayHistory } from "@/lib/swr";
@@ -66,7 +67,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const nextSongRef = useRef<() => void>(() => {});
+  const nextSongRef = useRef<() => void>(() => { });
   const isPlayingRef = useRef(false);
   const restorePositionRef = useRef<number | null>(null);
   const positionSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -81,6 +82,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       limit: MAX_RECENTLY_PLAYED,
       enabled: !!session?.user?.id,
     });
+
+  const { data: profile } = useSWR(
+    session?.user ? "/api/user/profile" : null,
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch profile");
+      }
+      return response.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  useEffect(() => {
+    if (profile && typeof profile.isPremium === "boolean") {
+      setIsPremium(profile.isPremium);
+    } else {
+      setIsPremium(false);
+    }
+  }, [profile]);
 
   // Initialize queue and restore last played song when songs are loaded
   useEffect(() => {
@@ -479,12 +503,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
 
     const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-    
+
     // Check if we are at the end of the queue
     if (currentIndex === queue.length - 1 && repeatMode === "off") {
-        // If repeat is off and we are at the end, stop playing
-        setIsPlaying(false);
-        return;
+      // If repeat is off and we are at the end, stop playing
+      setIsPlaying(false);
+      return;
     }
 
     const nextSong = queue[(currentIndex + 1) % queue.length];
@@ -493,7 +517,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const prevSong = () => {
     if (!currentSong) return;
-    
+
     // If more than 3 seconds in, restart the song
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
@@ -501,11 +525,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
 
     if (isShuffled) {
-       // If shuffled, pick a random song from the queue
-       const randomIndex = Math.floor(Math.random() * queue.length);
-       const randomSong = queue[randomIndex];
-       playSong(randomSong);
-       return;
+      // If shuffled, pick a random song from the queue
+      const randomIndex = Math.floor(Math.random() * queue.length);
+      const randomSong = queue[randomIndex];
+      playSong(randomSong);
+      return;
     }
 
     const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
@@ -518,9 +542,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     nextSongRef.current = nextSong;
   }, [nextSong]);
 
-  const upgradePremium = () => {
-    setIsPremium(true);
-  };
+  const upgradePremium = () => { };
 
   // Get recently played songs from database
   const getRecentlyPlayed = (): Song[] => {
