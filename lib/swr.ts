@@ -125,6 +125,42 @@ export function usePlans(options?: { activeOnly?: boolean }) {
   };
 }
 
+export function usePaymentMethods(options?: { activeOnly?: boolean }) {
+  const params = new URLSearchParams();
+  if (options?.activeOnly) params.set("activeOnly", "true");
+
+  const key = `/api/admin/payment-methods?${params.toString()}`;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    paymentMethods: data?.paymentMethods || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function usePaymentMethod(id: string | null) {
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? `/api/admin/payment-methods/${id}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  return {
+    paymentMethod: data?.paymentMethod || null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 export function usePlaylists(options?: {
   userId?: string;
   isPublic?: boolean;
@@ -194,11 +230,11 @@ export function useArtist(id: string | null) {
 
   const artist = data
     ? {
-        ...transformArtist(data),
-        songs: (data.songs || []).map((item: any) =>
-          transformSong(item.song || item)
-        ),
-      }
+      ...transformArtist(data),
+      songs: (data.songs || []).map((item: any) =>
+        transformSong(item.song || item)
+      ),
+    }
     : null;
 
   return {
@@ -221,9 +257,9 @@ export function useGenre(id: string | null) {
 
   const genre = data
     ? {
-        ...transformGenre(data),
-        songs: (data.songs || []).map(transformSong),
-      }
+      ...transformGenre(data),
+      songs: (data.songs || []).map(transformSong),
+    }
     : null;
 
   return {

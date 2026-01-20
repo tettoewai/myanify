@@ -12,6 +12,7 @@ import {
   Settings,
   Disc,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
@@ -23,6 +24,7 @@ const navItems = [
   { path: "/admin/albums", label: "Albums", icon: Disc },
   { path: "/admin/genres", label: "Genres", icon: Tag },
   { path: "/admin/plans", label: "Plans", icon: CreditCard },
+  { path: "/admin/payment-methods", label: "Payment Methods", icon: Wallet },
   { path: "/admin/ads", label: "Ads", icon: Megaphone },
   { path: "/admin/users", label: "Users", icon: User },
   { path: "/admin/settings", label: "Settings", icon: Settings },
@@ -40,17 +42,6 @@ export function AdminSidebar() {
 
   return (
     <aside className="w-64 h-full bg-card border-r border-border flex flex-col">
-      <div className="p-6 border-b border-border">
-        <Link href="/admin" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-            <LayoutDashboard className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">
-            Myanify Admin
-          </span>
-        </Link>
-      </div>
-
       <nav className="p-4 space-y-1 flex-1">
         {navItems.map((item) => (
           <Link

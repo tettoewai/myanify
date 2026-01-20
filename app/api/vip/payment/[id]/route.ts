@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { activateVIPSubscription } from "@/lib/vip-subscription";
+import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 
 /**
  * GET /api/vip/payment/[id]
@@ -81,12 +82,40 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { action, notes } = body; // action: "approve" | "reject"
+    const { action, notes, adminPassword } = body; // action: "approve" | "reject"
 
     if (!action || (action !== "approve" && action !== "reject")) {
       return NextResponse.json(
         { error: "Action must be 'approve' or 'reject'" },
         { status: 400 }
+      );
+    }
+
+    if (!adminPassword) {
+      return NextResponse.json(
+        { error: "Admin password is required for this action" },
+        { status: 400 }
+      );
+    }
+
+    // Verify admin password
+    const adminUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    if (!adminUser || !adminUser.passwordHash) {
+      return NextResponse.json(
+        { error: "Admin account not configured for password verification" },
+        { status: 403 }
+      );
+    }
+
+    const passwordValid = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+
+    if (!passwordValid) {
+      return NextResponse.json(
+        { error: "Invalid admin password" },
+        { status: 403 }
       );
     }
 
