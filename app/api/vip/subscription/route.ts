@@ -43,16 +43,29 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { planType, paymentMethodId } = body;
+        const { planType, paymentMethodId, planId } = body;
 
-        if (!planType || (planType !== PlanType.MONTHLY && planType !== PlanType.YEARLY)) {
-            return NextResponse.json(
-                { error: "Invalid plan type. Must be MONTHLY or YEARLY" },
-                { status: 400 }
-            );
+        let amount = 0;
+        let finalPlanType = planType;
+
+        if (planId) {
+            const dbPlan = await prisma.plan.findUnique({ where: { id: planId } });
+            if (!dbPlan) {
+                return NextResponse.json({ error: "Invalid plan ID" }, { status: 400 });
+            }
+            amount = dbPlan.price;
+            finalPlanType = dbPlan.type;
+        } else {
+            if (!planType || (planType !== PlanType.MONTHLY && planType !== PlanType.YEARLY)) {
+                return NextResponse.json(
+                    { error: "Invalid plan type. Must be MONTHLY or YEARLY" },
+                    { status: 400 }
+                );
+            }
+            const planConfig = planType === PlanType.MONTHLY ? VIP_PLANS.MONTHLY : VIP_PLANS.YEARLY;
+            amount = planConfig.price;
         }
 
-        const planConfig = planType === PlanType.MONTHLY ? VIP_PLANS.MONTHLY : VIP_PLANS.YEARLY;
         const referenceNumber = generatePaymentReference();
 
         const existingPending = await prisma.paymentRequest.findFirst({
@@ -98,11 +111,12 @@ export async function POST(request: Request) {
         const paymentRequest = await prisma.paymentRequest.create({
             data: {
                 userId: session.user.id,
-                planType,
-                amount: planConfig.price,
+                planType: finalPlanType,
+                amount,
                 referenceNumber,
                 status: "PENDING",
                 paymentMethodId: paymentMethodId || null,
+                planId: planId || null,
             },
         });
 
@@ -112,7 +126,7 @@ export async function POST(request: Request) {
             paymentMethods,
             selectedPaymentMethod,
             instructions: {
-                amount: planConfig.price,
+                amount,
                 referenceNumber,
                 steps: [
                     "1. Complete payment via one of the payment methods below using the reference number above",

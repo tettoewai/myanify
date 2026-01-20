@@ -14,13 +14,18 @@ export async function POST(request: Request) {
   try {
     const session = await getSession();
 
-    if (!session?.user || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const fileType = formData.get("type") as string; // "audio" or "image"
+
+    // Only Admin can upload audio or lyrics
+    if (session.user.role !== "ADMIN" && fileType !== "image") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
