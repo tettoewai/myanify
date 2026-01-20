@@ -11,6 +11,7 @@ import {
   Megaphone,
   Settings,
   Disc,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
@@ -21,6 +22,7 @@ const navItems = [
   { path: "/admin/artists", label: "Artists", icon: Users },
   { path: "/admin/albums", label: "Albums", icon: Disc },
   { path: "/admin/genres", label: "Genres", icon: Tag },
+  { path: "/admin/plans", label: "Plans", icon: CreditCard },
   { path: "/admin/ads", label: "Ads", icon: Megaphone },
   { path: "/admin/users", label: "Users", icon: User },
   { path: "/admin/settings", label: "Settings", icon: Settings },

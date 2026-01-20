@@ -258,6 +258,26 @@ model PlayHistory {
   @@index([userId, playedAt])
 }
 
+// Plan model - for dynamic subscription plans
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  price       Float
+  duration    Int      // Duration in days
+  type        PlanType @default(MONTHLY)
+  features    Json?    // Array of feature strings
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  subscriptions   PremiumSubscription[]
+  paymentRequests PaymentRequest[]
+
+  @@index([isActive])
+}
+
 // PremiumSubscription model
 model PremiumSubscription {
   id                String             @id @default(cuid())
@@ -270,11 +290,15 @@ model PremiumSubscription {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
   @@index([endDate])
+  @@index([planId])
 }
 
 enum SubscriptionStatus {
@@ -386,6 +410,9 @@ model PaymentRequest {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
 
@@ -394,6 +421,7 @@ model PaymentRequest {
   @@index([referenceNumber])
   @@index([createdAt])
   @@index([paymentMethodId])
+  @@index([planId])
 }
 
 enum PaymentStatus {

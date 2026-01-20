@@ -106,6 +106,25 @@ export function useGenres() {
   };
 }
 
+export function usePlans(options?: { activeOnly?: boolean }) {
+  const params = new URLSearchParams();
+  if (options?.activeOnly) params.set("activeOnly", "true");
+
+  const key = `/api/admin/plans?${params.toString()}`;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    plans: data?.plans || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 export function usePlaylists(options?: {
   userId?: string;
   isPublic?: boolean;

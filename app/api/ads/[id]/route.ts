@@ -36,14 +36,24 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { isActive, ...updateData } = body;
+    const { isActive, startDate, endDate, ...updateData } = body;
+
+    const dataToUpdate: any = {
+      ...updateData,
+      ...(isActive !== undefined && { isActive }),
+    };
+
+    if (startDate) {
+      dataToUpdate.startDate = new Date(startDate);
+    }
+
+    if (endDate !== undefined) {
+      dataToUpdate.endDate = endDate ? new Date(endDate) : null;
+    }
 
     const ad = await prisma.ad.update({
       where: { id },
-      data: {
-        ...updateData,
-        ...(isActive !== undefined && { isActive }),
-      },
+      data: dataToUpdate,
     });
 
     return NextResponse.json(ad);
