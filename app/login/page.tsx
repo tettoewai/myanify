@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { toast } from "sonner";
 
 function LoginForm() {
   const router = useRouter();
@@ -15,7 +16,6 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Helper function to get redirect URL based on user role
@@ -28,7 +28,6 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     try {
@@ -39,7 +38,7 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        toast.error("Invalid email or password");
         setIsLoading(false);
       } else {
         // Update session to get the latest user data including role
@@ -60,7 +59,7 @@ function LoginForm() {
         }
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      toast.error("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -74,7 +73,7 @@ function LoginForm() {
         redirect: true
       });
     } catch (error) {
-      setError("An error occurred with Google sign-in. Please try again.");
+      toast.error("An error occurred with Google sign-in. Please try again.");
     }
   };
 
@@ -151,12 +150,6 @@ function LoginForm() {
             disabled={isLoading}
           />
         </div>
-
-        {error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-            {error}
-          </div>
-        )}
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Signing in..." : "Sign in"}

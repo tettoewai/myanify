@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
+import { useProfile } from "@/lib/swr";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,8 @@ interface UserProfile {
 }
 
 export default function AdminSettingsPage() {
-  const { data: session, update } = useSession();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, update: updateSession } = useSession();
+  const { profile, isLoading: loading, mutate: mutateProfile } = useProfile();
   const [saving, setSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [name, setName] = useState("");
@@ -33,31 +33,16 @@ export default function AdminSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch("/api/user/profile");
-      const data = await response.json();
-      setProfile(data);
-      setName(data.name || "");
-      setAvatarUrl(data.avatarUrl || "");
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setLoading(false);
+    if (profile) {
+      setName(profile.name || "");
+      setAvatarUrl(profile.avatarUrl || "");
     }
-  };
+  }, [profile]);
 
   const handleSaveProfile = async () => {
     setSaving(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await fetch("/api/user/profile", {
@@ -68,20 +53,17 @@ export default function AdminSettingsPage() {
 
       if (response.ok) {
         const updated = await response.json();
-        setProfile(updated);
-        await update();
+        await mutateProfile(updated, false);
+        await updateSession();
         toast.success("Profile updated successfully");
-        setSuccess("Profile updated successfully");
       } else {
         const data = await response.json();
         const errorMsg = data.error || "Failed to update profile";
         toast.error(errorMsg);
-        setError(errorMsg);
       }
     } catch (error) {
       const errorMsg = "An error occurred while updating profile";
       toast.error(errorMsg);
-      setError(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -89,13 +71,16 @@ export default function AdminSettingsPage() {
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      toast.error("New passwords do not match");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      toast.error("New password must be different from current password");
       return;
     }
 
     setPasswordSaving(true);
-    setError("");
-    setSuccess("");
 
     try {
       const response = await fetch("/api/user/password", {
@@ -105,16 +90,18 @@ export default function AdminSettingsPage() {
       });
 
       if (response.ok) {
-        setSuccess("Password updated successfully");
+        await mutateProfile();
+        await updateSession();
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
+        toast.success("Password updated successfully");
       } else {
         const data = await response.json();
-        setError(data.error || "Failed to update password");
+        toast.error(data.error || "Failed to update password");
       }
     } catch (error) {
-      setError("An error occurred while updating password");
+      toast.error("An error occurred while updating password");
     } finally {
       setPasswordSaving(false);
     }
@@ -132,18 +119,6 @@ export default function AdminSettingsPage() {
           Manage your admin account settings
         </p>
       </div>
-
-      {error && (
-        <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 bg-green-500/10 text-green-500 rounded-lg">
-          {success}
-        </div>
-      )}
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList>
@@ -254,20 +229,25 @@ export default function AdminSettingsPage() {
             <h3 className="text-xl font-semibold">Change Password</h3>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="pl-10"
-                    placeholder="Enter current password"
-                  />
-                </div>
-              </div>
+
+              {profile.hasPassword ?
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="pl-10"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                </div> :
+                <div>
+                  <span>You haven't set a password yet. Please set a password.</span>
+                </div>}
 
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
@@ -307,7 +287,6 @@ export default function AdminSettingsPage() {
               onClick={handleChangePassword}
               disabled={
                 passwordSaving ||
-                !currentPassword ||
                 !newPassword ||
                 !confirmPassword
               }

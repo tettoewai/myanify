@@ -48,21 +48,12 @@ export const metadata: Metadata = {
     title: "Myanify - Myanmar Music Streaming",
     description:
       "Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music, create playlists, and enjoy synchronized lyrics.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Myanify - Myanmar Music Streaming",
-      },
-    ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Myanify - Myanmar Music Streaming",
     description:
       "Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music.",
-    images: ["/og-image.png"],
     creator: "@myanify",
   },
   robots: {
@@ -77,23 +68,9 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: "/icon.svg",
+    apple: "/icon.svg",
   },
-  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {

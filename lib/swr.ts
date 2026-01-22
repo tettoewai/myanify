@@ -500,6 +500,76 @@ export async function unlikeArtist(artistId: string): Promise<boolean> {
   }
 }
 
+// Hook for fetching user profile
+export function useProfile() {
+  const { data, error, isLoading, mutate } = useSWR("/api/user/profile", fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    profile: data || null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching admin users
+export function useAdminUsers(options?: {
+  search?: string;
+  role?: string;
+  vip?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.search) params.set("search", options.search);
+  if (options?.role && options.role !== "all") params.set("role", options.role);
+  if (options?.vip === "vip") params.set("vip", "true");
+  else if (options?.vip === "non-vip") params.set("vip", "false");
+
+  const key = params.toString() ? `/api/admin/users?${params.toString()}` : "/api/admin/users";
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    users: data?.data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for fetching subscription requests
+export function useSubscriptionRequests(options?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.status && options.status !== "all") params.set("status", options.status);
+  if (options?.page) params.set("page", options.page.toString());
+  if (options?.limit) params.set("limit", options.limit.toString());
+
+  const key = `/api/vip/payment/admin?${params.toString()}`;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    data,
+    requests: data?.data || [],
+    pagination: data?.pagination,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 // Helper function for tracking ad events
 export async function trackAdEvent(
   adId: string,

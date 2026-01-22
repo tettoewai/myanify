@@ -13,6 +13,7 @@ import {
   Disc,
   CreditCard,
   Wallet,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
@@ -24,6 +25,11 @@ const navItems = [
   { path: "/admin/albums", label: "Albums", icon: Disc },
   { path: "/admin/genres", label: "Genres", icon: Tag },
   { path: "/admin/plans", label: "Plans", icon: CreditCard },
+  {
+    path: "/admin/subscription-requests",
+    label: "Subscription Requests",
+    icon: ClipboardCheck,
+  },
   { path: "/admin/payment-methods", label: "Payment Methods", icon: Wallet },
   { path: "/admin/ads", label: "Ads", icon: Megaphone },
   { path: "/admin/users", label: "Users", icon: User },
@@ -48,7 +54,7 @@ export function AdminSidebar() {
             key={item.path}
             href={item.path}
             className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+              "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
               isActive(item.path)
                 ? "bg-primary text-white"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"

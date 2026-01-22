@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import { UserRole } from "@prisma/client";
-import { googleProvider } from "@/lib/auth-providers";
+import { googleProvider, credentialsProvider } from "@/lib/auth-providers";
 import { prisma } from "@/db";
 
 export const authConfig = {
@@ -153,5 +153,5 @@ export const authConfig = {
       return session;
     },
   },
-  providers: [googleProvider], // Add providers with an array, so we can add more later
+  providers: [googleProvider, credentialsProvider], // Add providers with an array, so we can add more later
 } satisfies NextAuthConfig;

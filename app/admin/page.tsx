@@ -1,36 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Music, Users, Tag, TrendingUp, Play, Heart } from "lucide-react";
-import { prisma } from "@/db";
+import { useAdminStats } from "@/lib/swr";
 
 export const dynamic = "force-dynamic";
 
-interface DashboardStats {
-  totalSongs: number;
-  publishedSongs: number;
-  totalArtists: number;
-  totalGenres: number;
-  totalPlays: number;
-  totalLikes: number;
-}
-
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/admin/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        setStats(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching stats:", error);
-        setLoading(false);
-      });
-  }, []);
+  const { stats, isLoading: loading } = useAdminStats();
 
   if (loading) {
     return (

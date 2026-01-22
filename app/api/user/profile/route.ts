@@ -29,6 +29,12 @@ export async function GET(request: Request) {
         createdAt: true,
         updatedAt: true,
         passwordHash: true,
+        paymentRequests: {
+          where: {
+            status: "PENDING",
+          },
+          take: 1,
+        },
       },
     });
 
@@ -56,21 +62,29 @@ export async function GET(request: Request) {
           createdAt: true,
           updatedAt: true,
           passwordHash: true,
+          paymentRequests: {
+            where: {
+              status: "PENDING",
+            },
+            take: 1,
+          },
         },
       });
       // Return user data with hasPassword flag
-      const { passwordHash, ...userData } = newUser;
+      const { passwordHash, paymentRequests, ...userData } = newUser;
       return NextResponse.json({
         ...userData,
         hasPassword: !!passwordHash,
+        hasPendingPremium: paymentRequests.length > 0,
       });
     }
 
     // Return user data with hasPassword flag
-    const { passwordHash, ...userData } = user;
+    const { passwordHash, paymentRequests, ...userData } = user;
     return NextResponse.json({
       ...userData,
       hasPassword: !!passwordHash,
+      hasPendingPremium: paymentRequests.length > 0,
     });
   } catch (error) {
     console.error("Error fetching user profile:", error);
