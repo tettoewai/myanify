@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { updateMonthlyListenersForPlay } from "@/lib/monthly-listeners";
+import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(request: Request) {
   try {
@@ -48,12 +49,15 @@ export async function GET(request: Request) {
         .filter(Boolean)
         .join(", ") || "Unknown Artist";
 
-      return {
-        ...song,
-        artist: artistNames,
-        playedAt: entry.playedAt,
-        duration: entry.duration,
-      };
+      return formatSongResponse(
+        {
+          ...song,
+          artist: artistNames,
+          playedAt: entry.playedAt,
+          duration: entry.duration,
+        },
+        request
+      );
     });
 
     return NextResponse.json({ data: songs });

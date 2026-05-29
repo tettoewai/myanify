@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongsResponse } from "@/lib/song-response";
 
 export async function GET(
   request: Request,
@@ -29,7 +30,10 @@ export async function GET(
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    return NextResponse.json(album);
+    return NextResponse.json({
+      ...album,
+      songs: formatSongsResponse(album.songs, request),
+    });
   } catch (error) {
     console.error("Error fetching album:", error);
     return NextResponse.json(

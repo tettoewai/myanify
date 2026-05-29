@@ -1,5 +1,6 @@
 // Transform Prisma data to match frontend types
 import type { Song, Artist, Playlist, Genre, Ad, LyricLine } from "./types";
+import { getPlaybackUrl } from "./playback-url";
 
 export function transformSong(prismaSong: any): Song {
   // Handle multiple artists - support both old single artist and new many-to-many
@@ -17,6 +18,7 @@ export function transformSong(prismaSong: any): Song {
     coverUrl: prismaSong.coverUrl || "/placeholder.svg",
     albumCoverUrl: prismaSong.album?.coverUrl || null, // Include album cover for fallback
     audioUrl: prismaSong.audioUrl,
+    playbackUrl: prismaSong.playbackUrl || getPlaybackUrl(prismaSong.audioUrl),
     genre: prismaSong.genre?.name || "",
     isPremium: prismaSong.isPremium,
     lyrics: (prismaSong.lyrics || []).map((lyric: any): LyricLine => ({

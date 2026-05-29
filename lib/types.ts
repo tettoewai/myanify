@@ -8,6 +8,7 @@ export interface Song {
   coverUrl: string
   albumCoverUrl?: string | null // Album cover URL for fallback
   audioUrl: string
+  playbackUrl: string
   genre: string
   lyrics: LyricLine[]
   isPremium: boolean

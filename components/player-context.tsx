@@ -252,13 +252,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // Handle song changes
   useEffect(() => {
-    if (audioRef.current && currentSong?.audioUrl) {
+    if (audioRef.current && (currentSong?.playbackUrl || currentSong?.audioUrl)) {
       // Pause current audio if playing
       if (audioRef.current) {
         audioRef.current.pause();
       }
 
-      audioRef.current.src = currentSong.audioUrl;
+      audioRef.current.src = currentSong.playbackUrl || currentSong.audioUrl;
       audioRef.current.load();
 
       // Reset current time initially (will be restored if needed)
@@ -317,7 +317,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         );
       };
     }
-  }, [currentSong?.id, currentSong?.audioUrl, currentSong?.duration]);
+  }, [currentSong?.id, currentSong?.playbackUrl, currentSong?.audioUrl, currentSong?.duration]);
 
   // Handle time changes (seeking) - only update if difference is significant to avoid loops
   const seekingRef = useRef(false);

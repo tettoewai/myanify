@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(
   request: Request,
@@ -62,14 +63,9 @@ export async function GET(
 
     const transformedSongs = playlist.songs.map((playlistSong: any) => {
       const song = playlistSong.song;
-      const lyricsRow = song?.lyrics?.[0];
-      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
       return {
         ...playlistSong,
-        song: {
-          ...song,
-          lyrics: lines,
-        },
+        song: formatSongResponse(song, request),
       };
     });
 
@@ -162,14 +158,9 @@ export async function PUT(
 
     const transformedSongs = playlist.songs.map((playlistSong: any) => {
       const song = playlistSong.song;
-      const lyricsRow = song?.lyrics?.[0];
-      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
       return {
         ...playlistSong,
-        song: {
-          ...song,
-          lyrics: lines,
-        },
+        song: formatSongResponse(song, request),
       };
     });
 

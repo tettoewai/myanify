@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { isUserVIP, canUserDownload } from "@/lib/vip-subscription";
+import { getPlaybackUrl } from "@/lib/playback-url";
 
 /**
  * GET /api/vip/downloads
@@ -134,7 +135,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: "Download initiated",
       download,
-      audioUrl: song.audioUrl, // Return URL for client to download
+      audioUrl: song.audioUrl,
+      playbackUrl: getPlaybackUrl(song.audioUrl, request),
     });
   } catch (error) {
     console.error("Error initiating download:", error);

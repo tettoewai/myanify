@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(
   request: Request,
@@ -30,14 +31,7 @@ export async function GET(
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
-    const lyricsRow = (song as any).lyrics?.[0];
-    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-    const responseSong = {
-      ...song,
-      lyrics: lines,
-    };
-
-    return NextResponse.json(responseSong);
+    return NextResponse.json(formatSongResponse(song, request));
   } catch (error) {
     console.error("Error fetching song:", error);
     return NextResponse.json(
@@ -117,14 +111,7 @@ export async function PATCH(
       },
     });
 
-    const lyricsRow = (song as any).lyrics?.[0];
-    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-    const responseSong = {
-      ...song,
-      lyrics: lines,
-    };
-
-    return NextResponse.json(responseSong);
+    return NextResponse.json(formatSongResponse(song, request));
   } catch (error) {
     console.error("Error updating song:", error);
     return NextResponse.json(

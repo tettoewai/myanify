@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongResponse, formatSongsResponse } from "@/lib/song-response";
 
 export async function POST(request: Request) {
   try {
@@ -80,14 +81,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const lyricsRow = (song as any).lyrics?.[0];
-    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-    const responseSong = {
-      ...song,
-      lyrics: lines,
-    };
-
-    return NextResponse.json(responseSong, { status: 201 });
+    return NextResponse.json(formatSongResponse(song, request), { status: 201 });
   } catch (error) {
     console.error("Error creating song:", error);
     return NextResponse.json(
@@ -155,17 +149,8 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const songsWithLyrics = songs.map((song) => {
-      const lyricsRow = (song as any).lyrics?.[0];
-      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-      return {
-        ...song,
-        lyrics: lines,
-      };
-    });
-
     return NextResponse.json({
-      data: songsWithLyrics,
+      data: formatSongsResponse(songs, request),
       pagination: {
         page,
         limit,

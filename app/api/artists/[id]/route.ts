@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(
   request: Request,
@@ -50,14 +51,9 @@ export async function GET(
 
     const transformedSongs = (artist as any).songs?.map((songArtist: any) => {
       const song = songArtist.song;
-      const lyricsRow = song?.lyrics?.[0];
-      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
       return {
         ...songArtist,
-        song: {
-          ...song,
-          lyrics: lines,
-        },
+        song: formatSongResponse(song, request),
       };
     });
 

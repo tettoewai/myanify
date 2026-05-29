@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { formatSongResponse } from "@/lib/song-response";
 
 // GET - Fetch user's liked songs
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getSession();
 
@@ -47,15 +48,14 @@ export async function GET() {
           .filter(Boolean)
           .join(", ") || "Unknown Artist";
 
-      const lyricsRow = (song as any).lyrics?.[0];
-      const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-
-      return {
-        ...song,
-        lyrics: lines,
-        artist: artistNames,
-        likedAt: entry.likedAt,
-      };
+      return formatSongResponse(
+        {
+          ...song,
+          artist: artistNames,
+          likedAt: entry.likedAt,
+        },
+        request
+      );
     });
 
     return NextResponse.json({ data: songs });
@@ -139,19 +139,18 @@ export async function POST(request: Request) {
       },
     });
 
-    // Transform to return song with liked metadata and artist names
-    const lyricsRow = (likedSong.song as any).lyrics?.[0];
-    const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
-    const songWithMetadata = {
-      ...likedSong.song,
-      lyrics: lines,
-      artist:
-        likedSong.song.artists
-          ?.map((sa: any) => sa.artist?.name)
-          .filter(Boolean)
-          .join(", ") || "Unknown Artist",
-      likedAt: likedSong.likedAt,
-    };
+    const songWithMetadata = formatSongResponse(
+      {
+        ...likedSong.song,
+        artist:
+          likedSong.song.artists
+            ?.map((sa: any) => sa.artist?.name)
+            .filter(Boolean)
+            .join(", ") || "Unknown Artist",
+        likedAt: likedSong.likedAt,
+      },
+      request
+    );
 
     return NextResponse.json(songWithMetadata, { status: 201 });
   } catch (error) {
