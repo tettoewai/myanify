@@ -144,8 +144,6 @@ export type SignedAudioUploadParams = {
   signature: string;
   folder: string;
   format: string;
-  audioCodec: string;
-  bitRate: string;
   uploadUrl: string;
 };
 
@@ -153,12 +151,12 @@ export function generateSignedAudioUploadParams(): SignedAudioUploadParams {
   const { cloudName, apiKey, apiSecret } = requireCloudinaryConfig();
   const timestamp = Math.round(Date.now() / 1000);
 
+  // Only params included in the client upload must be signed. Cloudinary ignores
+  // audio_codec/bit_rate for signed browser uploads; format=mp3 transcodes on ingest.
   const paramsToSign = {
     timestamp,
     folder: AUDIO_UPLOAD_OPTIONS.folder,
     format: AUDIO_UPLOAD_OPTIONS.format,
-    audio_codec: AUDIO_UPLOAD_OPTIONS.audio_codec,
-    bit_rate: AUDIO_UPLOAD_OPTIONS.bit_rate,
   };
 
   const signature = cloudinary.utils.api_sign_request(
@@ -173,8 +171,6 @@ export function generateSignedAudioUploadParams(): SignedAudioUploadParams {
     signature,
     folder: AUDIO_UPLOAD_OPTIONS.folder,
     format: AUDIO_UPLOAD_OPTIONS.format,
-    audioCodec: AUDIO_UPLOAD_OPTIONS.audio_codec,
-    bitRate: AUDIO_UPLOAD_OPTIONS.bit_rate,
     uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
   };
 }

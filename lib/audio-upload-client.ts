@@ -55,8 +55,6 @@ export async function uploadAudioFile(file: File): Promise<AudioUploadResult> {
   cloudinaryForm.append("signature", signData.signature);
   cloudinaryForm.append("folder", signData.folder);
   cloudinaryForm.append("format", signData.format);
-  cloudinaryForm.append("audio_codec", signData.audioCodec);
-  cloudinaryForm.append("bit_rate", signData.bitRate);
 
   const uploadResponse = await fetch(signData.uploadUrl, {
     method: "POST",
