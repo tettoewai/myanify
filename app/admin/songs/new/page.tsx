@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useArtists, useGenres, useAlbums } from "@/lib/swr";
+import { uploadAudioFile } from "@/lib/audio-upload-client";
+import { formatMaxAudioSize } from "@/lib/audio-upload-config";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -109,31 +111,22 @@ export default function NewSongPage() {
     setAudioFileName(file.name);
 
     try {
-      // Get duration from audio file
       const duration = await getAudioDuration(file);
       setFormData((prev) => ({ ...prev, duration }));
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "audio");
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload audio");
-      }
-
-      const data = await response.json();
-      setAudioUrl(data.url);
-      toast.success("Audio file uploaded successfully");
+      const result = await uploadAudioFile(file);
+      setAudioUrl(result.url);
+      toast.success(
+        `Audio uploaded (${Math.round(result.fileSize / 1024)} KB compressed MP3)`
+      );
     } catch (error) {
       console.error("Error uploading audio:", error);
-      toast.error("Failed to upload audio file");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload audio file"
+      );
     } finally {
       setUploadingAudio(false);
+      e.target.value = "";
     }
   };
 
@@ -285,7 +278,8 @@ export default function NewSongPage() {
                 Audio File
               </CardTitle>
               <CardDescription>
-                Upload the song audio file (MP3, WAV, M4A, FLAC, OGG)
+                Upload the song audio file (MP3, WAV, M4A, FLAC, OGG). Files are
+                compressed to 128kbps MP3. Max {formatMaxAudioSize()}.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

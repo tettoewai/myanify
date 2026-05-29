@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import { AUDIO_BITRATE } from "@/lib/audio-upload-config";
 
 // Configure Cloudinary
 cloudinary.config({
@@ -6,6 +7,34 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+const AUDIO_UPLOAD_OPTIONS = {
+  folder: "myanify/audio",
+  resource_type: "video" as const,
+  format: "mp3",
+  audio_codec: "mp3",
+  bit_rate: AUDIO_BITRATE,
+  use_filename: true,
+  unique_filename: true,
+};
+
+function requireCloudinaryConfig() {
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
+    throw new Error(
+      "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables are required"
+    );
+  }
+
+  return {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  };
+}
 
 /**
  * Upload a file to Cloudinary
@@ -22,15 +51,7 @@ export async function uploadToCloudinary(
   resourceType: "image" | "video" | "raw" | "auto" = "auto"
 ): Promise<string> {
   try {
-    if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
-    ) {
-      throw new Error(
-        "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables are required"
-      );
-    }
+    requireCloudinaryConfig();
 
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -83,9 +104,79 @@ export async function uploadImageToCloudinary(
  */
 export async function uploadAudioToCloudinary(
   fileBuffer: Buffer,
-  fileName: string
-): Promise<string> {
-  return uploadToCloudinary(fileBuffer, fileName, "myanify/audio", "raw");
+  _fileName: string
+): Promise<{ url: string; bytes: number }> {
+  try {
+    requireCloudinaryConfig();
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        AUDIO_UPLOAD_OPTIONS,
+        (error: any, result: any) => {
+          if (error) {
+            console.error("Error uploading audio to Cloudinary:", error);
+            reject(
+              new Error(`Failed to upload audio to Cloudinary: ${error.message}`)
+            );
+          } else if (result) {
+            resolve({
+              url: result.secure_url,
+              bytes: result.bytes ?? fileBuffer.length,
+            });
+          } else {
+            reject(new Error("Upload completed but no result returned"));
+          }
+        }
+      );
+
+      uploadStream.end(fileBuffer);
+    });
+  } catch (error) {
+    console.error("Error uploading audio to Cloudinary:", error);
+    throw error;
+  }
+}
+
+export type SignedAudioUploadParams = {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  format: string;
+  audioCodec: string;
+  bitRate: string;
+  uploadUrl: string;
+};
+
+export function generateSignedAudioUploadParams(): SignedAudioUploadParams {
+  const { cloudName, apiKey, apiSecret } = requireCloudinaryConfig();
+  const timestamp = Math.round(Date.now() / 1000);
+
+  const paramsToSign = {
+    timestamp,
+    folder: AUDIO_UPLOAD_OPTIONS.folder,
+    format: AUDIO_UPLOAD_OPTIONS.format,
+    audio_codec: AUDIO_UPLOAD_OPTIONS.audio_codec,
+    bit_rate: AUDIO_UPLOAD_OPTIONS.bit_rate,
+  };
+
+  const signature = cloudinary.utils.api_sign_request(
+    paramsToSign,
+    apiSecret
+  );
+
+  return {
+    cloudName,
+    apiKey,
+    timestamp,
+    signature,
+    folder: AUDIO_UPLOAD_OPTIONS.folder,
+    format: AUDIO_UPLOAD_OPTIONS.format,
+    audioCodec: AUDIO_UPLOAD_OPTIONS.audio_codec,
+    bitRate: AUDIO_UPLOAD_OPTIONS.bit_rate,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+  };
 }
 
 /**

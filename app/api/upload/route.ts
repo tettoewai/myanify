@@ -5,6 +5,11 @@ import {
   uploadAudioToCloudinary,
   uploadLyricsToCloudinary,
 } from "@/lib/cloudinary";
+import {
+  formatMaxAudioSize,
+  isAllowedAudioExtension,
+  MAX_AUDIO_INPUT_BYTES,
+} from "@/lib/audio-upload-config";
 import { prisma } from "@/db";
 
 export const runtime = "nodejs";
@@ -38,10 +43,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate file size (100MB for audio, 10MB for images, 1MB for lyrics)
+    // Validate file size (50MB for audio, 10MB for images, 1MB for lyrics)
     const maxSize =
       fileType === "audio"
-        ? 100 * 1024 * 1024
+        ? MAX_AUDIO_INPUT_BYTES
         : fileType === "image"
         ? 10 * 1024 * 1024
         : 1 * 1024 * 1024;
@@ -50,7 +55,7 @@ export async function POST(request: Request) {
         {
           error: `File too large. Maximum size: ${
             fileType === "audio"
-              ? "100MB"
+              ? formatMaxAudioSize()
               : fileType === "image"
               ? "10MB"
               : "1MB"
@@ -65,13 +70,11 @@ export async function POST(request: Request) {
     const extension = fileName.split(".").pop()?.toLowerCase();
 
     if (fileType === "audio") {
-      const allowedAudioExtensions = ["mp3", "wav", "m4a", "flac", "ogg"];
-      if (!extension || !allowedAudioExtensions.includes(extension)) {
+      if (!isAllowedAudioExtension(extension)) {
         return NextResponse.json(
           {
-            error: `Invalid audio format. Allowed: ${allowedAudioExtensions.join(
-              ", "
-            )}`,
+            error:
+              "Invalid audio format. Allowed: mp3, wav, m4a, flac, ogg, aac, wma",
           },
           { status: 400 }
         );
@@ -109,12 +112,15 @@ export async function POST(request: Request) {
     // Generate unique filename
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const uniqueFileName = `${timestamp}-${randomString}.${extension}`;
+    const uniqueFileName = `${timestamp}-${randomString}.${fileType === "audio" ? "mp3" : extension}`;
 
     // Upload to Cloudinary
     let fileUrl: string;
+    let storedFileSize = file.size;
     if (fileType === "audio") {
-      fileUrl = await uploadAudioToCloudinary(buffer, uniqueFileName);
+      const audioResult = await uploadAudioToCloudinary(buffer, uniqueFileName);
+      fileUrl = audioResult.url;
+      storedFileSize = audioResult.bytes;
     } else if (fileType === "image") {
       fileUrl = await uploadImageToCloudinary(buffer, uniqueFileName);
     } else {
@@ -127,8 +133,8 @@ export async function POST(request: Request) {
         fileName: file.name,
         fileType,
         fileUrl,
-        fileSize: file.size,
-        mimeType: file.type,
+        fileSize: storedFileSize,
+        mimeType: fileType === "audio" ? "audio/mpeg" : file.type,
         uploadedById: session.user.id,
       },
     });
@@ -138,7 +144,7 @@ export async function POST(request: Request) {
       url: fileUrl,
       uploadId: upload.id,
       fileName: file.name,
-      fileSize: file.size,
+      fileSize: storedFileSize,
     });
   } catch (error) {
     console.error("Error uploading file:", error);
