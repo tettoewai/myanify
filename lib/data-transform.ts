@@ -1,6 +1,9 @@
 // Transform Prisma data to match frontend types
 import type { Song, Artist, Playlist, Genre, Ad, LyricLine } from "./types";
 import { getPlaybackUrl } from "./playback-url";
+import { getPlaceholderSrc } from "./placeholders";
+
+const FALLBACK_COVER = getPlaceholderSrc("dark");
 
 export function transformSong(prismaSong: any): Song {
   // Handle multiple artists - support both old single artist and new many-to-many
@@ -15,7 +18,7 @@ export function transformSong(prismaSong: any): Song {
     artists: artists.filter((name: string) => name),
     album: prismaSong.album?.name || "",
     duration: prismaSong.duration,
-    coverUrl: prismaSong.coverUrl || "/placeholder.svg",
+    coverUrl: prismaSong.coverUrl || FALLBACK_COVER,
     albumCoverUrl: prismaSong.album?.coverUrl || null, // Include album cover for fallback
     audioUrl: prismaSong.audioUrl,
     playbackUrl: prismaSong.playbackUrl || getPlaybackUrl(prismaSong.audioUrl),
@@ -32,7 +35,7 @@ export function transformArtist(prismaArtist: any): Artist {
   return {
     id: prismaArtist.id,
     name: prismaArtist.name,
-    imageUrl: prismaArtist.imageUrl || "/placeholder.svg",
+    imageUrl: prismaArtist.imageUrl || FALLBACK_COVER,
     bio: prismaArtist.bio || "",
     monthlyListeners: prismaArtist.monthlyListeners,
     genres: prismaArtist.artistGenres?.map((ag: any) => ag.genre.name) || [],
@@ -43,7 +46,7 @@ export function transformGenre(prismaGenre: any): Genre {
   return {
     id: prismaGenre.id,
     name: prismaGenre.name,
-    imageUrl: prismaGenre.imageUrl || "/placeholder.svg",
+    imageUrl: prismaGenre.imageUrl || FALLBACK_COVER,
     description: prismaGenre.description || "",
   };
 }
@@ -53,7 +56,7 @@ export function transformPlaylist(prismaPlaylist: any): Playlist {
     id: prismaPlaylist.id,
     name: prismaPlaylist.name,
     description: prismaPlaylist.description || "",
-    coverUrl: prismaPlaylist.coverUrl || "/placeholder.svg",
+    coverUrl: prismaPlaylist.coverUrl || FALLBACK_COVER,
     songs: prismaPlaylist.songs?.map((ps: any) => {
       const song = ps.song || ps;
       return transformSong(song);
@@ -69,7 +72,7 @@ export function transformAd(prismaAd: any): Ad {
     id: prismaAd.id,
     title: prismaAd.title,
     description: prismaAd.description || "",
-    imageUrl: prismaAd.imageUrl || "/placeholder.svg",
+    imageUrl: prismaAd.imageUrl || FALLBACK_COVER,
     linkUrl: prismaAd.linkUrl,
     sponsor: prismaAd.sponsor,
   };

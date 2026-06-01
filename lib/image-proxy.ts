@@ -1,3 +1,5 @@
+import { getPlaceholderSrc } from "./placeholders";
+
 /**
  * Convert image URL to proxy URL if needed
  * Cloudinary URLs work directly, but we keep this function for backward compatibility
@@ -5,7 +7,7 @@
  */
 export function getImageProxyUrl(imageUrl: string | null | undefined): string {
   if (!imageUrl) {
-    return "/placeholder.svg";
+    return getPlaceholderSrc("dark");
   }
 
   // If it's already a placeholder or local URL, return as-is

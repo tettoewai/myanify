@@ -505,8 +505,9 @@ export async function unlikeArtist(artistId: string): Promise<boolean> {
 }
 
 // Hook for fetching user profile
-export function useProfile() {
-  const { data, error, isLoading, mutate } = useSWR("/api/user/profile", fetcher, {
+export function useProfile(options?: { enabled?: boolean }) {
+  const key = options?.enabled !== false ? "/api/user/profile" : null;
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
   });
