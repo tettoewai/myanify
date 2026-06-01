@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
@@ -12,7 +11,6 @@ import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
   const {
     currentSong,
     isPlaying,
@@ -26,7 +24,6 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     showFullscreenLyrics,
     setShowFullscreenLyrics,
     isPremium,
-    getRecentlyPlayed,
   } = usePlayer();
   const [showMobilePlayer, setShowMobilePlayer] = useState(false);
   const hasPushedHistoryState = useRef(false);
@@ -77,9 +74,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     setShowFullscreenLyrics(false);
   };
 
-  const recentlyPlayed = getRecentlyPlayed();
-  const showPlayer =
-    currentSong && status === "authenticated" && recentlyPlayed.length > 0;
+  const showPlayer = !!currentSong;
 
   return (
     <div className="h-screen flex bg-background overflow-hidden">

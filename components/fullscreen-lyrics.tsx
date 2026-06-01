@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { usePlayer } from "@/components/player-context";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface FullscreenLyricsProps {
@@ -83,7 +84,12 @@ export function FullscreenLyrics({
   const isLiked = likedSongIds.has(song.id);
 
   const handleToggleLike = async () => {
-    if (!session?.user?.id || isLikeLoading) return;
+    if (isLikeLoading) return;
+
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
 
     setIsLikeLoading(true);
     try {

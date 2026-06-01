@@ -20,6 +20,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { useSession } from "next-auth/react";
+import { requireLoginRedirect } from "@/lib/require-login";
 
 interface ArtistViewProps {
   artistId: string;
@@ -35,8 +37,11 @@ export function ArtistView({
   isPlaying,
 }: ArtistViewProps) {
   const { navigate } = useNavigation();
+  const { data: session } = useSession();
   const { artist, isLoading } = useArtist(artistId);
-  const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists();
+  const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists({
+    enabled: !!session?.user?.id,
+  });
   const { setQueue, setIsShuffled } = usePlayer();
   const [isLiking, setIsLiking] = useState(false);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
@@ -61,6 +66,11 @@ export function ArtistView({
 
   const handleLikeToggle = async () => {
     if (isLiking) return;
+
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
 
     setIsLiking(true);
     try {

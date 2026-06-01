@@ -10,28 +10,8 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnRoot = nextUrl.pathname === "/";
-      const isOnLanding = nextUrl.pathname.startsWith("/landing");
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
-      const isOnAuthCallback = nextUrl.pathname.startsWith("/auth/callback");
-      const isOnListener = nextUrl.pathname.startsWith("/artist") ||
-        nextUrl.pathname.startsWith("/genre") ||
-        nextUrl.pathname.startsWith("/library") ||
-        nextUrl.pathname.startsWith("/playlist") ||
-        nextUrl.pathname.startsWith("/premium") ||
-        nextUrl.pathname.startsWith("/search") ||
-        nextUrl.pathname.startsWith("/settings");
-
-      // Allow landing page (public)
-      if (isOnLanding) {
-        return true;
-      }
-
-      // Allow auth callback page (for OAuth redirects)
-      if (isOnAuthCallback) {
-        return true;
-      }
 
       if (isOnLogin) {
         if (isLoggedIn) {
@@ -40,27 +20,12 @@ export const authConfig = {
         return true;
       }
 
-      // Protect root route - redirect unauthenticated users to landing
-      if (isOnRoot) {
-        if (!isLoggedIn) {
-          return Response.redirect(new URL("/landing", nextUrl));
-        }
-        return true;
-      }
-
+      // Admin only — listener app pages are public for SEO
       if (isOnAdmin) {
         if (isLoggedIn && auth.user?.role === UserRole.ADMIN) {
           return true;
         }
-        return false; // Redirect unauthenticated users to landing page
-      }
-
-      // Protect listener pages - require authentication, allow both ADMIN and LISTENER
-      if (isOnListener) {
-        if (!isLoggedIn) {
-          return false; // Redirect to login
-        }
-        return true;
+        return false;
       }
 
       return true;

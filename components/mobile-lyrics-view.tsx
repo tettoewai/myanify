@@ -21,6 +21,7 @@ import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/components/player-context";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
 
 interface MobileLyricsViewProps {
@@ -84,7 +85,10 @@ export function MobileLyricsView({
   const isLiked = likedSongIds.has(song.id);
 
   const handleToggleLike = async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
 
     if (isLiked) {
       await unlikeSong(song.id);

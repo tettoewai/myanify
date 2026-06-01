@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSession } from "next-auth/react";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { usePlaylists } from "@/lib/swr";
 import { Plus, ListMusic } from "lucide-react";
 import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
@@ -40,9 +42,25 @@ function AddToPlaylistDialogComponent({
 }: AddToPlaylistDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState<string | null>(null);
-  const { playlists, mutate } = usePlaylists({ isPublic: true });
+  const { data: session } = useSession();
+  const { playlists, mutate } = usePlaylists({
+    userId: session?.user?.id,
+    enabled: !!session?.user?.id,
+  });
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && !session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
+    setOpen(nextOpen);
+  };
 
   const handleAddToPlaylist = async (playlistId: string) => {
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
     setIsLoading(playlistId);
 
     try {
@@ -78,7 +96,7 @@ function AddToPlaylistDialogComponent({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
@@ -148,9 +166,18 @@ export function AddToPlaylistDropdown({
   onSongAdded?: () => void;
 }) {
   const [isLoading, setIsLoading] = useState<string | null>(null);
-  const { playlists, mutate } = usePlaylists({ isPublic: true });
+  const { data: session } = useSession();
+  const { playlists, mutate } = usePlaylists({
+    userId: session?.user?.id,
+    enabled: !!session?.user?.id,
+  });
 
   const handleAddToPlaylist = async (playlistId: string) => {
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
+
     setIsLoading(playlistId);
 
     try {

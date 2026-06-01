@@ -12,6 +12,7 @@ import {
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { Song } from "@/lib/types";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { useSongs, usePlayHistory } from "@/lib/swr";
 
 interface PlayerContextType {
@@ -111,8 +112,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (songs.length > 0 && queue.length === 0) {
       setQueue(songs);
 
-      // Only restore last played song if no current song is set
-      if (!currentSong && typeof window !== "undefined") {
+      // Only restore last played song for signed-in users
+      if (
+        !currentSong &&
+        session?.user?.id &&
+        typeof window !== "undefined"
+      ) {
         try {
           const lastPlayedData = localStorage.getItem(LAST_PLAYED_SONG_KEY);
           const lastPositionData = localStorage.getItem(
@@ -157,7 +162,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setCurrentSong(songs[0]);
       }
     }
-  }, [songs, queue.length, currentSong]);
+  }, [songs, queue.length, currentSong, session?.user?.id]);
 
   const handleNextSong = () => {
     if (!currentSong) return;
@@ -458,6 +463,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const playSong = (song: Song) => {
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
+
     if (song.isPremium && !isPremium) {
       // Redirect to premium page
       window.location.href = "/premium";
@@ -479,6 +489,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const togglePlay = () => {
+    if (!isPlaying && !session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
     setIsPlaying(!isPlaying);
   };
 

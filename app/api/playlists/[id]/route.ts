@@ -9,11 +9,6 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
     const playlist = await prisma.playlist.findUnique({
       where: { id },
@@ -56,8 +51,9 @@ export async function GET(
       );
     }
 
-    // Check if the authenticated user is the owner
-    if (playlist.createdById !== session.user.id) {
+    const isOwner = session?.user?.id === playlist.createdById;
+
+    if (!playlist.isPublic && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

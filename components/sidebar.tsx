@@ -30,7 +30,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
   const { data: session } = useSession();
   const { playlists } = usePlaylists({
     userId: session?.user?.id,
-    isPublic: true
+    enabled: !!session?.user?.id,
   });
 
   const navItems = [

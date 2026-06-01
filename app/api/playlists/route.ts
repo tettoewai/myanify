@@ -5,17 +5,63 @@ import { getSession } from "@/lib/auth-utils";
 export async function GET(request: Request) {
   try {
     const session = await getSession();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
+    const isPublicParam = searchParams.get("isPublic");
 
-    // Force filtering by the authenticated user's ID
+    if (!session?.user) {
+      if (isPublicParam !== "true") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const whereClause = { isPublic: true };
+      const [total, playlists] = await Promise.all([
+        prisma.playlist.count({ where: whereClause }),
+        prisma.playlist.findMany({
+          where: whereClause,
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            songs: {
+              include: {
+                song: {
+                  include: {
+                    artists: {
+                      include: {
+                        artist: true,
+                      },
+                    },
+                    album: true,
+                  },
+                },
+              },
+              orderBy: { order: "asc" },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
+          skip,
+        }),
+      ]);
+
+      return NextResponse.json({
+        data: playlists,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    }
+
     const whereClause = {
       createdById: session.user.id,
     };

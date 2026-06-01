@@ -164,15 +164,19 @@ export function usePaymentMethod(id: string | null) {
 export function usePlaylists(options?: {
   userId?: string;
   isPublic?: boolean;
+  enabled?: boolean;
 }) {
+  const enabled = options?.enabled !== false;
   const params = new URLSearchParams();
   if (options?.userId) params.set("userId", options.userId);
   if (options?.isPublic !== undefined)
     params.set("isPublic", String(options.isPublic));
 
-  const key = params.toString()
-    ? `/api/playlists?${params.toString()}`
-    : "/api/playlists";
+  const key = enabled
+    ? params.toString()
+      ? `/api/playlists?${params.toString()}`
+      : "/api/playlists"
+    : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,

@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { requireLoginRedirect } from "@/lib/require-login";
 
 // Create a client-only version to avoid hydration mismatches
 const CreatePlaylistDialogContent = dynamic(() => Promise.resolve(CreatePlaylistDialogComponent), {
@@ -39,9 +41,23 @@ function CreatePlaylistDialogComponent({
   const [isPublic, setIsPublic] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && !session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
 
     if (!name.trim()) return;
 
@@ -91,7 +107,7 @@ function CreatePlaylistDialogComponent({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>

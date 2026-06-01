@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { likeSong, unlikeSong, useLikedSongs } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,12 @@ export function PlayerBar({
   const isLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
 
   const handleToggleLike = async () => {
-    if (!currentSong || !session?.user?.id || isLikeLoading) return;
+    if (!currentSong || isLikeLoading) return;
+
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
 
     setIsLikeLoading(true);
     try {
@@ -163,7 +169,7 @@ export function PlayerBar({
                     size="icon"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                     onClick={handleToggleLike}
-                    disabled={!session?.user?.id || isLikeLoading}
+                    disabled={isLikeLoading}
                   >
                     {isLikeLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
