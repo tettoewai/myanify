@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const MAX_DYNAMIC_URLS_PER_TYPE = 1000;
 
-function absoluteUrl(siteUrl: string, path = "") {
+function absoluteUrl(siteUrl: string, path = "/") {
   return `${siteUrl}${path}`;
 }
 

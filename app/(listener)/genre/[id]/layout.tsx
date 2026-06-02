@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { prisma } from "@/db";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
@@ -30,7 +31,7 @@ export async function generateMetadata({
       : `Discover ${songCount} ${songCount === 1 ? "song" : "songs"} in ${genre.name} genre on Myanify - Myanmar Music Streaming Platform.`;
 
     const imageUrl = genre.imageUrl || "/placeholder.svg";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
+    const siteUrl = getSiteUrl();
 
     return {
       title,

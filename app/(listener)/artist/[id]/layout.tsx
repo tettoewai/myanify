@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { prisma } from "@/db";
 import { MusicArtistStructuredData } from "@/components/structured-data";
+import { getSiteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({
   params,
@@ -38,7 +39,7 @@ export async function generateMetadata({
       : `Listen to ${songCount} ${songCount === 1 ? "song" : "songs"} by ${artist.name} on Myanify - Myanmar Music Streaming Platform.`;
 
     const imageUrl = artist.imageUrl || "/placeholder.svg";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
+    const siteUrl = getSiteUrl();
 
     return {
       title,
@@ -92,7 +93,7 @@ export default async function ArtistLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
+  const siteUrl = getSiteUrl();
 
   let structuredData = null;
   try {

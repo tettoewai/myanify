@@ -1,3 +1,6 @@
 export function getSiteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.vercel.app").replace(
+    /\/$/,
+    ""
+  );
 }
