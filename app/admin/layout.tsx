@@ -24,7 +24,7 @@ export default function AdminLayout({
                 Switch to music app
               </span>
               <Button size="sm" variant="outline" asChild>
-                <Link href="/">Go to app</Link>
+                <Link href="/home">Go to app</Link>
               </Button>
             </div>
           )}

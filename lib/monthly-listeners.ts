@@ -1,5 +1,74 @@
 import { prisma } from "@/db";
 
+function getThirtyDaysAgo(): Date {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  return thirtyDaysAgo;
+}
+
+/**
+ * Calculate monthly listeners for multiple artists.
+ * Counts unique users who played songs by each artist in the last 30 days.
+ */
+export async function calculateMonthlyListenersByArtistIds(
+  artistIds: string[]
+): Promise<Map<string, number>> {
+  const uniqueArtistIds = [...new Set(artistIds.filter(Boolean))];
+  const listenerCounts = new Map<string, number>(
+    uniqueArtistIds.map((artistId) => [artistId, 0])
+  );
+
+  if (uniqueArtistIds.length === 0) {
+    return listenerCounts;
+  }
+
+  const recentPlays = await prisma.playHistory.findMany({
+    where: {
+      playedAt: {
+        gte: getThirtyDaysAgo(),
+      },
+      song: {
+        artists: {
+          some: {
+            artistId: { in: uniqueArtistIds },
+          },
+        },
+      },
+    },
+    select: {
+      userId: true,
+      song: {
+        select: {
+          artists: {
+            where: {
+              artistId: { in: uniqueArtistIds },
+            },
+            select: {
+              artistId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const listenersByArtist = new Map<string, Set<string>>(
+    uniqueArtistIds.map((artistId) => [artistId, new Set<string>()])
+  );
+
+  for (const play of recentPlays) {
+    for (const songArtist of play.song.artists) {
+      listenersByArtist.get(songArtist.artistId)?.add(play.userId);
+    }
+  }
+
+  for (const [artistId, listeners] of listenersByArtist) {
+    listenerCounts.set(artistId, listeners.size);
+  }
+
+  return listenerCounts;
+}
+
 /**
  * Calculate monthly listeners for an artist
  * Counts unique users who played songs by this artist in the last 30 days
@@ -7,39 +76,8 @@ import { prisma } from "@/db";
 export async function calculateMonthlyListeners(
   artistId: string
 ): Promise<number> {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  // Get all songs by this artist (using many-to-many relationship)
-  const artistSongs = await prisma.song.findMany({
-    where: {
-      artists: {
-        some: {
-          artistId: artistId,
-        },
-      },
-    },
-    select: { id: true },
-  });
-
-  if (artistSongs.length === 0) {
-    return 0;
-  }
-
-  const songIds = artistSongs.map((song) => song.id);
-
-  // Count unique users who played any of these songs in the last 30 days
-  const uniqueListeners = await prisma.playHistory.groupBy({
-    by: ["userId"],
-    where: {
-      songId: { in: songIds },
-      playedAt: {
-        gte: thirtyDaysAgo,
-      },
-    },
-  });
-
-  return uniqueListeners.length;
+  const listenerCounts = await calculateMonthlyListenersByArtistIds([artistId]);
+  return listenerCounts.get(artistId) ?? 0;
 }
 
 /**
@@ -54,9 +92,6 @@ export async function updateMonthlyListenersForPlay(
   userId: string,
   excludePlayHistoryId?: string
 ): Promise<void> {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
   // Get all songs by this artist (using many-to-many relationship)
   const artistSongs = await prisma.song.findMany({
     where: {
@@ -81,7 +116,7 @@ export async function updateMonthlyListenersForPlay(
     userId,
     songId: { in: songIds },
     playedAt: {
-      gte: thirtyDaysAgo,
+      gte: getThirtyDaysAgo(),
     },
   };
 

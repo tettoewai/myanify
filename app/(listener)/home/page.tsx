@@ -6,7 +6,7 @@ import { AdBanner } from "@/components/ad-banner";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default function ListenerHomePage() {
   const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
 
   return (

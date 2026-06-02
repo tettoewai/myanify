@@ -123,7 +123,7 @@ export function LandingPageContent() {
                 className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 px-8 py-6 text-lg"
                 asChild
               >
-                <Link href={loginUrl}>
+                <Link href="/home">
                   <Play className="w-5 h-5 mr-2" />
                   Start Listening Free
                 </Link>
@@ -134,7 +134,7 @@ export function LandingPageContent() {
                 className="px-8 py-6 text-lg border-2"
                 asChild
               >
-                <Link href={loginUrl}>
+                <Link href="/home">
                   Explore Music
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
@@ -295,7 +295,7 @@ export function LandingPageContent() {
                 className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30 px-10 py-7 text-lg"
                 asChild
               >
-                <Link href={loginUrl}>
+                <Link href="/home">
                   <Play className="w-5 h-5 mr-2" />
                   Get Started Free
                 </Link>
@@ -337,13 +337,19 @@ export function LandingPageContent() {
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link
+                href="/home"
+                className="hover:text-foreground transition"
+              >
+                Browse Music
+              </Link>
+              <Link
                 href={loginUrl}
                 className="hover:text-foreground transition"
               >
                 Sign In
               </Link>
               <Link
-                href={loginUrl}
+                href="/home"
                 className="hover:text-foreground transition"
               >
                 Get Started

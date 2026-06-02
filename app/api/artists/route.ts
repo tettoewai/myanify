@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { calculateMonthlyListenersByArtistIds } from "@/lib/monthly-listeners";
 
 export async function GET(request: Request) {
   try {
@@ -34,8 +35,20 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    const listenerCounts = await calculateMonthlyListenersByArtistIds(
+      artists.map((artist) => artist.id)
+    );
+
+    const artistsWithListenerCounts = artists.map((artist) => ({
+      ...artist,
+      monthlyListeners: Math.max(
+        artist.monthlyListeners,
+        listenerCounts.get(artist.id) ?? 0
+      ),
+    }));
+
     return NextResponse.json({
-      data: artists,
+      data: artistsWithListenerCounts,
       pagination: {
         page,
         limit,

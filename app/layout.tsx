@@ -7,7 +7,9 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
+import { getSiteUrl } from "@/lib/site-url";
+
+const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   title: {
@@ -84,14 +86,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://myanify.com";
-
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
         <WebsiteStructuredData
           name="Myanify"
-          url={siteUrl}
+          url={getSiteUrl()}
           description="Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music, create playlists, and enjoy synchronized lyrics."
           logo={`${siteUrl}/icon.svg`}
         />

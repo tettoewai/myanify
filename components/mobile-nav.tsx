@@ -9,15 +9,15 @@ export function MobileNav() {
   const pathname = usePathname();
 
   const navItems = [
-    { path: "/", label: "Home", icon: Home },
+    { path: "/home", label: "Home", icon: Home },
     { path: "/search", label: "Search", icon: Search },
     { path: "/library", label: "Library", icon: Library },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === "/";
+    if (path === "/home") {
+      return pathname === "/home";
     }
     return pathname.startsWith(path);
   };

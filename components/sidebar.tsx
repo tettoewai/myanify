@@ -34,14 +34,14 @@ export function Sidebar({ isPremium }: SidebarProps) {
   });
 
   const navItems = [
-    { path: "/", label: "Home", icon: Home },
+    { path: "/home", label: "Home", icon: Home },
     { path: "/search", label: "Search", icon: Search },
     { path: "/library", label: "Your Library", icon: Library },
   ];
 
   const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === "/";
+    if (path === "/home") {
+      return pathname === "/home";
     }
     return pathname.startsWith(path);
   };
@@ -50,7 +50,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
     <aside className="hidden md:flex w-64 h-full bg-card border-r border-border flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <Link href="/" className="flex items-center gap-3 group">
+        <Link href="/home" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg group-hover:shadow-primary/20 transition-shadow">
             <Music2 className="w-6 h-6 text-primary-foreground" />
           </div>

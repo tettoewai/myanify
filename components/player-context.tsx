@@ -12,7 +12,6 @@ import {
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { Song } from "@/lib/types";
-import { requireLoginRedirect } from "@/lib/require-login";
 import { useSongs, usePlayHistory } from "@/lib/swr";
 
 interface PlayerContextType {
@@ -463,11 +462,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const playSong = (song: Song) => {
-    if (!session?.user?.id) {
-      requireLoginRedirect();
-      return;
-    }
-
     if (song.isPremium && !isPremium) {
       // Redirect to premium page
       window.location.href = "/premium";
@@ -489,10 +483,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const togglePlay = () => {
-    if (!isPlaying && !session?.user?.id) {
-      requireLoginRedirect();
-      return;
-    }
     setIsPlaying(!isPlaying);
   };
 

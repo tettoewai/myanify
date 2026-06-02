@@ -10,7 +10,7 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role) {
-      router.push("/");
+      router.push("/home");
     } else if (status === "unauthenticated") {
       // If not authenticated, redirect to login
       router.push("/login");

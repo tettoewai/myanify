@@ -134,11 +134,10 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    // Update monthly listeners for all artists of the song (non-blocking)
-    // We do this after the transaction to avoid blocking the main flow
-    // Pass the play history ID to exclude it from the check
+    // Keep artist listener counts in sync before responding. Detached promises can
+    // be stopped by serverless runtimes, which leaves some artists stuck at 0.
     if (song.artists && song.artists.length > 0) {
-      Promise.all(
+      await Promise.all(
         song.artists.map((sa: any) =>
           updateMonthlyListenersForPlay(
             sa.artistId,
@@ -146,36 +145,7 @@ export async function POST(request: Request) {
             playHistory.id
           )
         )
-      ).catch((error) => {
-        console.error("Error updating monthly listeners:", error);
-      });
-    }
-
-    // Clean up old entries - keep only the most recent 50 per user
-    const userPlayHistoryCount = await prisma.playHistory.count({
-      where: { userId: session.user.id },
-    });
-
-    if (userPlayHistoryCount > 50) {
-      // Get the 50th most recent entry to find the cutoff date
-      const oldestToKeep = await prisma.playHistory.findFirst({
-        where: { userId: session.user.id },
-        orderBy: { playedAt: "desc" },
-        skip: 49,
-        select: { playedAt: true },
-      });
-
-      if (oldestToKeep) {
-        // Delete entries older than the 50th most recent
-        await prisma.playHistory.deleteMany({
-          where: {
-            userId: session.user.id,
-            playedAt: {
-              lt: oldestToKeep.playedAt,
-            },
-          },
-        });
-      }
+      );
     }
 
     return NextResponse.json(playHistory, { status: 201 });

@@ -7,7 +7,7 @@ export function useNavigation() {
 
   const navigate = (view: string, id?: string) => {
     if (view === "home") {
-      router.push("/")
+      router.push("/home")
     } else if (view === "search") {
       router.push("/search")
     } else if (view === "library") {

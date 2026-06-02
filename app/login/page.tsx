@@ -23,7 +23,7 @@ function LoginForm() {
     if (callbackUrl) {
       return callbackUrl;
     }
-    return "/";
+    return "/home";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +54,7 @@ function LoginForm() {
           router.refresh();
         } else {
           // Fallback to callback URL or default
-          router.push(callbackUrl || "/");
+          router.push(callbackUrl || "/home");
           router.refresh();
         }
       }

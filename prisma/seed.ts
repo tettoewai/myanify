@@ -12,7 +12,7 @@ async function resetDatabase() {
   await prisma.likedSong.deleteMany();
   await prisma.likedArtist.deleteMany();
   await prisma.playHistory.deleteMany();
-  await prisma.lyricLine.deleteMany();
+  await prisma.lyrics.deleteMany();
   await prisma.artistGenre.deleteMany();
   await prisma.upload.deleteMany();
   await prisma.premiumSubscription.deleteMany();

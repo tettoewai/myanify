@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { formatSongResponse } from "@/lib/song-response";
+import { calculateMonthlyListeners } from "@/lib/monthly-listeners";
 
 export async function GET(
   request: Request,
@@ -57,8 +58,11 @@ export async function GET(
       };
     });
 
+    const monthlyListeners = await calculateMonthlyListeners(id);
+
     const responseArtist = {
       ...artist,
+      monthlyListeners: Math.max(artist.monthlyListeners, monthlyListeners),
       songs: transformedSongs,
     };
 

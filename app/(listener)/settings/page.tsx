@@ -131,7 +131,7 @@ function SettingsSignInPrompt() {
           </Link>
         </Button>
         <Button asChild variant="outline" className="sm:min-w-[140px]">
-          <Link href="/">Browse music</Link>
+          <Link href="/home">Browse music</Link>
         </Button>
       </CardContent>
     </Card>

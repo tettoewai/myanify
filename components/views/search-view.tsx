@@ -163,7 +163,7 @@ export function SearchView({
               <button
                 key={genre.id}
                 onClick={() => navigate("genre", genre.id)}
-                className="group relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
+                className="group relative aspect-4/3 rounded-xl overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <Image
                   src={genre.imageUrl || "/placeholder.svg"}
@@ -175,7 +175,7 @@ export function SearchView({
                     (e.target as HTMLImageElement).src = "/placeholder.svg";
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4 text-left">
                   <h3 className="font-bold text-white text-lg">{genre.name}</h3>
                   <p className="text-sm text-white/70 line-clamp-1">

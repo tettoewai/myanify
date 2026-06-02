@@ -37,7 +37,7 @@ export function useSongs(options?: {
     ? `/api/songs?${params.toString()}`
     : "/api/songs";
 
-  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+  const { data, error, isLoading, isValidating, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
   });
@@ -48,6 +48,7 @@ export function useSongs(options?: {
     return {
       songs: Array.isArray(songs) ? songs : [],
       isLoading,
+      isValidating,
       isError: error,
       mutate,
     };
@@ -60,6 +61,7 @@ export function useSongs(options?: {
   return {
     songs,
     isLoading,
+    isValidating,
     isError: error,
     mutate,
   };
@@ -73,7 +75,7 @@ export function useArtists(options?: { search?: string }) {
     ? `/api/artists?${params.toString()}`
     : "/api/artists";
 
-  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+  const { data, error, isLoading, isValidating, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
   });
@@ -84,6 +86,7 @@ export function useArtists(options?: { search?: string }) {
   return {
     artists,
     isLoading,
+    isValidating,
     isError: error,
     mutate,
   };
