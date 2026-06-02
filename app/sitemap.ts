@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/db";
 import { getSiteUrl } from "@/lib/site-url";
 
+export const dynamic = "force-dynamic";
+
 const MAX_DYNAMIC_URLS_PER_TYPE = 1000;
 
 function absoluteUrl(siteUrl: string, path = "") {
