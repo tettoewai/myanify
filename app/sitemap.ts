@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { prisma } from "@/db";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const MAX_DYNAMIC_URLS_PER_TYPE = 1000;
 
@@ -30,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
+    const { prisma } = await import("@/db");
     const [artists, genres, playlists] = await Promise.all([
       prisma.artist.findMany({
         where: {
