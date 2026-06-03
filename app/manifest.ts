@@ -1,4 +1,8 @@
 import type { MetadataRoute } from "next";
+import {
+  BRAND_BACKGROUND_COLOR,
+  BRAND_THEME_COLOR,
+} from "@/lib/brand-colors";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -7,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music, create playlists, and enjoy synchronized lyrics.",
     start_url: "/",
     display: "standalone",
-    background_color: "#000000",
-    theme_color: "#D4AF37",
+    background_color: BRAND_BACKGROUND_COLOR,
+    theme_color: BRAND_THEME_COLOR,
     icons: [
       {
         src: "/icon.svg",

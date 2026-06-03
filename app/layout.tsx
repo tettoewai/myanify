@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
+import { BRAND_THEME_COLOR } from "@/lib/brand-colors";
 import { getSiteUrl } from "@/lib/site-url";
 
 const siteUrl = getSiteUrl();
@@ -79,7 +80,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#D4AF37",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: BRAND_THEME_COLOR },
+    { media: "(prefers-color-scheme: dark)", color: BRAND_THEME_COLOR },
+  ],
+  colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
 };

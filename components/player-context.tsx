@@ -13,6 +13,7 @@ import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { Song } from "@/lib/types";
 import { requireLoginRedirect } from "@/lib/require-login";
+import { useMediaSession } from "@/hooks/use-media-session";
 import { useSongs, usePlayHistory } from "@/lib/swr";
 
 interface PlayerContextType {
@@ -579,6 +580,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Return songs from database if user is logged in, otherwise return empty array
     return session?.user?.id ? recentlyPlayedSongs : [];
   };
+
+  useMediaSession({
+    song: currentSong,
+    isPlaying,
+    currentTime,
+    onPlay: () => setIsPlaying(true),
+    onPause: () => setIsPlaying(false),
+    onNext: nextSong,
+    onPrev: prevSong,
+    onSeek: (time) => setCurrentTime(time),
+  });
 
   return (
     <PlayerContext.Provider
