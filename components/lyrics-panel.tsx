@@ -7,13 +7,19 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AlbumMetadata } from "@/components/album-metadata";
+import {
+  LyricSizeToggle,
+  type LyricSize,
+} from "@/components/lyric-size-toggle";
 import { usePlayer } from "@/components/player-context";
 import { useSyncedLyrics } from "@/lib/lyrics-sync";
+import { LyricsAlbumBackdrop } from "@/components/lyrics-album-backdrop";
 import {
   LYRIC_LINE_TRANSITION,
   LYRIC_TEXT_TRANSITION,
   useLyricsAutoScroll,
 } from "@/lib/lyrics-scroll";
+import { getSongCoverUrl } from "@/lib/utils";
 
 interface LyricsPanelProps {
   song: Song;
@@ -37,11 +43,14 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
     lyrics,
   });
 
-  const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+  const [size, setSize] = useState<LyricSize>("md");
 
   return (
-    <aside className="w-80 lg:w-[420px] h-full bg-linear-to-b from-amber-950/20 via-background to-background border-l border-amber-900/20 flex-col hidden lg:flex leading-loose">
-      <div className="p-5 border-b border-amber-900/20 flex items-center justify-between bg-linear-to-r from-amber-900/10 to-transparent">
+    <aside className="relative w-80 lg:w-[420px] h-full overflow-hidden border-l border-amber-900/20 flex-col hidden lg:flex leading-loose">
+      <LyricsAlbumBackdrop song={song} variant="panel" />
+
+      <div className="relative z-10 flex flex-col h-full min-h-0">
+      <div className="p-5 border-b border-amber-900/20 flex items-center justify-between bg-amber-950/20 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
             <Music2 className="w-5 h-5 text-primary-foreground" />
@@ -56,24 +65,11 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg border border-secondary/30 bg-secondary/10 px-1 py-0.5">
-            {(["sm", "md", "lg"] as const).map((s) => (
-              <Button
-                key={s}
-                variant={size === s ? "secondary" : "ghost"}
-                size="sm"
-                className={cn(
-                  "h-8 px-2 text-xs font-medium cursor-pointer leading-loose",
-                  size === s
-                    ? "bg-primary/20 text-primary-foreground hover:bg-primary/30"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                onClick={() => setSize(s)}
-              >
-                {s.toUpperCase()}
-              </Button>
-            ))}
-          </div>
+          <LyricSizeToggle
+            size={size}
+            onSizeChange={setSize}
+            variant="panel"
+          />
           <Button
             variant="ghost"
             size="icon"
@@ -85,11 +81,11 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
         </div>
       </div>
 
-      <div className="p-5 border-b border-amber-900/20">
+      <div className="p-5 border-b border-amber-900/20 bg-amber-950/10 backdrop-blur-sm">
         <div className="flex items-center gap-4">
           <div className="relative">
             <Image
-              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+              src={getSongCoverUrl(song)}
               alt={song.title}
               width={64}
               height={64}
@@ -183,11 +179,12 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
         </div>
       </div>
 
-      <div className="p-4 border-t border-amber-900/20 bg-linear-to-t from-amber-950/10 to-transparent">
+      <div className="p-4 border-t border-amber-900/20 bg-amber-950/20 backdrop-blur-sm">
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground leading-loose">
           <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
           <span className="leading-loose">Auto-scrolling to current lyric</span>
         </div>
+      </div>
       </div>
     </aside>
   );

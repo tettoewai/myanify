@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import {
   ChevronDown,
   Heart,
@@ -22,13 +22,17 @@ import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
 import { useToggleLikeSong } from "@/lib/swr";
 import { AlbumMetadata } from "@/components/album-metadata";
+import {
+  LyricSizeToggle,
+  type LyricSize,
+} from "@/components/lyric-size-toggle";
 import { useSyncedLyrics } from "@/lib/lyrics-sync";
+import { LyricsAlbumBackdrop } from "@/components/lyrics-album-backdrop";
 import {
   LYRIC_LINE_TRANSITION,
   LYRIC_TEXT_TRANSITION,
   useLyricsAutoScroll,
 } from "@/lib/lyrics-scroll";
-
 interface FullscreenLyricsProps {
   song: Song;
   currentTime: number;
@@ -85,7 +89,7 @@ export function FullscreenLyrics({
     lyrics,
   });
 
-  const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+  const [size, setSize] = useState<LyricSize>("md");
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -94,19 +98,8 @@ export function FullscreenLyrics({
   };
 
   return (
-    <div className="fixed inset-0 z-100 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose">
-      {/* Background blur effect with album art */}
-      <div
-        className="absolute inset-0 opacity-30 blur-3xl scale-110"
-        style={{
-          backgroundImage: `url(${
-            song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-          })`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
-      <div className="absolute inset-0 bg-linear-to-b from-black/60 via-transparent to-black/80" />
+    <div className="fixed inset-0 z-100 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose overflow-hidden">
+      <LyricsAlbumBackdrop song={song} variant="fullscreen" />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4 md:p-6">
@@ -130,24 +123,7 @@ export function FullscreenLyrics({
           />
         </div>
 
-        <div className="flex items-center gap-1">
-          {(["sm", "md", "lg"] as const).map((s) => (
-            <Button
-              key={s}
-              variant={size === s ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "h-8 px-2 text-xs font-semibold rounded-full cursor-pointer leading-loose",
-                size === s
-                  ? "bg-white/20 text-white"
-                  : "text-white/70 hover:text-white",
-              )}
-              onClick={() => setSize(s)}
-            >
-              {s.toUpperCase()}
-            </Button>
-          ))}
-        </div>
+        <LyricSizeToggle size={size} onSizeChange={setSize} />
       </div>
 
       {/* Lyrics area */}
@@ -215,7 +191,7 @@ export function FullscreenLyrics({
           {/* Song info */}
           <div className="flex items-center gap-4 mb-6">
             <Image
-              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+              src={getSongCoverUrl(song)}
               alt={song.title}
               width={80}
               height={80}

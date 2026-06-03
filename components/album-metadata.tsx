@@ -11,7 +11,7 @@ export function AlbumMetadata({ name, type, className }: AlbumMetadataProps) {
   if (!name) return null;
 
   return (
-    <span className={cn("block truncate leading-loose", className)}>
+    <span className={cn("block truncate leading-loose text-center", className)}>
       {formatAlbumWithType(name, type)}
     </span>
   );

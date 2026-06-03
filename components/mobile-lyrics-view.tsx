@@ -13,8 +13,6 @@ import {
   SkipForward,
   Shuffle,
   Repeat,
-  MoreHorizontal,
-  ListMusic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -23,12 +21,19 @@ import { cn } from "@/lib/utils";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
 import { useToggleLikeSong } from "@/lib/swr";
+import { AlbumMetadata } from "@/components/album-metadata";
+import {
+  LyricSizeToggle,
+  type LyricSize,
+} from "@/components/lyric-size-toggle";
 import { useSyncedLyrics } from "@/lib/lyrics-sync";
+import { LyricsAlbumBackdrop } from "@/components/lyrics-album-backdrop";
 import {
   LYRIC_LINE_TRANSITION,
   LYRIC_TEXT_TRANSITION,
   useLyricsAutoScroll,
 } from "@/lib/lyrics-scroll";
+import { getSongCoverUrl } from "@/lib/utils";
 
 interface MobileLyricsViewProps {
   song: Song;
@@ -52,10 +57,10 @@ export function MobileLyricsView({
   onTimeChange,
 }: MobileLyricsViewProps) {
   const { data: session } = useSession();
-  const { audioRef } = usePlayer();
+  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode } =
+    usePlayer();
   const [showLyrics, setShowLyrics] = useState(true);
 
-  // Fetch liked songs from database
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
   });
@@ -70,8 +75,6 @@ export function MobileLyricsView({
 
     void toggleLike(song);
   };
-
-  // Lead slightly so lines flip just ahead of the beat
 
   const lyrics = useMemo(() => song.lyrics || [], [song.lyrics]);
 
@@ -88,7 +91,7 @@ export function MobileLyricsView({
     enabled: showLyrics,
   });
 
-  const [size, setSize] = useState<"sm" | "md" | "lg">("md");
+  const [size, setSize] = useState<LyricSize>("md");
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -97,19 +100,8 @@ export function MobileLyricsView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-950 flex flex-col leading-loose">
-      {/* Background with album art blur */}
-      <div
-        className="absolute inset-0 opacity-40 blur-3xl scale-125"
-        style={{
-          backgroundImage: `url(${
-            song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-          })`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
-      <div className="absolute inset-0 bg-linear-to-b from-stone-950/80 via-stone-950/60 to-stone-950" />
+    <div className="fixed inset-0 z-50 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose overflow-hidden">
+      <LyricsAlbumBackdrop song={song} variant="fullscreen" />
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4 pt-safe">
@@ -119,119 +111,114 @@ export function MobileLyricsView({
           onClick={onClose}
           className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
         >
-          <ChevronDown className="w-7 h-7" />
+          <ChevronDown className="w-6 h-6" />
         </Button>
 
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-wider text-amber-400/80 font-medium leading-loose">
+        <div className="flex-1 w-full px-3 text-center justify-center items-center">
+          <p className="text-xs uppercase tracking-wider text-primary font-medium leading-loose">
             Now Playing
           </p>
+          <AlbumMetadata
+            name={song.album}
+            type={song.albumType}
+            className="text-sm text-white/60 mt-0.5 leading-loose max-w-36 mx-auto"
+          />
         </div>
 
-        <div className="flex items-center gap-1">
-          {(["sm", "md", "lg"] as const).map((s) => (
-            <Button
-              key={s}
-              variant={size === s ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "h-8 px-2 text-xs font-semibold rounded-full cursor-pointer leading-loose",
-                size === s
-                  ? "bg-white/20 text-white"
-                  : "text-white/70 hover:text-white",
-              )}
-              onClick={() => setSize(s)}
-            >
-              {s.toUpperCase()}
-            </Button>
-          ))}
-        </div>
+        <LyricSizeToggle
+          size={size}
+          onSizeChange={setSize}
+          className="shrink-0"
+        />
       </div>
 
-      {/* Main content area - switches between album art and lyrics */}
-      <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
+      {/* Main content area */}
+      <div className="relative z-10 flex-1 flex flex-col overflow-hidden min-h-0">
         {showLyrics ? (
-          /* Lyrics View */
           <div
             ref={containerRef}
             className="flex-1 overflow-y-auto scroll-smooth px-6"
           >
-            <div className="py-[20vh]">
-              {song.lyrics.length > 0 ? (
-                <div className="space-y-8">
-                  {song.lyrics.map((line, index) => {
-                    const isActive = index === currentLyricIndex;
-                    const isPast = index < currentLyricIndex;
+            {lyrics.length > 0 && (
+              <div className="min-h-[50%] shrink-0" aria-hidden />
+            )}
+            {lyrics.length > 0 ? (
+              <div className="space-y-10">
+                {lyrics.map((line, index) => {
+                  const isActive = index === currentLyricIndex;
+                  const isPast = index < currentLyricIndex;
 
-                    return (
-                      <div
-                        key={index}
-                        data-lyric-line
-                        ref={isActive ? activeRef : null}
+                  return (
+                    <div
+                      key={index}
+                      data-lyric-line
+                      ref={isActive ? activeRef : null}
+                      className={cn(
+                        LYRIC_LINE_TRANSITION,
+                        "text-center",
+                        isActive && "scale-105",
+                        isPast && "opacity-30",
+                        !isActive && !isPast && "opacity-50",
+                      )}
+                    >
+                      <p
                         className={cn(
-                          LYRIC_LINE_TRANSITION,
-                          "text-center",
-                          isActive && "scale-105",
-                          isPast && "opacity-30",
-                          !isActive && !isPast && "opacity-50",
+                          LYRIC_TEXT_TRANSITION,
+                          "leading-loose font-medium",
+                          size === "sm" && "text-lg",
+                          size === "md" && "text-xl",
+                          size === "lg" && "text-2xl",
+                          isActive
+                            ? "text-white drop-shadow-[0_0_24px_rgba(251,191,36,0.35)] scale-100"
+                            : "text-white/70 scale-[0.98]",
                         )}
                       >
-                        <p
-                          className={cn(
-                            LYRIC_TEXT_TRANSITION,
-                            "leading-loose font-medium",
-                            size === "sm" && "text-sm",
-                            size === "md" && "text-lg",
-                            size === "lg" && "text-xl md:text-2xl",
-                            isActive
-                              ? "text-white scale-100"
-                              : "text-white/70 scale-[0.98]",
-                          )}
-                        >
-                          {line.text}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-20">
-                  <p className="text-white/60 leading-loose">
-                    No lyrics available
-                  </p>
-                </div>
-              )}
-            </div>
+                        {line.text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <p className="text-white/60 text-lg leading-loose">
+                  No lyrics available for this song
+                </p>
+              </div>
+            )}
+            {lyrics.length > 0 && (
+              <div className="min-h-[50%] shrink-0" aria-hidden />
+            )}
           </div>
         ) : (
-          /* Album Art View */
-          <div className="flex-1 flex items-center justify-center px-12">
+          <div className="flex-1 flex items-center justify-center px-10">
             <div className="relative w-full max-w-xs aspect-square">
               <Image
-                src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+                src={getSongCoverUrl(song)}
                 alt={song.title}
                 fill
-                className="rounded-2xl object-cover shadow-2xl"
+                className="rounded-2xl object-cover shadow-2xl ring-2 ring-white/10"
                 unoptimized
               />
-              <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
             </div>
           </div>
         )}
       </div>
 
-      {/* Bottom section */}
-      <div className="relative z-10 px-6 pb-safe bg-linear-to-t from-stone-950 to-transparent pt-8">
-        {/* Toggle between lyrics and artwork */}
+      {/* Bottom controls */}
+      <div className="relative z-10 px-6 pb-safe pt-4 bg-linear-to-t from-black/80 to-transparent">
+        {/* Cover / Lyrics toggle */}
         <div className="flex items-center justify-center mb-4">
-          <div className="flex items-center bg-white/10 rounded-full p-1">
+          <div className="flex items-center rounded-full bg-white/10 p-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowLyrics(false)}
               className={cn(
                 "rounded-full px-4 h-8 text-xs leading-loose",
-                !showLyrics ? "bg-white text-stone-900" : "text-white/70",
+                !showLyrics
+                  ? "bg-white text-stone-900 hover:bg-white/90"
+                  : "text-white/70 hover:text-white hover:bg-white/10",
               )}
             >
               Cover
@@ -242,7 +229,9 @@ export function MobileLyricsView({
               onClick={() => setShowLyrics(true)}
               className={cn(
                 "rounded-full px-4 h-8 text-xs leading-loose",
-                showLyrics ? "bg-white text-stone-900" : "text-white/70",
+                showLyrics
+                  ? "bg-white text-stone-900 hover:bg-white/90"
+                  : "text-white/70 hover:text-white hover:bg-white/10",
               )}
             >
               Lyrics
@@ -251,113 +240,129 @@ export function MobileLyricsView({
         </div>
 
         {/* Song info */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <Image
+            src={getSongCoverUrl(song)}
+            alt={song.title}
+            width={56}
+            height={56}
+            className="w-14 h-14 rounded-xl object-cover shadow-xl ring-2 ring-white/10 shrink-0"
+            unoptimized
+          />
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-xl text-white truncate leading-loose">
+            <p className="font-bold text-lg text-white truncate leading-loose">
               {song.title}
             </p>
-            <p className="text-amber-400/80 truncate leading-loose">
+            <p className="text-sm text-white/60 truncate leading-loose">
               {song.artist}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleLike}
-            disabled={!session?.user?.id}
-            aria-pressed={songIsLiked}
-            className="text-white/70 hover:text-white rounded-full"
-          >
-            <Heart
-              className={cn(
-                "w-6 h-6 transition-colors",
-                songIsLiked && "fill-primary text-primary",
-              )}
-            />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleLike}
+              disabled={!session?.user?.id}
+              aria-pressed={songIsLiked}
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+            >
+              <Heart
+                className={cn(
+                  "w-6 h-6 transition-colors",
+                  songIsLiked && "fill-primary text-primary",
+                )}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+            >
+              <Share2 className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Progress bar */}
-        <div className="mb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-xs text-white/60 w-10 text-right font-mono leading-loose">
+            {formatTime(currentTime)}
+          </span>
           <Slider
             value={[currentTime]}
             max={song.duration}
             step={1}
             onValueChange={(v) => onTimeChange(v[0])}
-            className="**:[[role=slider]]:bg-white **:[[role=slider]]:border-0 **:[[role=slider]]:w-4 **:[[role=slider]]:h-4 [&_.bg-primary]:bg-amber-400"
+            className="flex-1 **:[[role=slider]]:bg-white **:[[role=slider]]:border-0 **:[[role=slider]]:w-3 **:[[role=slider]]:h-3 [&_.bg-primary]:bg-primary"
           />
-          <div className="flex justify-between mt-2">
-            <span className="text-xs text-white/50 font-mono leading-loose">
-              {formatTime(currentTime)}
-            </span>
-            <span className="text-xs text-white/50 font-mono leading-loose">
-              {formatTime(song.duration)}
-            </span>
-          </div>
+          <span className="text-xs text-white/60 w-10 font-mono leading-loose">
+            {formatTime(song.duration)}
+          </span>
         </div>
 
         {/* Playback controls */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-center gap-4 pb-10">
           <Button
             variant="ghost"
             size="icon"
-            className="text-white/50 hover:text-white rounded-full"
+            onClick={() => setIsShuffled(!isShuffled)}
+            className={cn(
+              "text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+              isShuffled && "text-primary",
+            )}
           >
             <Shuffle className="w-5 h-5" />
           </Button>
+
           <Button
             variant="ghost"
             size="icon"
             onClick={onPrev}
-            className="text-white hover:text-white rounded-full w-12 h-12"
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
           >
-            <SkipBack className="w-7 h-7" />
+            <SkipBack className="w-6 h-6" />
           </Button>
+
           <Button
             size="icon"
             onClick={onTogglePlay}
-            className="w-16 h-16 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-900 shadow-xl shadow-amber-500/30"
+            className="w-16 h-16 rounded-full bg-white hover:bg-white/90 text-stone-900 shadow-xl shadow-white/20"
           >
             {isPlaying ? (
-              <Pause className="w-8 h-8" />
+              <Pause className="w-7 h-7" />
             ) : (
-              <Play className="w-8 h-8 ml-1" />
+              <Play className="w-7 h-7 ml-1" />
             )}
           </Button>
+
           <Button
             variant="ghost"
             size="icon"
             onClick={onNext}
-            className="text-white hover:text-white rounded-full w-12 h-12"
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
           >
-            <SkipForward className="w-7 h-7" />
+            <SkipForward className="w-6 h-6" />
           </Button>
+
           <Button
             variant="ghost"
             size="icon"
-            className="text-white/50 hover:text-white rounded-full"
+            onClick={() => {
+              if (repeatMode === "off") setRepeatMode("all");
+              else if (repeatMode === "all") setRepeatMode("one");
+              else setRepeatMode("off");
+            }}
+            className={cn(
+              "relative text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+              repeatMode !== "off" && "text-primary",
+            )}
           >
             <Repeat className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Bottom actions */}
-        <div className="flex items-center justify-center gap-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white/50 hover:text-white text-xs gap-2 leading-loose"
-          >
-            <Share2 className="w-4 h-4" />
-            Share
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white/50 hover:text-white text-xs gap-2 leading-loose"
-          >
-            <ListMusic className="w-4 h-4" />
-            Queue
+            {repeatMode === "one" && (
+              <span className="absolute text-[8px] font-bold leading-loose">
+                1
+              </span>
+            )}
           </Button>
         </div>
       </div>
