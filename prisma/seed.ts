@@ -172,12 +172,14 @@ async function main() {
     prisma.album.create({
       data: {
         name: "Love Songs Collection",
+        type: "ALBUM",
         description: "A collection of romantic Myanmar songs",
       },
     }),
     prisma.album.create({
       data: {
         name: "Homeland",
+        type: "EP",
         description: "Songs celebrating Myanmar",
       },
     }),

@@ -1,9 +1,24 @@
+import type { AlbumType } from "./album-type"
+
+export interface Album {
+  id: string
+  name: string
+  coverUrl: string | null
+  type: AlbumType
+  description: string | null
+  releaseDate: string | null
+  createdAt?: string
+  updatedAt?: string
+  songs?: Song[]
+}
+
 export interface Song {
   id: string
   title: string
   artist: string // Comma-separated artist names for display
   artists?: string[] // Array of artist names (optional, for when full list is needed)
   album: string
+  albumType?: AlbumType | null
   duration: number
   coverUrl: string
   albumCoverUrl?: string | null // Album cover URL for fallback

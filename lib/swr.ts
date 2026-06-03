@@ -1,4 +1,6 @@
+import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import type { Song, Artist, Genre, Playlist } from "./types";
 import {
   transformSong,
@@ -329,8 +331,19 @@ export function useAlbum(id: string | null) {
     }
   );
 
+  const album = useMemo(
+    () =>
+      data
+        ? {
+            ...data,
+            songs: (data.songs || []).map(transformSong),
+          }
+        : null,
+    [data],
+  );
+
   return {
-    album: data || null,
+    album,
     isLoading,
     isError: error,
     mutate,
@@ -430,6 +443,88 @@ export function useLikedSongs(options?: { enabled?: boolean }) {
     isLoading,
     isError: error,
     mutate,
+  };
+}
+
+type LikedSongsCache = { data: Song[] } | Song[] | undefined;
+
+function normalizeLikedSongsCache(data: LikedSongsCache): Song[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.data)) return data.data;
+  return [];
+}
+
+function buildLikedSongsCache(
+  songs: Song[],
+  previous: LikedSongsCache
+): { data: Song[] } {
+  if (previous && !Array.isArray(previous) && Array.isArray(previous.data)) {
+    return { data: songs };
+  }
+  return { data: songs };
+}
+
+function applyLikeToggleToCache(
+  current: LikedSongsCache,
+  song: Song,
+  liked: boolean
+): { data: Song[] } {
+  const songs = normalizeLikedSongsCache(current);
+  const next = liked
+    ? [song, ...songs.filter((s) => s.id !== song.id)]
+    : songs.filter((s) => s.id !== song.id);
+  return buildLikedSongsCache(next, current);
+}
+
+export function useToggleLikeSong(options?: { enabled?: boolean }) {
+  const { likedSongIds, mutate } = useLikedSongs(options);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const toggleLike = useCallback(
+    async (song: Song) => {
+      const songId = song.id;
+      if (!songId || togglingId === songId) return;
+
+      const wasLiked = likedSongIds.has(songId);
+      setTogglingId(songId);
+
+      try {
+        await mutate(
+          async (current: LikedSongsCache) => {
+            const ok = wasLiked
+              ? await unlikeSong(songId)
+              : await likeSong(songId);
+            if (!ok) {
+              throw new Error("Failed to update liked songs");
+            }
+            return applyLikeToggleToCache(current, song, !wasLiked);
+          },
+          {
+            optimisticData: (current: LikedSongsCache) =>
+              applyLikeToggleToCache(current, song, !wasLiked),
+            rollbackOnError: true,
+            populateCache: true,
+            revalidate: false,
+          }
+        );
+      } catch (error) {
+        console.error("Error toggling like:", error);
+        toast.error(
+          wasLiked ? "Couldn't remove from liked songs" : "Couldn't save song"
+        );
+      } finally {
+        setTogglingId(null);
+      }
+    },
+    [likedSongIds, mutate, togglingId]
+  );
+
+  return {
+    likedSongIds,
+    isLiked: (songId: string) => likedSongIds.has(songId),
+    toggleLike,
+    mutateLikedSongs: mutate,
   };
 }
 

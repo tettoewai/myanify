@@ -10,13 +10,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { requireLoginRedirect } from "@/lib/require-login";
-import { likeSong, unlikeSong, useLikedSongs } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   Heart,
   ListMusic,
-  Loader2,
   Maximize2,
   Mic2,
   Pause,
@@ -32,6 +31,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useState } from "react";
 import { usePlayer } from "./player-context";
+import { AlbumMetadata } from "@/components/album-metadata";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -71,37 +71,22 @@ export function PlayerBar({
     repeatMode,
     setRepeatMode,
   } = usePlayer();
-  const [isLikeLoading, setIsLikeLoading] = useState(false);
-
-  // Fetch liked songs from database
-  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+  const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
   });
 
-  const isLiked = currentSong ? likedSongIds.has(currentSong.id) : false;
-
-  const handleToggleLike = async () => {
-    if (!currentSong || isLikeLoading) return;
+  const handleToggleLike = () => {
+    if (!currentSong) return;
 
     if (!session?.user?.id) {
       requireLoginRedirect();
       return;
     }
 
-    setIsLikeLoading(true);
-    try {
-      if (isLiked) {
-        await unlikeSong(currentSong.id);
-      } else {
-        await likeSong(currentSong.id);
-      }
-      mutateLikedSongs();
-    } catch (error) {
-      console.error("Error toggling like:", error);
-    } finally {
-      setIsLikeLoading(false);
-    }
+    void toggleLike(currentSong);
   };
+
+  const songIsLiked = currentSong ? isLiked(currentSong.id) : false;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -124,16 +109,18 @@ export function PlayerBar({
   return (
     <TooltipProvider>
       <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-gradient-to-t from-stone-950 to-stone-900/95 backdrop-blur-xl border-t border-amber-900/20 z-50 hidden md:block">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 w-72 shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div
-                    className="relative group cursor-pointer w-full"
+                  <button
+                    type="button"
                     onClick={onOpenFullscreenLyrics}
+                    aria-label="Open fullscreen lyrics"
+                    className="relative group shrink-0 size-14 overflow-hidden rounded-lg shadow-lg ring-1 ring-primary/25 transition-all hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Image
                       src={
@@ -141,26 +128,33 @@ export function PlayerBar({
                         currentSong.coverUrl ||
                         "/placeholder.svg"
                       }
-                      alt={currentSong.title}
-                      width={56}
-                      height={56}
-                      className="w-14 h-14 rounded-lg object-cover shadow-lg ring-1 ring-amber-500/20 group-hover:ring-amber-500/40 transition-all"
+                      alt=""
+                      fill
+                      sizes="56px"
+                      className="object-cover"
                       unoptimized
                     />
-                    <div className="absolute inset-0 rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Maximize2 className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <Maximize2 className="w-5 h-5 text-white" aria-hidden />
+                    </span>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>Open fullscreen lyrics</TooltipContent>
               </Tooltip>
               <div className="min-w-0">
-                <p className="font-medium truncate text-foreground">
+                <p className="truncate text-foreground leading-loose">
                   {currentSong.title}
                 </p>
-                <p className="text-sm text-amber-500/70 truncate">
+                <p className="text-xs text-primary/80 truncate leading-loose">
                   {currentSong.artist}
                 </p>
+                {/* {currentSong.album && (
+                  <AlbumMetadata
+                    name={currentSong.album}
+                    type={currentSong.albumType}
+                    className="text-xs text-muted-foreground truncate leading-loose"
+                  />
+                )} */}
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -169,26 +163,23 @@ export function PlayerBar({
                     size="icon"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                     onClick={handleToggleLike}
-                    disabled={isLikeLoading}
+                    disabled={!session?.user?.id}
+                    aria-pressed={songIsLiked}
                   >
-                    {isLikeLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Heart
-                        className={cn(
-                          "w-4 h-4",
-                          isLiked && "fill-amber-500 text-amber-500"
-                        )}
-                      />
-                    )}
+                    <Heart
+                      className={cn(
+                        "w-4 h-4 transition-colors",
+                        songIsLiked && "fill-primary text-primary",
+                      )}
+                    />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {!session?.user?.id
                     ? "Sign in to like songs"
-                    : isLiked
-                    ? "Remove from favorites"
-                    : "Add to favorites"}
+                    : songIsLiked
+                      ? "Remove from favorites"
+                      : "Add to favorites"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -221,7 +212,7 @@ export function PlayerBar({
                       size="icon"
                       className={cn(
                         "text-muted-foreground hover:text-foreground",
-                        isShuffled && "text-amber-500"
+                        isShuffled && "text-amber-500",
                       )}
                       onClick={() => setIsShuffled(!isShuffled)}
                     >
@@ -249,7 +240,7 @@ export function PlayerBar({
                   <TooltipTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-900 shadow-lg shadow-amber-500/25 cursor-pointer"
+                      className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 text-stone-900 shadow-lg shadow-primary/25 cursor-pointer"
                       onClick={onTogglePlay}
                     >
                       {isPlaying ? (
@@ -283,7 +274,7 @@ export function PlayerBar({
                       size="icon"
                       className={cn(
                         "text-muted-foreground hover:text-foreground relative",
-                        repeatMode !== "off" && "text-amber-500"
+                        repeatMode !== "off" && "text-amber-500",
                       )}
                       onClick={cycleRepeat}
                     >
@@ -297,8 +288,8 @@ export function PlayerBar({
                     {repeatMode === "off"
                       ? "Enable repeat"
                       : repeatMode === "all"
-                      ? "Repeat all"
-                      : "Repeat one"}
+                        ? "Repeat all"
+                        : "Repeat one"}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -312,7 +303,7 @@ export function PlayerBar({
                   max={currentSong.duration}
                   step={1}
                   onValueChange={handleSeek}
-                  className="flex-1 [&_[role=slider]]:bg-amber-500 [&_[role=slider]]:border-0 [&_.bg-primary]:bg-amber-500"
+                  className="flex-1 [&_[role=slider]]:bg-primary [&_[role=slider]]:border-0 [&_.bg-primary]:bg-primary"
                 />
                 <span className="text-xs text-muted-foreground w-10 font-mono">
                   {formatTime(currentSong.duration)}
@@ -331,10 +322,10 @@ export function PlayerBar({
                     }
                     className={cn(
                       "text-muted-foreground hover:text-foreground",
-                      showLyrics && "text-amber-500 bg-amber-500/10",
+                      showLyrics && "text-primary bg-primary/10",
                       (!currentSong.lyrics ||
                         currentSong.lyrics.length === 0) &&
-                        "opacity-50 cursor-not-allowed"
+                        "opacity-50 cursor-not-allowed",
                     )}
                     onClick={onToggleLyrics}
                   >
@@ -345,8 +336,8 @@ export function PlayerBar({
                   {!currentSong.lyrics || currentSong.lyrics.length === 0
                     ? "No lyrics available"
                     : showLyrics
-                    ? "Hide lyrics"
-                    : "Show lyrics"}
+                      ? "Hide lyrics"
+                      : "Show lyrics"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>

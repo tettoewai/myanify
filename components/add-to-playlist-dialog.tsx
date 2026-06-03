@@ -205,8 +205,15 @@ export function AddToPlaylistDropdown({
     }
   };
 
+  const handleDropdownOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && !session?.user?.id) {
+      requireLoginRedirect();
+      return;
+    }
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={handleDropdownOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm">
           <Plus className="w-4 h-4 mr-2" />

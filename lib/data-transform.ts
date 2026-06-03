@@ -17,6 +17,7 @@ export function transformSong(prismaSong: any): Song {
     artist: artistNames,
     artists: artists.filter((name: string) => name),
     album: prismaSong.album?.name || "",
+    albumType: prismaSong.album?.type ?? null,
     duration: prismaSong.duration,
     coverUrl: prismaSong.coverUrl || FALLBACK_COVER,
     albumCoverUrl: prismaSong.album?.coverUrl || null, // Include album cover for fallback

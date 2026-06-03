@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { MobileLyricsView } from "./mobile-lyrics-view";
-import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
+import { requireLoginRedirect } from "@/lib/require-login";
 
 interface MobileNowPlayingProps {
   song: Song;
@@ -33,21 +34,20 @@ export function MobileNowPlaying({
   const [showFullView, setShowFullView] = useState(false);
   
   // Fetch liked songs from database
-  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({ 
-    enabled: !!session?.user?.id 
+  const { isLiked, toggleLike } = useToggleLikeSong({
+    enabled: !!session?.user?.id,
   });
-  
-  const isLiked = likedSongIds.has(song.id);
-  
-  const handleToggleLike = async () => {
-    if (!session?.user?.id) return;
-    
-    if (isLiked) {
-      await unlikeSong(song.id);
-    } else {
-      await likeSong(song.id);
+
+  const songIsLiked = isLiked(song.id);
+
+  const handleToggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
     }
-    mutateLikedSongs();
+
+    void toggleLike(song);
   };
 
   const progress = (currentTime / song.duration) * 100;
@@ -109,16 +109,13 @@ export function MobileNowPlaying({
               variant="ghost"
               size="icon"
               className="text-white/70 hover:text-white h-10 w-10"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleLike();
-              }}
+              onClick={handleToggleLike}
               disabled={!session?.user?.id}
             >
               <Heart
                 className={cn(
                   "w-5 h-5",
-                  isLiked && "fill-amber-400 text-amber-400"
+                  songIsLiked && "fill-primary text-primary transition-colors"
                 )}
               />
             </Button>

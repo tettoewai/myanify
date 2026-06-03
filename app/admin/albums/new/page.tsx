@@ -16,6 +16,14 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ALBUM_TYPES, ALBUM_TYPE_LABELS, type AlbumType } from "@/lib/album-type";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +35,7 @@ export default function NewAlbumPage() {
     name: "",
     description: "",
     releaseDate: "",
+    type: "ALBUM" as AlbumType,
   });
   const [coverUrl, setCoverUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
@@ -81,6 +90,7 @@ export default function NewAlbumPage() {
         },
         body: JSON.stringify({
           name: formData.name,
+          type: formData.type,
           coverUrl: coverUrl || null,
           description: formData.description || null,
           releaseDate: formData.releaseDate || null,
@@ -186,6 +196,27 @@ export default function NewAlbumPage() {
                   required
                   className="mt-2"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="type">Type *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, type: value as AlbumType })
+                  }
+                >
+                  <SelectTrigger className="mt-2" id="type">
+                    <SelectValue placeholder="Select album type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALBUM_TYPES.map((albumType) => (
+                      <SelectItem key={albumType} value={albumType}>
+                        {ALBUM_TYPE_LABELS[albumType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

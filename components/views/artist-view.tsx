@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { useSession } from "next-auth/react";
 import { requireLoginRedirect } from "@/lib/require-login";
+import { AlbumMetadata } from "@/components/album-metadata";
 
 interface ArtistViewProps {
   artistId: string;
@@ -259,9 +260,11 @@ export function ArtistView({
                     >
                       {song.title}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {song.album}
-                    </p>
+                    <AlbumMetadata
+                      name={song.album}
+                      type={song.albumType}
+                      className="text-sm text-muted-foreground"
+                    />
                   </div>
                   <span className="text-sm text-muted-foreground">
                     {Math.floor(song.duration / 60)}:

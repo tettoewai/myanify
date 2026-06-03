@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { usePlaylist } from "@/lib/swr";
 import { cn } from "@/lib/utils";
+import { AlbumMetadata } from "@/components/album-metadata";
 
 interface PlaylistViewProps {
   playlistId: string;
@@ -308,9 +309,12 @@ export function PlaylistView({
                       {song.artist}
                     </p>
                   </div>
-                  <span className="hidden md:block w-32 text-sm text-muted-foreground truncate">
-                    {song.album}
-                  </span>
+                  <div className="hidden md:block w-32 text-sm text-muted-foreground truncate">
+                    <AlbumMetadata
+                      name={song.album}
+                      type={song.albumType}
+                    />
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     {Math.floor(song.duration / 60)}:
                     {(song.duration % 60).toString().padStart(2, "0")}

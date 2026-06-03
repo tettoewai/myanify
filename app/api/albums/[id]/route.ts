@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { isAlbumType } from "@/lib/album-type";
 import { formatSongsResponse } from "@/lib/song-response";
 
 export async function GET(
@@ -56,12 +57,17 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, coverUrl, description, releaseDate } = body;
+    const { name, coverUrl, description, releaseDate, type } = body;
+
+    if (type !== undefined && !isAlbumType(type)) {
+      return NextResponse.json({ error: "Invalid album type" }, { status: 400 });
+    }
 
     const album = await prisma.album.update({
       where: { id },
       data: {
         ...(name && { name }),
+        ...(type !== undefined && isAlbumType(type) && { type }),
         ...(coverUrl !== undefined && { coverUrl: coverUrl || null }),
         ...(description !== undefined && { description: description || null }),
         ...(releaseDate !== undefined && {

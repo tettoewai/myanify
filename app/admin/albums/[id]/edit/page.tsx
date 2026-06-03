@@ -23,6 +23,15 @@ import {
 } from "@/components/ui/card";
 import { useAlbum } from "@/lib/swr";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AlbumTypeBadge } from "@/components/album-type-badge";
+import { ALBUM_TYPES, ALBUM_TYPE_LABELS, isAlbumType, type AlbumType } from "@/lib/album-type";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +39,7 @@ interface Album {
   id: string;
   name: string;
   coverUrl: string | null;
+  type: AlbumType;
   description: string | null;
   releaseDate: string | null;
   songs?: Array<{
@@ -56,6 +66,7 @@ export default function EditAlbumPage() {
     name: "",
     description: "",
     releaseDate: "",
+    type: "ALBUM" as AlbumType,
   });
   const [coverUrl, setCoverUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
@@ -63,17 +74,26 @@ export default function EditAlbumPage() {
   const { album, isLoading: albumLoading } = useAlbum(albumId);
 
   useEffect(() => {
-    if (album) {
-      setFormData({
-        name: album.name,
-        description: album.description || "",
-        releaseDate: album.releaseDate
-          ? new Date(album.releaseDate).toISOString().split("T")[0]
-          : "",
-      });
-      setCoverUrl(album.coverUrl || "");
-    }
-  }, [album]);
+    if (!album) return;
+
+    setFormData({
+      name: album.name,
+      description: album.description || "",
+      releaseDate: album.releaseDate
+        ? new Date(album.releaseDate).toISOString().split("T")[0]
+        : "",
+      type: isAlbumType(album.type) ? album.type : "ALBUM",
+    });
+    setCoverUrl(album.coverUrl || "");
+  }, [
+    albumId,
+    album?.id,
+    album?.name,
+    album?.description,
+    album?.releaseDate,
+    album?.type,
+    album?.coverUrl,
+  ]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -125,6 +145,7 @@ export default function EditAlbumPage() {
         },
         body: JSON.stringify({
           name: formData.name,
+          type: formData.type,
           coverUrl: coverUrl || null,
           description: formData.description || null,
           releaseDate: formData.releaseDate || null,
@@ -163,7 +184,10 @@ export default function EditAlbumPage() {
           </Link>
         </Button>
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Edit Album</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-bold text-foreground">Edit Album</h2>
+            {album.type && <AlbumTypeBadge type={album.type} />}
+          </div>
           <p className="text-muted-foreground mt-1">Update album information</p>
         </div>
       </div>
@@ -240,6 +264,27 @@ export default function EditAlbumPage() {
                   required
                   className="mt-2"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="type">Type *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, type: value as AlbumType })
+                  }
+                >
+                  <SelectTrigger className="mt-2" id="type">
+                    <SelectValue placeholder="Select album type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALBUM_TYPES.map((albumType) => (
+                      <SelectItem key={albumType} value={albumType}>
+                        {ALBUM_TYPE_LABELS[albumType]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

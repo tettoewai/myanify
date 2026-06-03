@@ -20,6 +20,8 @@ export function useNavigation() {
       router.push(`/artist/${id}`)
     } else if (view === "playlist" && id) {
       router.push(`/playlist/${id}`)
+    } else if (view === "album" && id) {
+      router.push(`/album/${id}`)
     }
   }
 

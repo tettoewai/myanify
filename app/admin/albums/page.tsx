@@ -18,6 +18,8 @@ import {
 import { useAlbums, useSongs } from "@/lib/swr";
 import { mutate } from "swr";
 import Link from "next/link";
+import { AlbumTypeBadge } from "@/components/album-type-badge";
+import type { AlbumType } from "@/lib/album-type";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ interface Album {
   id: string;
   name: string;
   coverUrl: string | null;
+  type: AlbumType;
   description: string | null;
   releaseDate: string | null;
   createdAt: string;
@@ -145,6 +148,9 @@ export default function AlbumsPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlbumTypeBadge type={album.type} />
+                  </div>
                   <h3 className="font-bold text-white text-lg">{album.name}</h3>
                   {album.releaseDate && (
                     <p className="text-sm text-white/80">

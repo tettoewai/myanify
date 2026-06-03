@@ -93,11 +93,18 @@ model ArtistGenre {
   @@index([genreId])
 }
 
+enum AlbumType {
+  SINGLE
+  EP
+  ALBUM
+}
+
 // Album model
 model Album {
   id          String    @id @default(cuid())
   name        String
   coverUrl    String?
+  type        AlbumType @default(ALBUM)
   description String?   @db.Text
   releaseDate DateTime?
   createdAt   DateTime  @default(now())

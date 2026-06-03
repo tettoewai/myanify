@@ -12,6 +12,7 @@ import {
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import type { Song } from "@/lib/types";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { useSongs, usePlayHistory } from "@/lib/swr";
 
 interface PlayerContextType {
@@ -54,7 +55,7 @@ const MAX_RECENTLY_PLAYED = 50;
 const POSITION_SAVE_INTERVAL = 5000; // Save position every 5 seconds
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -72,6 +73,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const restorePositionRef = useRef<number | null>(null);
   const positionSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentSongRef = useRef<Song | null>(null);
+  const isChangingSongRef = useRef(false);
 
   // Use SWR to fetch songs
   const { songs } = useSongs({ isPublished: true });
@@ -244,6 +246,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
+        // Skip play() if a song src change is in progress — the canplay handler will start playback
+        if (isChangingSongRef.current) return;
         audioRef.current.play().catch((error) => {
           console.error("Error playing audio:", error);
           setIsPlaying(false);
@@ -257,11 +261,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Handle song changes
   useEffect(() => {
     if (audioRef.current && (currentSong?.playbackUrl || currentSong?.audioUrl)) {
-      // Pause current audio if playing
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-
+      audioRef.current.pause();
       audioRef.current.src = currentSong.playbackUrl || currentSong.audioUrl;
       audioRef.current.load();
 
@@ -301,6 +301,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           restorePositionRef.current = null; // Clear after use
         }
 
+        // Song src is ready — allow the isPlaying effect to call play() again
+        isChangingSongRef.current = false;
+
         if (audioRef.current && isPlayingRef.current) {
           audioRef.current.play().catch((error) => {
             console.error("Error playing audio:", error);
@@ -319,26 +322,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           "loadedmetadata",
           handleLoadedMetadata
         );
+        isChangingSongRef.current = false;
       };
     }
   }, [currentSong?.id, currentSong?.playbackUrl, currentSong?.audioUrl, currentSong?.duration]);
 
-  // Handle time changes (seeking) - only update if difference is significant to avoid loops
+  // Handle time changes (seeking) — only when the user moves the slider, not during
+  // normal playback (floored currentTime is always slightly behind audio.currentTime).
   const seekingRef = useRef(false);
   useEffect(() => {
-    if (audioRef.current && seekingRef.current === false) {
-      const timeDiff = Math.abs(audioRef.current.currentTime - currentTime);
-      if (timeDiff > 1) {
-        seekingRef.current = true;
-        audioRef.current.currentTime = currentTime;
-        // Save position when user seeks
-        if (currentSong) {
-          savePlaybackPosition(currentSong.id, currentTime);
-        }
-        setTimeout(() => {
-          seekingRef.current = false;
-        }, 100);
+    if (!audioRef.current || seekingRef.current) return;
+
+    const audioTime = audioRef.current.currentTime;
+    const timeDiff = audioTime - currentTime;
+    const absDiff = Math.abs(timeDiff);
+
+    const isUserSeek =
+      absDiff >= 1 || currentTime < audioTime - 0.5;
+
+    if (isUserSeek) {
+      seekingRef.current = true;
+      audioRef.current.currentTime = currentTime;
+      if (currentSong) {
+        savePlaybackPosition(currentSong.id, currentTime);
       }
+      setTimeout(() => {
+        seekingRef.current = false;
+      }, 100);
     }
   }, [currentTime, currentSong]);
 
@@ -461,7 +471,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const requireAuthForUserAction = () => {
+    if (sessionStatus === "loading") return false;
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return false;
+    }
+    return true;
+  };
+
   const playSong = (song: Song) => {
+    if (!requireAuthForUserAction()) return;
+
     if (song.isPremium && !isPremium) {
       // Redirect to premium page
       window.location.href = "/premium";
@@ -472,6 +493,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (currentSong?.id !== song.id) {
       restorePositionRef.current = null; // Clear any restore position for new song
       setCurrentTime(0);
+      // Set flag synchronously before state updates so the isPlaying effect
+      // (which runs before the currentSong effect) skips play() — the canplay
+      // handler will start playback once the new src is ready
+      isChangingSongRef.current = true;
     }
 
     setCurrentSong(song);
@@ -483,6 +508,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const togglePlay = () => {
+    if (!requireAuthForUserAction()) return;
     setIsPlaying(!isPlaying);
   };
 

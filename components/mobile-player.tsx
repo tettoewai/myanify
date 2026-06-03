@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import {
@@ -21,7 +21,12 @@ import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "./player-context";
-import { useLikedSongs, likeSong, unlikeSong } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
+import { requireLoginRedirect } from "@/lib/require-login";
+import {
+  findLyricIndexByTime,
+  SYNC_LEAD_SECONDS,
+} from "@/lib/lyrics-sync";
 
 interface MobilePlayerProps {
   currentSong: Song;
@@ -51,21 +56,19 @@ export function MobilePlayer({
   const timeRef = useRef(currentTime);
 
   // Fetch liked songs from database
-  const { likedSongIds, mutate: mutateLikedSongs } = useLikedSongs({
+  const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
   });
 
-  const isLiked = likedSongIds.has(currentSong.id);
+  const songIsLiked = isLiked(currentSong.id);
 
-  const handleToggleLike = async () => {
-    if (!session?.user?.id) return;
-
-    if (isLiked) {
-      await unlikeSong(currentSong.id);
-    } else {
-      await likeSong(currentSong.id);
+  const handleToggleLike = () => {
+    if (!session?.user?.id) {
+      requireLoginRedirect();
+      return;
     }
-    mutateLikedSongs();
+
+    void toggleLike(currentSong);
   };
 
   useEffect(() => {
@@ -102,10 +105,16 @@ export function MobilePlayer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const currentLyric = currentSong.lyrics.reduce((prev, curr) => {
-    if (curr.time <= currentTime) return curr;
-    return prev;
-  }, currentSong.lyrics[0]);
+  const lyricTimes = useMemo(
+    () => currentSong.lyrics.map((l) => Math.max(0, l.time ?? 0)),
+    [currentSong.lyrics],
+  );
+
+  const currentLyricIndex = findLyricIndexByTime(
+    lyricTimes,
+    currentTime + SYNC_LEAD_SECONDS,
+  );
+  const currentLyric = currentSong.lyrics[currentLyricIndex];
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
@@ -144,8 +153,11 @@ export function MobilePlayer({
 
         {/* Current Lyric */}
         {showLyrics && currentLyric && (
-          <div className="w-full max-w-sm text-center mb-4 p-4 rounded-xl bg-primary/10">
-            <p className="text-lg font-medium text-primary">
+          <div className="w-full max-w-sm text-center mb-4 p-4 rounded-xl bg-primary/10 overflow-hidden">
+            <p
+              key={currentLyricIndex}
+              className="text-base font-medium text-primary leading-loose animate-in fade-in slide-in-from-bottom-2 duration-700 ease-out"
+            >
               {currentLyric.text}
             </p>
           </div>
@@ -221,7 +233,10 @@ export function MobilePlayer({
             disabled={!session?.user?.id}
           >
             <Heart
-              className={cn("w-6 h-6", isLiked && "fill-primary text-primary")}
+              className={cn(
+                "w-6 h-6 transition-colors",
+                songIsLiked && "fill-primary text-primary"
+              )}
             />
           </Button>
           <Button

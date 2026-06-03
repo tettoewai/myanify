@@ -5,7 +5,9 @@ import { Play, Pause, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { useSongs, useArtists, usePlaylists, useGenres } from "@/lib/swr";
+import { useSongs, useArtists, usePlaylists, useGenres, useAlbums } from "@/lib/swr";
+import { AlbumTypeBadge } from "@/components/album-type-badge";
+import type { Album } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { usePlayer } from "@/components/player-context";
@@ -63,6 +65,7 @@ export function HomeView({
     isPublic: true,
   });
   const { genres, isLoading: genresLoading } = useGenres();
+  const { albums, isLoading: albumsLoading } = useAlbums();
 
   // Scroll handlers
   const scrollGenres = (direction: "left" | "right") => {
@@ -404,6 +407,45 @@ export function HomeView({
           )}
         </div>
       </section>
+
+      {/* Albums */}
+      {!albumsLoading && albums.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground">
+              Albums & Releases
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {albums.slice(0, 8).map((album: Album) => (
+              <button
+                key={album.id}
+                onClick={() => navigate("album", album.id)}
+                className="group text-left cursor-pointer"
+              >
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
+                  <Image
+                    src={album.coverUrl || "/placeholder.svg"}
+                    alt={album.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
+                  />
+                  <div className="absolute top-2 left-2">
+                    <AlbumTypeBadge type={album.type} />
+                  </div>
+                </div>
+                <h3 className="font-semibold truncate">{album.name}</h3>
+                {album.releaseDate && (
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(album.releaseDate).getFullYear()}
+                  </p>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Featured Playlists */}
       <section>

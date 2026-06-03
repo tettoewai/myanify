@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { isAlbumType } from "@/lib/album-type";
 
 export async function GET(request: Request) {
   try {
@@ -54,15 +55,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, coverUrl, description, releaseDate } = body;
+    const { name, coverUrl, description, releaseDate, type } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    if (type !== undefined && !isAlbumType(type)) {
+      return NextResponse.json({ error: "Invalid album type" }, { status: 400 });
+    }
+
     const album = await prisma.album.create({
       data: {
         name,
+        type: type && isAlbumType(type) ? type : "ALBUM",
         coverUrl: coverUrl || null,
         description: description || null,
         releaseDate: releaseDate ? new Date(releaseDate) : null,
