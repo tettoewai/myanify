@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Crown, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AdminListPageSkeleton } from "@/components/loading-skeletons";
 import { useAdminUsers } from "@/lib/swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -190,21 +191,7 @@ export default function AdminUsersPage() {
   };
 
   if (!mounted) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground">Users</h2>
-            <p className="text-muted-foreground mt-1">
-              Manage users, roles, and VIP status
-            </p>
-          </div>
-        </div>
-        <div className="bg-card rounded-lg border border-border h-[400px] flex items-center justify-center">
-          <div className="text-muted-foreground">Loading users...</div>
-        </div>
-      </div>
-    );
+    return <AdminListPageSkeleton />;
   }
 
   if (error) {
@@ -216,7 +203,7 @@ export default function AdminUsersPage() {
   }
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading users...</div>;
+    return <AdminListPageSkeleton />;
   }
 
   return (

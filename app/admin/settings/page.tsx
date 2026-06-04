@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { User, Mail, Calendar, Save, Lock, Upload } from "lucide-react";
@@ -108,7 +109,7 @@ export default function AdminSettingsPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Loading profile...</div>;
+    return <AdminFormPageSkeleton />;
   }
 
   return (

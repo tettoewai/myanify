@@ -1,6 +1,7 @@
 "use client";
 
 import { Music, Users, Tag, TrendingUp, Play, Heart } from "lucide-react";
+import { AdminDashboardSkeleton } from "@/components/loading-skeletons";
 import { useAdminStats } from "@/lib/swr";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +10,7 @@ export default function AdminDashboard() {
   const { stats, isLoading: loading } = useAdminStats();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading dashboard...</p>
-      </div>
-    );
+    return <AdminDashboardSkeleton />;
   }
 
   const statCards = [

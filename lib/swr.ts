@@ -199,6 +199,31 @@ export function usePlaylists(options?: {
   };
 }
 
+export function useSimilarSongs(
+  seedSongId: string | null,
+  excludeIds: string[] = [],
+  options?: { enabled?: boolean },
+) {
+  const params = new URLSearchParams();
+  if (seedSongId) params.set("seedSongId", seedSongId);
+  if (excludeIds.length > 0) params.set("excludeIds", excludeIds.join(","));
+  params.set("limit", "10");
+
+  const key =
+    options?.enabled !== false && seedSongId
+      ? `/api/songs/similar?${params.toString()}`
+      : null;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const songs: Song[] =
+    data?.data?.map(transformSong) || data?.map(transformSong) || [];
+
+  return { songs, isLoading, isError: error, mutate };
+}
+
 // Hook for fetching a single song
 export function useSong(id: string | null, admin?: boolean) {
   const { data, error, isLoading, mutate } = useSWR(
@@ -351,9 +376,14 @@ export function useAlbum(id: string | null) {
 }
 
 // Hook for fetching ads
-export function useAds(options?: { limit?: number }) {
+export function useAds(options?: {
+  limit?: number;
+  /** Admin ads management only — includes inactive/expired ads */
+  includeInactive?: boolean;
+}) {
   const params = new URLSearchParams();
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.includeInactive) params.set("includeInactive", "true");
 
   const key = params.toString() ? `/api/ads?${params.toString()}` : "/api/ads";
 

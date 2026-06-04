@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import { useAds } from "@/lib/swr";
 import { mutate } from "swr";
 import Link from "next/link";
@@ -40,7 +41,10 @@ export default function AdsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [adToDelete, setAdToDelete] = useState<string | null>(null);
 
-  const { ads: allAds, isLoading, mutate: mutateAds } = useAds({ limit: 100 });
+  const { ads: allAds, isLoading, mutate: mutateAds } = useAds({
+    limit: 100,
+    includeInactive: true,
+  });
 
   const toggleActive = async (adId: string, currentStatus: boolean) => {
     try {
@@ -102,7 +106,7 @@ export default function AdsPage() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading ads...</div>;
+    return <AdminGridPageSkeleton />;
   }
 
   return (

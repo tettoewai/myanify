@@ -10,7 +10,6 @@ import {
   SkipForward,
   Heart,
   ChevronDown,
-  Share2,
   MoreHorizontal,
   Repeat,
   Shuffle,
@@ -27,6 +26,7 @@ import {
   findLyricIndexByTime,
   SYNC_LEAD_SECONDS,
 } from "@/lib/lyrics-sync";
+import { ShareButton } from "@/components/share-button";
 
 interface MobilePlayerProps {
   currentSong: Song;
@@ -247,9 +247,15 @@ export function MobilePlayer({
           >
             <ListMusic className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" size="icon">
-            <Share2 className="w-6 h-6" />
-          </Button>
+          <ShareButton
+            payload={{
+              type: "song",
+              id: currentSong.id,
+              title: currentSong.title,
+              text: `${currentSong.title} by ${currentSong.artist}`,
+            }}
+            iconClassName="w-6 h-6"
+          />
         </div>
       </div>
     </div>

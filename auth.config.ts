@@ -12,11 +12,13 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const isOnAdmin = nextUrl.pathname.startsWith("/admin");
       const isOnLogin = nextUrl.pathname.startsWith("/login");
+      const isRoot = nextUrl.pathname === "/";
+
+      if (isLoggedIn && (isRoot || isOnLogin)) {
+        return Response.redirect(new URL("/home", nextUrl));
+      }
 
       if (isOnLogin) {
-        if (isLoggedIn) {
-          return Response.redirect(new URL("/home", nextUrl));
-        }
         return true;
       }
 

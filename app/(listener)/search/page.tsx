@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { SearchView } from "@/components/views/search-view";
 import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
+import { SearchPageSkeleton } from "@/components/loading-skeletons";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ function SearchPageContent() {
 export default function SearchPage() {
   return (
     <Suspense
-      fallback={<div className="min-h-full pb-32">Loading search...</div>}
+      fallback={<SearchPageSkeleton />}
     >
       <SearchPageContent />
     </Suspense>

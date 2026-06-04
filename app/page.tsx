@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { auth } from "@/auth";
 import { LandingPageContent } from "@/components/landing-page";
 import { StructuredData } from "@/components/structured-data";
+import { LandingPageSkeleton } from "@/components/loading-skeletons";
 import {
   landingMetadata,
   landingStructuredData,
@@ -9,19 +12,17 @@ import {
 
 export const metadata: Metadata = landingMetadata;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
+  if (session?.user) {
+    redirect("/home");
+  }
+
   return (
     <>
       <StructuredData data={landingStructuredData} />
       <Suspense
-        fallback={
-          <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-2xl font-bold mb-2">Myanify</div>
-              <div className="text-muted-foreground">Loading...</div>
-            </div>
-          </div>
-        }
+        fallback={<LandingPageSkeleton />}
       >
         <LandingPageContent />
       </Suspense>

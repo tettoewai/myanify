@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const { prisma } = await import("@/db");
-    const [artists, genres, playlists] = await Promise.all([
+    const [artists, genres, playlists, albums, songs] = await Promise.all([
       prisma.artist.findMany({
         where: {
           songs: {
@@ -82,6 +82,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         orderBy: { updatedAt: "desc" },
         take: MAX_DYNAMIC_URLS_PER_TYPE,
       }),
+      prisma.album.findMany({
+        where: {
+          songs: {
+            some: {
+              isPublished: true,
+            },
+          },
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: MAX_DYNAMIC_URLS_PER_TYPE,
+      }),
+      prisma.song.findMany({
+        where: { isPublished: true },
+        select: {
+          id: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: MAX_DYNAMIC_URLS_PER_TYPE,
+      }),
     ]);
 
     return [
@@ -101,6 +125,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...playlists.map((playlist) => ({
         url: absoluteUrl(siteUrl, `/playlist/${playlist.id}`),
         lastModified: playlist.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
+      })),
+      ...albums.map((album) => ({
+        url: absoluteUrl(siteUrl, `/album/${album.id}`),
+        lastModified: album.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      })),
+      ...songs.map((song) => ({
+        url: absoluteUrl(siteUrl, `/song/${song.id}`),
+        lastModified: song.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.5,
       })),

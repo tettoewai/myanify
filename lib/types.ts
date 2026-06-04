@@ -12,11 +12,21 @@ export interface Album {
   songs?: Song[]
 }
 
+export type QueueItemSource = "user-queue" | "playlist" | "radio" | "autoplay"
+
+export interface QueueItem {
+  qid: string
+  song: Song
+  source: QueueItemSource
+}
+
 export interface Song {
   id: string
   title: string
   artist: string // Comma-separated artist names for display
   artists?: string[] // Array of artist names (optional, for when full list is needed)
+  artistIds?: string[]
+  albumId?: string | null
   album: string
   albumType?: AlbumType | null
   duration: number
@@ -27,6 +37,7 @@ export interface Song {
   genre: string
   lyrics: LyricLine[]
   isPremium: boolean
+  isPublished?: boolean
 }
 
 export interface LyricLine {

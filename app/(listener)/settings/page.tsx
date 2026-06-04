@@ -32,6 +32,7 @@ import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
 import { useProfile } from "@/lib/swr";
 import { getLoginUrl } from "@/lib/require-login";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const dynamic = "force-dynamic";
 
@@ -56,50 +57,30 @@ function SettingsPageHeader() {
 // ------------------------------
 function SettingsLoadingSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse" aria-hidden="true">
-      <div className="h-10 w-48 rounded-lg bg-muted" />
-      <div className="space-y-6">
-        {/* Profile card skeleton */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-muted shrink-0" />
-            <div className="flex-1 space-y-3">
-              <div className="h-6 w-40 rounded bg-muted" />
-              <div className="h-4 w-56 rounded bg-muted" />
-            </div>
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-2">
-                <div className="h-4 w-24 rounded bg-muted" />
-                <div className="h-10 w-full rounded-md bg-muted" />
-              </div>
-            ))}
-          </div>
-          <div className="h-10 w-full sm:w-auto rounded-md bg-muted" />
-        </div>
-        {/* Password card skeleton */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div className="h-6 w-40 rounded bg-muted" />
-          <div className="h-4 w-full max-w-md rounded bg-muted" />
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="h-4 w-28 rounded bg-muted" />
-              <div className="h-10 w-full rounded-md bg-muted" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-28 rounded bg-muted" />
-              <div className="h-10 w-full rounded-md bg-muted" />
-            </div>
-            <div className="h-10 w-full sm:w-auto rounded-md bg-muted" />
+    <div className="space-y-6" aria-hidden="true">
+      <Skeleton className="h-10 w-48 rounded-lg" />
+      <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+          <Skeleton className="w-24 h-24 rounded-full shrink-0" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-56" />
           </div>
         </div>
-        {/* Account card skeleton */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-3">
-          <div className="h-6 w-32 rounded bg-muted" />
-          <div className="h-4 w-64 rounded bg-muted" />
-          <div className="h-10 w-full sm:w-32 rounded-md bg-muted" />
-        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+        <Skeleton className="h-10 w-full sm:w-32" />
+      </div>
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-4 w-full max-w-md" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-32" />
       </div>
     </div>
   );

@@ -8,7 +8,6 @@ import {
   Heart,
   MoreHorizontal,
   Clock,
-  Share2,
   Pencil,
   X,
   GripVertical,
@@ -19,6 +18,11 @@ import type { Song } from "@/lib/types";
 import { usePlaylist } from "@/lib/swr";
 import { cn } from "@/lib/utils";
 import { AlbumMetadata } from "@/components/album-metadata";
+import { PlaylistPageSkeleton } from "@/components/loading-skeletons";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { usePlayer } from "@/components/player-context";
+import { ListMusic } from "lucide-react";
+import { ShareButton } from "@/components/share-button";
 
 interface PlaylistViewProps {
   playlistId: string;
@@ -34,6 +38,7 @@ export function PlaylistView({
   isPlaying,
 }: PlaylistViewProps) {
   const { playlist, isLoading, mutate } = usePlaylist(playlistId);
+  const { playFromContext, isSongQueued } = usePlayer();
   const [removingSongId, setRemovingSongId] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -127,11 +132,7 @@ export function PlaylistView({
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 md:p-8 flex items-center justify-center min-h-full">
-        <p className="text-muted-foreground">Loading playlist...</p>
-      </div>
-    );
+    return <PlaylistPageSkeleton />;
   }
 
   if (!playlist) {
@@ -223,7 +224,10 @@ export function PlaylistView({
         <Button
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg shadow-primary/20"
-          onClick={() => playlist.songs[0] && onPlaySong(playlist.songs[0])}
+          onClick={() =>
+            playlist.songs[0] &&
+            playFromContext(playlist.songs[0], playlist.songs, "playlist")
+          }
         >
           <Play className="w-5 h-5 mr-2" />
           Play
@@ -236,9 +240,14 @@ export function PlaylistView({
           <Shuffle className="w-5 h-5 mr-2" />
           Shuffle
         </Button>
-        <Button size="icon" variant="ghost" className="rounded-full">
-          <Share2 className="w-5 h-5" />
-        </Button>
+        <ShareButton
+          payload={{
+            type: "playlist",
+            id: playlistId,
+            title: playlist.name,
+            text: `Listen to ${playlist.name} on Myanify`,
+          }}
+        />
         <Button size="icon" variant="ghost" className="rounded-full">
           <MoreHorizontal className="w-5 h-5" />
         </Button>
@@ -256,8 +265,8 @@ export function PlaylistView({
       <div className="px-4 md:px-8 pb-8">
         <div className="space-y-1">
           {playlist.songs.map((song, index) => (
+            <SongContextMenu key={song.id} song={song}>
             <div
-              key={song.id}
               draggable
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={handleDragOver}
@@ -275,7 +284,9 @@ export function PlaylistView({
               <div className="flex items-center gap-2 w-full">
                 <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 <button
-                  onClick={() => onPlaySong(song)}
+                  onClick={() =>
+                    playFromContext(song, playlist.songs, "playlist")
+                  }
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
                   <span className="w-8 text-center text-sm text-muted-foreground group-hover:hidden">
@@ -326,6 +337,9 @@ export function PlaylistView({
                   )}
                 </button>
               </div>
+              {isSongQueued(song.id) && (
+                <ListMusic className="w-4 h-4 text-primary shrink-0" />
+              )}
               <Button
                 size="icon"
                 variant="ghost"
@@ -343,6 +357,7 @@ export function PlaylistView({
                 )}
               </Button>
             </div>
+            </SongContextMenu>
           ))}
         </div>
       </div>

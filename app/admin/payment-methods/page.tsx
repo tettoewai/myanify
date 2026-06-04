@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { AdminListPageSkeleton } from "@/components/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,7 +56,7 @@ export default function PaymentMethodsPage() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading payment methods...</div>;
+    return <AdminListPageSkeleton />;
   }
 
   return (

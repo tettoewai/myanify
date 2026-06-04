@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import {
   ChevronDown,
   Heart,
-  Share2,
   SkipBack,
   Play,
   Pause,
@@ -28,6 +27,8 @@ import {
 } from "@/components/lyric-size-toggle";
 import { useSyncedLyrics } from "@/lib/lyrics-sync";
 import { LyricsAlbumBackdrop } from "@/components/lyrics-album-backdrop";
+import { ShareButton } from "@/components/share-button";
+import { lyricsScrollMaskClass } from "@/components/lyrics-scroll-fade";
 import {
   LYRIC_LINE_TRANSITION,
   LYRIC_TEXT_TRANSITION,
@@ -82,12 +83,14 @@ export function MobileLyricsView({
     lyrics,
     currentTime,
     audioRef,
+    song.id,
   );
 
   const { containerRef, activeRef } = useLyricsAutoScroll({
     currentLyricIndex,
     seekToken,
     lyrics,
+    resetKey: song.id,
     enabled: showLyrics,
   });
 
@@ -137,7 +140,10 @@ export function MobileLyricsView({
         {showLyrics ? (
           <div
             ref={containerRef}
-            className="flex-1 overflow-y-auto scroll-smooth px-6"
+            className={cn(
+              "relative flex-1 min-h-0 overflow-y-auto px-6",
+              lyricsScrollMaskClass,
+            )}
           >
             {lyrics.length > 0 && (
               <div className="min-h-[50%] shrink-0" aria-hidden />
@@ -273,13 +279,16 @@ export function MobileLyricsView({
                 )}
               />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
+            <ShareButton
+              payload={{
+                type: "song",
+                id: song.id,
+                title: song.title,
+                text: `${song.title} by ${song.artist}`,
+              }}
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              iconClassName="w-5 h-5"
+            />
           </div>
         </div>
 

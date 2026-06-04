@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import Image from "next/image";
 import { Plus, Edit, Trash2, Search, Music } from "lucide-react";
 import { toast } from "sonner";
@@ -97,7 +98,7 @@ export default function AlbumsPage() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading albums...</div>;
+    return <AdminGridPageSkeleton />;
   }
 
   return (

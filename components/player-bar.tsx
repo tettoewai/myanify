@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import {
   Heart,
   ListMusic,
+  Radio,
   Maximize2,
   Mic2,
   Pause,
@@ -32,6 +33,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePlayer } from "./player-context";
 import { AlbumMetadata } from "@/components/album-metadata";
+import { ShareButton } from "@/components/share-button";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -70,7 +72,13 @@ export function PlayerBar({
     setIsShuffled,
     repeatMode,
     setRepeatMode,
+    upNext,
+    radioMode,
+    setShowQueue,
+    showQueue,
   } = usePlayer();
+
+  const nextUp = upNext[0]?.song;
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
   });
@@ -148,6 +156,16 @@ export function PlayerBar({
                 <p className="text-xs text-primary/80 truncate leading-loose">
                   {currentSong.artist}
                 </p>
+                {nextUp && (
+                  <p className="text-[10px] text-muted-foreground truncate leading-loose">
+                    Up next: {nextUp.title}
+                  </p>
+                )}
+                {!nextUp && radioMode && (
+                  <p className="text-[10px] text-muted-foreground truncate leading-loose">
+                    Similar songs will follow
+                  </p>
+                )}
                 {/* {currentSong.album && (
                   <AlbumMetadata
                     name={currentSong.album}
@@ -181,6 +199,21 @@ export function PlayerBar({
                       ? "Remove from favorites"
                       : "Add to favorites"}
                 </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShareButton
+                    payload={{
+                      type: "song",
+                      id: currentSong.id,
+                      title: currentSong.title,
+                      text: `${currentSong.title} by ${currentSong.artist}`,
+                    }}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    iconClassName="w-4 h-4"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Share song</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -345,12 +378,19 @@ export function PlayerBar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground hover:text-foreground"
+                    className={cn(
+                      "text-muted-foreground hover:text-foreground relative",
+                      showQueue && "text-primary bg-primary/10",
+                    )}
+                    onClick={() => setShowQueue(!showQueue)}
                   >
                     <ListMusic className="w-4 h-4" />
+                    {radioMode && (
+                      <Radio className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 text-primary" />
+                    )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Queue</TooltipContent>
+                <TooltipContent>Queue (Q)</TooltipContent>
               </Tooltip>
               <div className="flex items-center gap-2 w-32">
                 <Tooltip>

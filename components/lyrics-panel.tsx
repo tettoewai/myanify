@@ -35,12 +35,14 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
     lyrics,
     currentTime,
     audioRef,
+    song.id,
   );
 
   const { containerRef, activeRef } = useLyricsAutoScroll({
     currentLyricIndex,
     seekToken,
     lyrics,
+    resetKey: song.id,
   });
 
   const [size, setSize] = useState<LyricSize>("md");
@@ -112,7 +114,7 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
 
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-secondary/30 scrollbar-track-transparent"
+        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-secondary/30 scrollbar-track-transparent"
       >
         <div className="py-8 px-6">
           {lyrics.length > 0 ? (

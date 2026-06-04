@@ -55,6 +55,7 @@ export function MobileNowPlaying({
   if (showFullView) {
     return (
       <MobileLyricsView
+        key={song.id}
         song={song}
         currentTime={currentTime}
         isPlaying={isPlaying}

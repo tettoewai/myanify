@@ -11,6 +11,8 @@ import { useNavigation } from "@/lib/navigation";
 import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
 import { usePlaylists, useSongs, useLikedSongs, usePlayHistory, useLikedArtists } from "@/lib/swr";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { usePlayer } from "@/components/player-context";
 
 interface LibraryViewProps {
   onPlaySong: (song: Song) => void;
@@ -19,6 +21,7 @@ interface LibraryViewProps {
 export function LibraryView({ onPlaySong }: LibraryViewProps) {
   const { data: session } = useSession();
   const { navigate } = useNavigation();
+  const { playFromContext, isSongQueued } = usePlayer();
   const [activeTab, setActiveTab] = useState("playlists");
 
   // Use SWR hooks for data fetching
@@ -140,12 +143,14 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
           {/* Liked Songs List */}
           <div className="space-y-2">
             {likedSongs.map((song, index) => (
+              <SongContextMenu key={song.id} song={song}>
               <div
-                key={song.id}
                 className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
               >
                 <button
-                  onClick={() => onPlaySong(song)}
+                  onClick={() =>
+                    playFromContext(song, likedSongs, "playlist")
+                  }
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
                   <span className="w-6 text-center text-sm text-muted-foreground">
@@ -173,10 +178,14 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                     {(song.duration % 60).toString().padStart(2, "0")}
                   </span>
                 </button>
+                {isSongQueued(song.id) && (
+                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                )}
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                   <AddToPlaylistDialog songId={song.id} />
                 </div>
               </div>
+              </SongContextMenu>
             ))}
           </div>
         </TabsContent>
@@ -222,10 +231,12 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
 
         <TabsContent value="recent" className="mt-6">
           <div className="space-y-2">
-            {(recentSongs.length > 0 ? recentSongs : songs).map((song, index) => (
+            {(recentSongs.length > 0 ? recentSongs : songs).map((song, index) => {
+              const list = recentSongs.length > 0 ? recentSongs : songs;
+              return (
+              <SongContextMenu key={song.id} song={song}>
               <button
-                key={song.id}
-                onClick={() => onPlaySong(song)}
+                onClick={() => playFromContext(song, list, "playlist")}
                 className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
               >
                 <span className="w-6 text-center text-sm text-muted-foreground">
@@ -252,7 +263,9 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                   {(song.duration % 60).toString().padStart(2, "0")}
                 </span>
               </button>
-            ))}
+              </SongContextMenu>
+            );
+            })}
           </div>
         </TabsContent>
       </Tabs>

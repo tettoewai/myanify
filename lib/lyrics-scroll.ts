@@ -39,18 +39,49 @@ export function scrollLineToAnchor(
   });
 }
 
+/** Instant scroll reset — bypasses Tailwind scroll-smooth on the container */
+export function resetLyricsScrollContainer(container: HTMLElement) {
+  const previousBehavior = container.style.scrollBehavior;
+  container.style.scrollBehavior = "auto";
+  container.scrollTop = 0;
+  container.scrollTo({ top: 0, behavior: "auto" });
+  container.style.scrollBehavior = previousBehavior;
+}
+
 interface UseLyricsAutoScrollOptions {
   currentLyricIndex: number;
   seekToken: number;
   lyrics: unknown[];
+  /** Changes when the track changes (e.g. song id) */
+  resetKey?: string;
   enabled?: boolean;
   anchorRatio?: number;
+}
+
+function clearScrollTimers(
+  scrollRaf: { current: number | null },
+  scrollTimeoutRef: { current: NodeJS.Timeout | null },
+  autoScrollTimeoutRef: { current: ReturnType<typeof setTimeout> | null },
+) {
+  if (scrollRaf.current) {
+    cancelAnimationFrame(scrollRaf.current);
+    scrollRaf.current = null;
+  }
+  if (scrollTimeoutRef.current) {
+    clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = null;
+  }
+  if (autoScrollTimeoutRef.current) {
+    clearTimeout(autoScrollTimeoutRef.current);
+    autoScrollTimeoutRef.current = null;
+  }
 }
 
 export function useLyricsAutoScroll({
   currentLyricIndex,
   seekToken,
   lyrics,
+  resetKey,
   enabled = true,
   anchorRatio = LYRIC_SCROLL_ANCHOR_RATIO,
 }: UseLyricsAutoScrollOptions) {
@@ -61,7 +92,9 @@ export function useLyricsAutoScroll({
   const isAutoScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastScrolledIndexRef = useRef(0);
+  const lastScrolledIndexRef = useRef(-1);
+  const trackKeyRef = useRef(resetKey);
+  const skipAutoScrollPassRef = useRef(false);
 
   const scrollActiveLineIntoView = useCallback(
     (lineIndex: number) => {
@@ -70,6 +103,12 @@ export function useLyricsAutoScroll({
 
       const prevIndex = lastScrolledIndexRef.current;
       if (lineIndex === prevIndex) return;
+
+      // New track at first line: stay at scroll top until the index advances
+      if (prevIndex === -1 && lineIndex === 0) {
+        lastScrolledIndexRef.current = 0;
+        return;
+      }
 
       if (scrollRaf.current) {
         cancelAnimationFrame(scrollRaf.current);
@@ -138,12 +177,28 @@ export function useLyricsAutoScroll({
     };
   }, []);
 
-  useEffect(() => {
-    lastScrolledIndexRef.current = 0;
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0;
+  // Track change: jump to top before lyric index state catches up
+  useLayoutEffect(() => {
+    const trackChanged =
+      resetKey !== undefined && resetKey !== trackKeyRef.current;
+
+    if (trackChanged) {
+      trackKeyRef.current = resetKey;
+      skipAutoScrollPassRef.current = true;
     }
-  }, [lyrics]);
+
+    const container = containerRef.current;
+    if (container && (trackChanged || lyrics)) {
+      resetLyricsScrollContainer(container);
+    }
+
+    if (trackChanged) {
+      lastScrolledIndexRef.current = -1;
+      isUserScrollingRef.current = false;
+      isAutoScrollingRef.current = false;
+      clearScrollTimers(scrollRaf, scrollTimeoutRef, autoScrollTimeoutRef);
+    }
+  }, [lyrics, resetKey]);
 
   useLayoutEffect(() => {
     if (seekToken > 0) {
@@ -153,7 +208,14 @@ export function useLyricsAutoScroll({
   }, [seekToken]);
 
   useLayoutEffect(() => {
-    if (!enabled || !containerRef.current || isUserScrollingRef.current) return;
+    if (!enabled || !containerRef.current) return;
+
+    if (skipAutoScrollPassRef.current) {
+      skipAutoScrollPassRef.current = false;
+      return;
+    }
+
+    if (isUserScrollingRef.current) return;
 
     const scrollToActive = () => {
       if (!containerRef.current || isUserScrollingRef.current) return;
@@ -165,7 +227,6 @@ export function useLyricsAutoScroll({
       return;
     }
 
-    // Refs may not be attached on the first layout pass after mount
     scrollRaf.current = requestAnimationFrame(scrollToActive);
   }, [
     currentLyricIndex,
@@ -176,15 +237,7 @@ export function useLyricsAutoScroll({
 
   useEffect(
     () => () => {
-      if (scrollRaf.current) {
-        cancelAnimationFrame(scrollRaf.current);
-      }
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      if (autoScrollTimeoutRef.current) {
-        clearTimeout(autoScrollTimeoutRef.current);
-      }
+      clearScrollTimers(scrollRaf, scrollTimeoutRef, autoScrollTimeoutRef);
     },
     [],
   );

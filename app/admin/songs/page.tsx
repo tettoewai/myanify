@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { AdminListPageSkeleton } from "@/components/loading-skeletons";
 import { useSongs } from "@/lib/swr";
 import { mutate } from "swr";
 import Link from "next/link";
@@ -154,7 +155,7 @@ export default function SongsPage() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading songs...</div>;
+    return <AdminListPageSkeleton />;
   }
 
   return (

@@ -7,6 +7,7 @@ import { useArtists, useGenres, useAlbums, useSong } from "@/lib/swr";
 import { formatAlbumWithType, type AlbumType } from "@/lib/album-type";
 import { uploadAudioFile } from "@/lib/audio-upload-client";
 import { formatMaxAudioSize } from "@/lib/audio-upload-config";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -149,9 +150,10 @@ export default function EditSongPage() {
     // Then update all state (song is guaranteed to exist here due to shouldInitialize check)
     if (song && song.id === songId) {
       // Extract artist IDs from the song's artists array
-      const artistIds = (song as any).artists?.map((sa: any) => sa.artistId || sa.artist?.id) || 
-                        ((song as any).artistId ? [(song as any).artistId] : []);
-      
+      const artistIds =
+        (song as any).artists?.map((sa: any) => sa.artistId || sa.artist?.id) ||
+        ((song as any).artistId ? [(song as any).artistId] : []);
+
       setFormData({
         title: song.title,
         duration: song.duration,
@@ -207,12 +209,12 @@ export default function EditSongPage() {
       const result = await uploadAudioFile(file);
       setAudioUrl(result.url);
       toast.success(
-        `Audio uploaded (${Math.round(result.fileSize / 1024)} KB compressed MP3)`
+        `Audio uploaded (${Math.round(result.fileSize / 1024)} KB compressed MP3)`,
       );
     } catch (error) {
       console.error("Error uploading audio:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to upload audio file"
+        error instanceof Error ? error.message : "Failed to upload audio file",
       );
     } finally {
       setUploadingAudio(false);
@@ -274,7 +276,9 @@ export default function EditSongPage() {
       }
 
       setLyricsData(parsedLyrics);
-      toast.success(`Lyrics uploaded successfully (${parsedLyrics.length} lines)`);
+      toast.success(
+        `Lyrics uploaded successfully (${parsedLyrics.length} lines)`,
+      );
     } catch (error) {
       console.error("Error uploading lyrics:", error);
       toast.error("Failed to upload lyrics file");
@@ -294,7 +298,9 @@ export default function EditSongPage() {
     }
 
     if (!formData.title || formData.artistIds.length === 0) {
-      toast.error("Please fill in all required fields and select at least one artist");
+      toast.error(
+        "Please fill in all required fields and select at least one artist",
+      );
       return;
     }
 
@@ -338,7 +344,7 @@ export default function EditSongPage() {
   };
 
   if (loading || songLoading) {
-    return <div className="text-center py-12">Loading song...</div>;
+    return <AdminFormPageSkeleton fields={8} />;
   }
 
   if (!song) {
@@ -590,11 +596,17 @@ export default function EditSongPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {albums.map((album: { id: string; name: string; type?: AlbumType }) => (
-                      <SelectItem key={album.id} value={album.id}>
-                        {formatAlbumWithType(album.name, album.type)}
-                      </SelectItem>
-                    ))}
+                    {albums.map(
+                      (album: {
+                        id: string;
+                        name: string;
+                        type?: AlbumType;
+                      }) => (
+                        <SelectItem key={album.id} value={album.id}>
+                          {formatAlbumWithType(album.name, album.type)}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
               </div>

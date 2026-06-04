@@ -22,6 +22,8 @@ export function useNavigation() {
       router.push(`/playlist/${id}`)
     } else if (view === "album" && id) {
       router.push(`/album/${id}`)
+    } else if (view === "song" && id) {
+      router.push(`/song/${id}`)
     }
   }
 

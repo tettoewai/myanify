@@ -17,7 +17,10 @@ export function LyricsAlbumBackdrop({
   const imageUrl = getSongCoverUrl(song);
 
   return (
-    <div className={cn("absolute inset-0 overflow-hidden", className)} aria-hidden>
+    <div
+      className={cn("absolute inset-0 overflow-hidden", className)}
+      aria-hidden
+    >
       <div
         className={cn(
           "absolute inset-0 bg-cover bg-center",

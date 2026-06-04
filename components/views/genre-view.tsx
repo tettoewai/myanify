@@ -8,6 +8,10 @@ import { useNavigation } from "@/lib/navigation";
 import { useGenre } from "@/lib/swr";
 import { cn } from "@/lib/utils";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { DetailPageSkeleton } from "@/components/loading-skeletons";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { usePlayer } from "@/components/player-context";
+import { ListMusic } from "lucide-react";
 
 interface GenreViewProps {
   genreId: string;
@@ -24,13 +28,10 @@ export function GenreView({
 }: GenreViewProps) {
   const { navigate } = useNavigation();
   const { genre, isLoading } = useGenre(genreId);
+  const { playFromContext, isSongQueued } = usePlayer();
 
   if (isLoading) {
-    return (
-      <div className="p-6 md:p-8 flex items-center justify-center min-h-full">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!genre) {
@@ -77,7 +78,10 @@ export function GenreView({
         <Button
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg shadow-primary/20"
-          onClick={() => genre.songs[0] && onPlaySong(genre.songs[0])}
+          onClick={() =>
+            genre.songs[0] &&
+            playFromContext(genre.songs[0], genre.songs, "playlist")
+          }
         >
           <Play className="w-5 h-5 mr-2" />
           Play
@@ -97,15 +101,17 @@ export function GenreView({
         <div className="space-y-2">
           {genre.songs.length > 0 ? (
             genre.songs.map((song: Song, index: number) => (
+              <SongContextMenu key={song.id} song={song}>
               <div
-                key={song.id}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
                 <button
-                  onClick={() => onPlaySong(song)}
+                  onClick={() =>
+                    playFromContext(song, genre.songs, "playlist")
+                  }
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
                   <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
@@ -149,10 +155,14 @@ export function GenreView({
                     </span>
                   )}
                 </button>
+                {isSongQueued(song.id) && (
+                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                )}
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                   <AddToPlaylistDialog songId={song.id} />
                 </div>
               </div>
+              </SongContextMenu>
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground">

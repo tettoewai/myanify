@@ -12,6 +12,10 @@ import {
   X,
   AlertCircle
 } from "lucide-react";
+import {
+  AdminCardListSkeleton,
+  AdminPageHeaderSkeleton,
+} from "@/components/loading-skeletons";
 import { toast } from "sonner";
 import { useSubscriptionRequests } from "@/lib/swr";
 import { Button } from "@/components/ui/button";
@@ -168,17 +172,8 @@ export default function SubscriptionRequestsPage() {
   if (!mounted) {
     return (
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Subscription Requests</h2>
-            <p className="text-muted-foreground">
-              Review and approve manual payment proofs from listeners
-            </p>
-          </div>
-        </div>
-        <div className="bg-card rounded-lg border border-border h-[400px] flex items-center justify-center">
-          <Clock className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
+        <AdminPageHeaderSkeleton />
+        <AdminCardListSkeleton rows={6} />
       </div>
     );
   }
@@ -220,10 +215,7 @@ export default function SubscriptionRequestsPage() {
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
         {isLoading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Clock className="w-8 h-8 mx-auto mb-4 animate-spin" />
-            <p>Loading requests...</p>
-          </div>
+          <AdminCardListSkeleton rows={6} />
         ) : requests.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground">
             <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />

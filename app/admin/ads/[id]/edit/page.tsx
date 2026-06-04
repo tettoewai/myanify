@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { toast } from "sonner";
 import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -155,7 +156,7 @@ export default function EditAdPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Loading ad...</div>;
+    return <AdminFormPageSkeleton />;
   }
 
   if (!ad) {

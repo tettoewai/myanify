@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { LoginPageSkeleton } from "@/components/loading-skeletons";
 import { useRouter } from "next/navigation";
 
 export default function AuthCallbackPage() {
@@ -18,11 +19,8 @@ export default function AuthCallbackPage() {
   }, [status, session, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Signing you in...</h1>
-        <p className="text-muted-foreground">Please wait while we redirect you.</p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <LoginPageSkeleton />
     </div>
   );
 }

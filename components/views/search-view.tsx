@@ -5,12 +5,18 @@ import { useNavigation } from "@/lib/navigation";
 import { useArtists, useGenres, useSongs } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { usePlayer } from "@/components/player-context";
+import { ListMusic } from "lucide-react";
 import { Pause, Play, Search, X, Music, Users } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ArtistGridSkeleton,
+  SongListSkeleton,
+} from "@/components/loading-skeletons";
 
 interface SearchViewProps {
   onPlaySong: (song: Song) => void;
@@ -18,45 +24,12 @@ interface SearchViewProps {
   isPlaying: boolean;
 }
 
-// Loading skeleton for songs list
-function SongsLoadingSkeleton() {
-  return (
-    <div className="space-y-2">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex items-center gap-4 p-3 rounded-lg">
-          <Skeleton className="w-6 h-4" />
-          <Skeleton className="w-12 h-12 rounded-md" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-          <Skeleton className="w-10 h-4" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Loading skeleton for artists grid
-function ArtistsLoadingSkeleton() {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <div key={i} className="flex flex-col items-center gap-3 p-4">
-          <Skeleton className="w-24 h-24 rounded-full" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-3 w-12" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function SearchView({
   onPlaySong,
   currentSong,
   isPlaying,
 }: SearchViewProps) {
+  const { isSongQueued } = usePlayer();
   const { navigate } = useNavigation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -193,11 +166,11 @@ export function SearchView({
         <div className="space-y-8">
           <section>
             <h2 className="text-xl font-bold text-foreground mb-4">Artists</h2>
-            <ArtistsLoadingSkeleton />
+            <ArtistGridSkeleton />
           </section>
           <section>
             <h2 className="text-xl font-bold text-foreground mb-4">Songs</h2>
-            <SongsLoadingSkeleton />
+            <SongListSkeleton rows={4} />
           </section>
         </div>
       )}
@@ -262,8 +235,8 @@ export function SearchView({
           </h2>
           <div className="space-y-2">
             {songs.map((song, index) => (
+              <SongContextMenu key={song.id} song={song}>
               <div
-                key={song.id}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group",
                   currentSong?.id === song.id && "bg-primary/10",
@@ -323,10 +296,14 @@ export function SearchView({
                   )}
                 </button>
                 {/* Always visible on mobile, visible on hover on desktop */}
+                {isSongQueued(song.id) && (
+                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                )}
                 <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                   <AddToPlaylistDialog songId={song.id} />
                 </div>
               </div>
+              </SongContextMenu>
             ))}
           </div>
         </section>

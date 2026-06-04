@@ -2,23 +2,25 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getAds } from "@/lib/api";
-import { trackAdEvent } from "@/lib/swr";
-import type { Ad } from "@/lib/types";
+import { usePlayer } from "@/components/player-context";
+import { useAds, trackAdEvent } from "@/lib/swr";
 import { cn } from "@/lib/utils";
 import { getImageProxyUrl } from "@/lib/image-proxy";
 
 export function AdBanner() {
-  const [ads, setAds] = useState<Ad[]>([]);
+  const { isPremium } = usePlayer();
+  const { status: sessionStatus } = useSession();
+  const { ads, isLoading } = useAds({ limit: 10 });
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
   const trackedImpressions = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    getAds().then(setAds).catch(console.error);
-  }, []);
+  const currentAd = ads[currentAdIndex];
+  const canEvaluate =
+    sessionStatus !== "loading" && !isLoading && !isPremium;
 
   useEffect(() => {
     if (ads.length === 0) return;
@@ -29,9 +31,10 @@ export function AdBanner() {
     return () => clearInterval(interval);
   }, [ads.length]);
 
-  const currentAd = ads[currentAdIndex];
+  useEffect(() => {
+    setCurrentAdIndex(0);
+  }, [ads.length]);
 
-  // Track impression when ad is displayed
   useEffect(() => {
     if (currentAd && !trackedImpressions.current.has(currentAd.id)) {
       trackedImpressions.current.add(currentAd.id);
@@ -39,19 +42,19 @@ export function AdBanner() {
     }
   }, [currentAd]);
 
-  // Handle ad click
   const handleAdClick = () => {
     if (currentAd) {
       trackAdEvent(currentAd.id, "click");
     }
   };
 
-  if (isDismissed || !currentAd || ads.length === 0) return null;
+  if (!canEvaluate || isDismissed || !currentAd || ads.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mx-4 md:mx-8 my-6">
       <div className="relative rounded-xl overflow-hidden bg-gradient-to-r from-card to-accent/30 border border-border">
-        {/* Dismiss button */}
         <Button
           variant="ghost"
           size="icon"
@@ -68,7 +71,6 @@ export function AdBanner() {
           onClick={handleAdClick}
           className="flex flex-col sm:flex-row items-center gap-4 p-4 group"
         >
-          {/* Ad Image */}
           <div className="relative w-full sm:w-48 h-24 rounded-lg overflow-hidden flex-shrink-0">
             <Image
               src={getImageProxyUrl(currentAd.imageUrl)}
@@ -79,7 +81,6 @@ export function AdBanner() {
             />
           </div>
 
-          {/* Ad Content */}
           <div className="flex-1 text-center sm:text-left">
             <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded">
@@ -97,7 +98,6 @@ export function AdBanner() {
             </p>
           </div>
 
-          {/* CTA */}
           <div className="flex-shrink-0">
             <span className="inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
               Learn More
@@ -106,7 +106,6 @@ export function AdBanner() {
           </div>
         </a>
 
-        {/* Ad Indicator Dots */}
         <div className="flex justify-center gap-1.5 pb-3">
           {ads.map((_, index) => (
             <button
@@ -119,7 +118,7 @@ export function AdBanner() {
                 "w-1.5 h-1.5 rounded-full transition-all",
                 index === currentAdIndex
                   ? "bg-primary w-4"
-                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50",
               )}
             />
           ))}

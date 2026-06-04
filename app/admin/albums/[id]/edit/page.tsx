@@ -22,6 +22,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useAlbum } from "@/lib/swr";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import Link from "next/link";
 import {
   Select,
@@ -167,7 +168,7 @@ export default function EditAlbumPage() {
   };
 
   if (albumLoading) {
-    return <div className="text-center py-12">Loading album...</div>;
+    return <AdminFormPageSkeleton />;
   }
 
   if (!album) {

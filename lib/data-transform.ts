@@ -11,11 +11,18 @@ export function transformSong(prismaSong: any): Song {
                   (prismaSong.artist ? [prismaSong.artist.name] : []);
   const artistNames = artists.join(", ") || "Unknown Artist";
   
+  const artistIds =
+    prismaSong.artists
+      ?.map((sa: { artist?: { id?: string } }) => sa.artist?.id)
+      .filter((id: string | undefined): id is string => Boolean(id)) ?? [];
+
   return {
     id: prismaSong.id,
     title: prismaSong.title,
     artist: artistNames,
     artists: artists.filter((name: string) => name),
+    artistIds,
+    albumId: prismaSong.albumId ?? prismaSong.album?.id ?? null,
     album: prismaSong.album?.name || "",
     albumType: prismaSong.album?.type ?? null,
     duration: prismaSong.duration,
@@ -25,6 +32,7 @@ export function transformSong(prismaSong: any): Song {
     playbackUrl: prismaSong.playbackUrl || getPlaybackUrl(prismaSong.audioUrl),
     genre: prismaSong.genre?.name || "",
     isPremium: prismaSong.isPremium,
+    isPublished: prismaSong.isPublished,
     lyrics: (prismaSong.lyrics || []).map((lyric: any): LyricLine => ({
       time: lyric.time,
       text: lyric.text,

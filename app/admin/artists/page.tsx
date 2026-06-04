@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,7 +84,7 @@ export default function ArtistsPage() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading artists...</div>;
+    return <AdminGridPageSkeleton />;
   }
 
   return (

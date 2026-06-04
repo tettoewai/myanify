@@ -91,6 +91,37 @@ export function MusicArtistStructuredData({
   return <StructuredData data={data} />;
 }
 
+interface MusicAlbumProps {
+  name: string;
+  image?: string;
+  description?: string;
+  url: string;
+  songCount?: number;
+  releaseDate?: string;
+}
+
+export function MusicAlbumStructuredData({
+  name,
+  image,
+  description,
+  url,
+  songCount,
+  releaseDate,
+}: MusicAlbumProps) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "MusicAlbum",
+    name,
+    ...(description && { description }),
+    ...(image && { image }),
+    ...(songCount && { numTracks: songCount }),
+    ...(releaseDate && { datePublished: releaseDate }),
+    url,
+  };
+
+  return <StructuredData data={data} />;
+}
+
 interface MusicPlaylistProps {
   name: string;
   description?: string;

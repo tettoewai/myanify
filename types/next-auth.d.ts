@@ -9,11 +9,13 @@ declare module "next-auth" {
       email: string;
       name?: string | null;
       role: UserRole;
+      isPremium?: boolean;
     };
   }
 
   interface User {
     role: UserRole;
+    isPremium?: boolean;
   }
 }
 
@@ -22,6 +24,7 @@ declare module "next-auth/jwt" {
     id: string;
     role: UserRole;
     email: string;
+    isPremium?: boolean;
     accessToken?: string;
     refreshToken?: string;
   }

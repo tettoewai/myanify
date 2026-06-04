@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,7 @@ export default function GenresPage() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading genres...</div>;
+    return <AdminGridPageSkeleton />;
   }
 
   return (

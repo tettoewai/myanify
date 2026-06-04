@@ -9,6 +9,7 @@ import { MobileNowPlaying } from "@/components/mobile-now-playing";
 import { MobilePlayer } from "@/components/mobile-player";
 import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
+import { UpNextDrawer } from "@/components/up-next-drawer";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -123,13 +124,16 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       {showLyrics && currentSong && (
         <LyricsPanel
+          key={currentSong.id}
           song={currentSong}
           currentTime={currentTime}
           onClose={() => setShowLyrics(false)}
         />
       )}
+      <UpNextDrawer />
       {showFullscreenLyrics && currentSong && (
         <FullscreenLyrics
+          key={currentSong.id}
           song={currentSong}
           currentTime={currentTime}
           isPlaying={isPlaying}

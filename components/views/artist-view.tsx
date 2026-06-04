@@ -15,14 +15,18 @@ import { useNavigation } from "@/lib/navigation";
 import { useArtist } from "@/lib/swr";
 import { useLikedArtists, likeArtist, unlikeArtist } from "@/lib/swr";
 import { usePlayer } from "@/components/player-context";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { ListMusic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
 import { requireLoginRedirect } from "@/lib/require-login";
 import { AlbumMetadata } from "@/components/album-metadata";
+import { ShareButton } from "@/components/share-button";
 
 interface ArtistViewProps {
   artistId: string;
@@ -43,7 +47,7 @@ export function ArtistView({
   const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists({
     enabled: !!session?.user?.id,
   });
-  const { setQueue, setIsShuffled } = usePlayer();
+  const { playFromContext, setIsShuffled, isSongQueued } = usePlayer();
   const [isLiking, setIsLiking] = useState(false);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
 
@@ -55,14 +59,8 @@ export function ArtistView({
     // Shuffle the songs
     const shuffledSongs = [...artist.songs].sort(() => Math.random() - 0.5);
 
-    // Set the queue to shuffled songs
-    setQueue(shuffledSongs);
-
-    // Enable shuffle mode
     setIsShuffled(true);
-
-    // Play the first shuffled song
-    onPlaySong(shuffledSongs[0]);
+    playFromContext(shuffledSongs[0], shuffledSongs, "playlist");
   };
 
   const handleLikeToggle = async () => {
@@ -91,11 +89,7 @@ export function ArtistView({
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 md:p-8 flex items-center justify-center min-h-full">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <DetailPageSkeleton bannerClassName="h-72 md:h-96" />;
   }
 
   if (!artist) {
@@ -184,7 +178,10 @@ export function ArtistView({
         <Button
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg shadow-primary/20"
-          onClick={() => artist.songs[0] && onPlaySong(artist.songs[0])}
+          onClick={() =>
+            artist.songs[0] &&
+            playFromContext(artist.songs[0], artist.songs, "playlist")
+          }
         >
           <Play className="w-5 h-5 mr-2" />
           Play
@@ -210,6 +207,14 @@ export function ArtistView({
             className={cn("w-5 h-5", isLiked && "fill-current text-red-500")}
           />
         </Button>
+        <ShareButton
+          payload={{
+            type: "artist",
+            id: artistId,
+            title: artist.name,
+            text: `Listen to ${artist.name} on Myanify`,
+          }}
+        />
         <Button size="icon" variant="ghost" className="rounded-full">
           <MoreHorizontal className="w-5 h-5" />
         </Button>
@@ -221,15 +226,17 @@ export function ArtistView({
         <div className="space-y-2">
           {artist.songs.length > 0 ? (
             artist.songs.map((song: Song, index: number) => (
+              <SongContextMenu key={song.id} song={song}>
               <div
-                key={song.id}
                 className={cn(
                   "w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer",
                   currentSong?.id === song.id && "bg-primary/10"
                 )}
               >
                 <button
-                  onClick={() => onPlaySong(song)}
+                  onClick={() =>
+                    playFromContext(song, artist.songs, "playlist")
+                  }
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
                   <span className="w-6 text-center text-sm text-muted-foreground group-hover:hidden">
@@ -276,10 +283,14 @@ export function ArtistView({
                     </span>
                   )}
                 </button>
+                {isSongQueued(song.id) && (
+                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                )}
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                   <AddToPlaylistDialog songId={song.id} />
                 </div>
               </div>
+              </SongContextMenu>
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground">

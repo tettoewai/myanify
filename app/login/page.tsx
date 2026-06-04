@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { LoginPageSkeleton } from "@/components/loading-skeletons";
 import { toast } from "sonner";
 
 function LoginForm() {
@@ -163,14 +164,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Suspense
-        fallback={
-          <div className="w-full max-w-md space-y-8">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-foreground">Myanify</h1>
-              <p className="mt-2 text-muted-foreground">Loading...</p>
-            </div>
-          </div>
-        }
+        fallback={<LoginPageSkeleton />}
       >
         <LoginForm />
       </Suspense>

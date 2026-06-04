@@ -9,17 +9,20 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
 
-    // Check if user is admin - admins can see all ads
     const session = await getSession();
     const isAdmin = session?.user?.role === "ADMIN";
+    const includeInactive =
+      isAdmin && searchParams.get("includeInactive") === "true";
 
-    // Execute count and data queries in parallel for better performance
-    const whereClause = isAdmin
-      ? {} // Admin sees all ads
-      : {
-          isActive: true,
-          OR: [{ endDate: null }, { endDate: { gte: new Date() } }],
-        };
+    const now = new Date();
+    const activeAdFilter = {
+      isActive: true,
+      startDate: { lte: now },
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
+    };
+
+    // Listener app: only active, in-schedule ads. Admin list uses ?includeInactive=true
+    const whereClause = includeInactive ? {} : activeAdFilter;
 
     const [total, ads] = await Promise.all([
       prisma.ad.count({ where: whereClause }),

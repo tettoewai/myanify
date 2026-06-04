@@ -79,6 +79,7 @@ export function useSyncedLyrics(
   lyrics: { time?: number }[],
   currentTime: number,
   audioRef: RefObject<HTMLAudioElement | null>,
+  trackKey?: string,
 ) {
   const lyricTimes = useMemo(() => getLyricTimes(lyrics), [lyrics]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
@@ -105,13 +106,14 @@ export function useSyncedLyrics(
     setCurrentLyricIndex((prev) => (prev === nextIndex ? prev : nextIndex));
   };
 
-  // On mount / song change: jump to current playback position (not line 0)
+  // On mount / song change: sync index to playback (runs before lyrics scroll)
   useLayoutEffect(() => {
     pendingSeekTimeRef.current = null;
     prevCurrentTimeRef.current = currentTimeRef.current;
 
     if (!lyrics.length) {
       setCurrentLyricIndex(0);
+      setSeekToken((token) => token + 1);
       return;
     }
 
@@ -123,7 +125,7 @@ export function useSyncedLyrics(
     );
     setCurrentLyricIndex(nextIndex);
     setSeekToken((token) => token + 1);
-  }, [lyrics, lyricTimes, audioRef]);
+  }, [lyrics, lyricTimes, audioRef, trackKey]);
 
   useEffect(() => {
     if (!lyrics.length) return;

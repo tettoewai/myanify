@@ -14,6 +14,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -136,7 +137,7 @@ export default function EditArtistPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Loading artist...</div>;
+    return <AdminFormPageSkeleton />;
   }
 
   if (!artist) {

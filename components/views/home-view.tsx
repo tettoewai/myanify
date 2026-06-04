@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { usePlayer } from "@/components/player-context";
 import { AddToPlaylistDialog, AddToPlaylistDropdown } from "@/components/add-to-playlist-dialog";
+import { HomePageSkeleton } from "@/components/loading-skeletons";
+import { SongContextMenu } from "@/components/song-context-menu";
+import { ListMusic } from "lucide-react";
 
 interface HomeViewProps {
   onPlaySong: (song: Song) => void;
@@ -25,7 +28,7 @@ export function HomeView({
   isPlaying,
 }: HomeViewProps) {
   const { navigate } = useNavigation();
-  const { getRecentlyPlayed } = usePlayer();
+  const { getRecentlyPlayed, isSongQueued } = usePlayer();
 
   // Refs for scrollable containers
   const genresScrollRef = useRef<HTMLDivElement>(null);
@@ -180,11 +183,7 @@ export function HomeView({
   }, [getRecentlyPlayed, songs]);
 
   if (loading) {
-    return (
-      <div className="p-4 md:p-6 lg:p-8 flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <HomePageSkeleton />;
   }
 
   return (
@@ -236,8 +235,8 @@ export function HomeView({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {songs.slice(0, 4).map((song) => (
+            <SongContextMenu key={song.id} song={song}>
             <div
-              key={song.id}
               className={cn(
                 "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative",
                 currentSong?.id === song.id &&
@@ -274,10 +273,14 @@ export function HomeView({
                   </p>
                 </div>
               </button>
+              {isSongQueued(song.id) && (
+                <ListMusic className="w-4 h-4 text-primary shrink-0" />
+              )}
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <AddToPlaylistDialog songId={song.id} />
               </div>
             </div>
+            </SongContextMenu>
           ))}
         </div>
       </section>
@@ -528,7 +531,8 @@ export function HomeView({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {recentlyPlayed.map((song) => (
-              <div key={song.id} className="group text-left relative">
+              <SongContextMenu key={song.id} song={song}>
+              <div className="group text-left relative">
                 <button
                   onClick={() => onPlaySong(song)}
                   className="w-full"
@@ -562,6 +566,7 @@ export function HomeView({
                   </p>
                 </button>
               </div>
+              </SongContextMenu>
             ))}
           </div>
         </section>
