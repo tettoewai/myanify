@@ -44,38 +44,75 @@ enum UserRole {
   LISTENER
 }
 
+// Reusable SEO metadata for public-facing pages
+model SeoMetadata {
+  id                 String   @id @default(cuid())
+  title              String?
+  description        String?  @db.Text
+  keywords           String[]
+  canonicalUrl       String?
+  ogTitle            String?
+  ogDescription      String?  @db.Text
+  ogImageUrl         String?
+  twitterTitle       String?
+  twitterDescription String?  @db.Text
+  twitterImageUrl    String?
+  schemaMarkup       Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  artist   Artist?
+  album    Album?
+  genre    Genre?
+  song     Song?
+  playlist Playlist?
+}
+
 // Artist model
 model Artist {
   id               String       @id @default(cuid())
   name             String
+  englishName      String?
+  slug             String       @unique
+  aliases          String[]
   imageUrl         String?
   bio              String?      @db.Text
+  englishBio       String?      @db.Text
+  country          String?
   monthlyListeners Int          @default(0)
+  seoId            String?      @unique
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  // Relations
+  seo          SeoMetadata? @relation(fields: [seoId], references: [id])
   songs        SongArtist[]
   artistGenres ArtistGenre[]
   likedBy      LikedArtist[]
 
   @@index([name])
+  @@index([englishName])
+  @@index([slug])
 }
 
 // Genre model
 model Genre {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  imageUrl    String?
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  englishName        String?
+  slug               String   @unique
+  description        String?  @db.Text
+  englishDescription String?  @db.Text
+  imageUrl           String?
+  seoId              String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  // Relations
+  seo          SeoMetadata? @relation(fields: [seoId], references: [id])
   songs        Song[]
   artistGenres ArtistGenre[]
 
   @@index([name])
+  @@index([slug])
 }
 
 // Many-to-many relationship between Artist and Genre
@@ -101,19 +138,25 @@ enum AlbumType {
 
 // Album model
 model Album {
-  id          String    @id @default(cuid())
-  name        String
-  coverUrl    String?
-  type        AlbumType @default(ALBUM)
-  description String?   @db.Text
-  releaseDate DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  name               String
+  englishName        String?
+  slug               String    @unique
+  coverUrl           String?
+  type               AlbumType @default(ALBUM)
+  description        String?   @db.Text
+  englishDescription String?   @db.Text
+  releaseDate        DateTime?
+  seoId              String?   @unique
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  // Relations
+  seo   SeoMetadata? @relation(fields: [seoId], references: [id])
   songs Song[]
 
   @@index([name])
+  @@index([englishName])
+  @@index([slug])
 }
 
 // Many-to-many relationship between Song and Artist
@@ -133,36 +176,48 @@ model SongArtist {
 
 // Song model - main music track
 model Song {
-  id          String   @id @default(cuid())
-  title       String
-  duration    Int // Duration in seconds (stored as seconds for precision, but minutes is the standard unit in UI)
-  audioUrl    String // URL to audio file
-  coverUrl    String? // Album cover image URL
-  isPremium   Boolean  @default(false)
-  isPublished Boolean  @default(false) // Admin can publish/unpublish
-  playCount   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  title              String
+  englishTitle       String?
+  slug               String   @unique
+  alternativeTitles  String[]
+  description        String?  @db.Text
+  englishDescription String?  @db.Text
+  duration           Int // Duration in seconds (stored as seconds for precision, but minutes is the standard unit in UI)
+  audioUrl           String // URL to audio file
+  coverUrl           String? // Album cover image URL
+  language           String?  @default("my")
+  releaseDate        DateTime?
+  isPremium          Boolean  @default(false)
+  isPublished        Boolean  @default(false) // Admin can publish/unpublish
+  playCount          Int      @default(0)
+  seoId              String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Foreign keys
-  albumId  String?
-  genreId  String?
+  albumId String?
+  genreId String?
 
   // Relations
-  artists         SongArtist[]
-  album           Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
-  genre           Genre?         @relation(fields: [genreId], references: [id], onDelete: SetNull)
-  lyrics          Lyrics[]
-  likedBy         LikedSong[]
-  playHistory     PlayHistory[]
-  playlistSongs   PlaylistSong[]
+  seo              SeoMetadata?      @relation(fields: [seoId], references: [id])
+  artists          SongArtist[]
+  album            Album?            @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  genre            Genre?            @relation(fields: [genreId], references: [id], onDelete: SetNull)
+  lyrics           Lyrics[]
+  likedBy          LikedSong[]
+  playHistory      PlayHistory[]
+  playlistSongs    PlaylistSong[]
   offlineDownloads OfflineDownload[]
 
   @@index([title])
+  @@index([englishTitle])
+  @@index([slug])
   @@index([albumId])
   @@index([genreId])
   @@index([isPublished])
   @@index([isPremium])
+  @@index([releaseDate])
   @@index([createdAt])
 }
 
@@ -184,9 +239,12 @@ model Lyrics {
 model Playlist {
   id          String   @id @default(cuid())
   name        String
+  englishName String?
+  slug        String   @unique
   description String?  @db.Text
   coverUrl    String?
   isPublic    Boolean  @default(true)
+  seoId       String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -194,9 +252,11 @@ model Playlist {
   createdById String
 
   // Relations
+  seo       SeoMetadata?   @relation(fields: [seoId], references: [id])
   createdBy User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
   songs     PlaylistSong[]
 
+  @@index([slug])
   @@index([createdById])
   @@index([isPublic])
   @@index([createdAt])
