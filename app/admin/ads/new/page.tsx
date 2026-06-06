@@ -17,7 +17,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 export default function NewAdPage() {
   const router = useRouter();

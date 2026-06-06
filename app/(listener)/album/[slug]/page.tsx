@@ -1,24 +1,22 @@
 "use client";
 
 import { use } from "react";
-import { GenreView } from "@/components/views/genre-view";
+import { AlbumView } from "@/components/views/album-view";
 import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
 
-export const dynamic = "force-dynamic";
-
-export default function GenrePage({
+export default function AlbumPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = use(params);
+  const { slug } = use(params);
   const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
 
   return (
     <div className="min-h-full pb-32">
-      <GenreView
-        genreId={id}
+      <AlbumView
+        albumSlug={slug}
         onPlaySong={playSong}
         currentSong={currentSong}
         isPlaying={isPlaying}

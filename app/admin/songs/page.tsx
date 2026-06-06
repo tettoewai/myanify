@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Plus, Edit, Trash2, Eye, EyeOff, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -15,12 +15,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminListPageSkeleton } from "@/components/loading-skeletons";
 import { useSongs } from "@/lib/swr";
+import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 type FilterStatus = "all" | "published" | "draft";
 
@@ -51,10 +52,15 @@ interface Song {
 }
 
 export default function SongsPage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filterStatus]);
 
   const isPublishedParam =
     filterStatus === "all"
@@ -64,12 +70,16 @@ export default function SongsPage() {
       : false;
 
   const {
-    songs: allSongs,
+    songs,
+    pagination,
     isLoading,
     mutate: mutateSongs,
   } = useSongs({
     isPublished: isPublishedParam,
-    admin: true, // Use raw data for admin page
+    search: searchQuery || undefined,
+    page,
+    limit: ADMIN_PAGE_SIZE,
+    admin: true,
   });
 
   const togglePublish = async (songId: string, currentStatus: boolean) => {
@@ -120,24 +130,6 @@ export default function SongsPage() {
     }
   };
 
-  const filteredSongs = useMemo(
-    () =>
-      (allSongs || []).filter((song) => {
-        const titleMatch = song.title.toLowerCase().includes(searchQuery.toLowerCase());
-        // Handle multiple artists - check if any artist name matches
-        const artistMatch = (song as any).artists?.some((sa: any) =>
-          sa.artist?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-        ) || (song as any).artist?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-        return titleMatch || artistMatch;
-      }),
-    [allSongs, searchQuery]
-  );
-
-  const formatDuration = (seconds: number) => {
-    const minutes = seconds / 60;
-    return `${minutes.toFixed(1)} min`;
-  };
-
   const StatusButton = ({
     label,
     value,
@@ -157,6 +149,11 @@ export default function SongsPage() {
   if (isLoading) {
     return <AdminListPageSkeleton />;
   }
+
+  const formatDuration = (seconds: number) => {
+    const minutes = seconds / 60;
+    return `${minutes.toFixed(1)} min`;
+  };
 
   return (
     <div className="space-y-6">
@@ -208,7 +205,7 @@ export default function SongsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredSongs.length === 0 ? (
+              {songs.length === 0 ? (
                 <tr>
                   <td
                     colSpan={8}
@@ -218,7 +215,7 @@ export default function SongsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredSongs.map((song) => (
+                songs.map((song) => (
                   <tr
                     key={song.id}
                     className="border-t border-border hover:bg-muted/30"
@@ -308,6 +305,13 @@ export default function SongsPage() {
           </table>
         </div>
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
+
       <Dialog
         open={Boolean(songToDelete)}
         onOpenChange={(open) => {

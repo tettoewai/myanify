@@ -21,7 +21,6 @@ import Link from "next/link";
 import { mutate } from "swr";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const dynamic = "force-dynamic";
 
 export default function EditPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();

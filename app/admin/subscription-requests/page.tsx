@@ -18,6 +18,8 @@ import {
 } from "@/components/loading-skeletons";
 import { toast } from "sonner";
 import { useSubscriptionRequests } from "@/lib/swr";
+import { AdminPagination } from "@/components/admin/admin-pagination";
+import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -40,7 +42,6 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 
-export const dynamic = "force-dynamic";
 
 interface User {
   id: string;
@@ -111,7 +112,7 @@ export default function SubscriptionRequestsPage() {
   } = useSubscriptionRequests({
     status: statusFilter,
     page,
-    limit: 20,
+    limit: ADMIN_PAGE_SIZE,
   });
 
   const handleAction = async () => {
@@ -313,30 +314,12 @@ export default function SubscriptionRequestsPage() {
         )}
       </div>
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === pagination.totalPages}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+        className="justify-center"
+      />
 
       {/* Action Dialog (Approve/Reject) */}
       <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>

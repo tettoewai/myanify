@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -15,11 +15,12 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { useGenres } from "@/lib/swr";
+import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Genre {
   id: string;
@@ -30,11 +31,20 @@ interface Genre {
 }
 
 export default function GenresPage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [genreToDelete, setGenreToDelete] = useState<string | null>(null);
 
-  const { genres: allGenres, isLoading, mutate: mutateGenres } = useGenres();
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const { genres, pagination, isLoading, mutate: mutateGenres } = useGenres({
+    search: searchQuery || undefined,
+    page,
+    limit: ADMIN_GRID_PAGE_SIZE,
+  });
 
   const handleDeleteClick = (genreId: string) => {
     setGenreToDelete(genreId);
@@ -63,14 +73,6 @@ export default function GenresPage() {
       toast.error("Failed to delete genre");
     }
   };
-
-  const filteredGenres = useMemo(
-    () =>
-      (allGenres || []).filter((genre) =>
-        genre.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [allGenres, searchQuery]
-  );
 
   if (isLoading) {
     return <AdminGridPageSkeleton />;
@@ -104,12 +106,12 @@ export default function GenresPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {filteredGenres.length === 0 ? (
+        {genres.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No genres found
           </div>
         ) : (
-          filteredGenres.map((genre) => (
+          genres.map((genre) => (
             <div
               key={genre.id}
               className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow"
@@ -152,6 +154,12 @@ export default function GenresPage() {
           ))
         )}
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <Dialog
         open={deleteDialogOpen}

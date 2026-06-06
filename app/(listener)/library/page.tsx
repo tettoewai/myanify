@@ -4,7 +4,6 @@ import { LibraryView } from "@/components/views/library-view";
 import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
 
-export const dynamic = "force-dynamic";
 
 export default function LibraryPage() {
   const { playSong, isPremium } = usePlayer();

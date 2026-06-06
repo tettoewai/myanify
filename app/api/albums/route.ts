@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolveEntitySlugForCreate } from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { isAlbumType } from "@/lib/album-type";
 
 export async function GET(request: Request) {
@@ -22,6 +24,11 @@ export async function GET(request: Request) {
       prisma.album.count({ where }),
       prisma.album.findMany({
         where,
+        include: {
+          _count: {
+            select: { songs: true },
+          },
+        },
         orderBy: { name: "asc" },
         take: limit,
         skip,
@@ -55,7 +62,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, coverUrl, description, releaseDate, type } = body;
+    const {
+      name,
+      englishName,
+      slug,
+      coverUrl,
+      description,
+      englishDescription,
+      releaseDate,
+      type,
+      seo,
+    } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -65,14 +82,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid album type" }, { status: 400 });
     }
 
+    const tempId = crypto.randomUUID();
+    const resolvedSlug = await resolveEntitySlugForCreate("album", {
+      providedSlug: slug,
+      fallbackName: englishName || name,
+      tempId,
+    });
+    const seoId = await upsertSeoMetadata(null, seo);
+
     const album = await prisma.album.create({
       data: {
         name,
+        englishName: englishName || null,
+        slug: resolvedSlug,
         type: type && isAlbumType(type) ? type : "ALBUM",
         coverUrl: coverUrl || null,
         description: description || null,
+        englishDescription: englishDescription || null,
         releaseDate: releaseDate ? new Date(releaseDate) : null,
+        seoId,
       },
+      include: { seo: true },
     });
 
     return NextResponse.json(album, { status: 201 });

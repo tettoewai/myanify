@@ -646,7 +646,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const requireAuthForUserAction = () => {
     if (sessionStatus === "loading") return false;
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "play");
       return false;
     }
     return true;

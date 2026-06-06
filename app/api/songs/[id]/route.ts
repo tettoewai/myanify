@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { isAdmin } from "@/lib/require-admin";
+import { resolveSongId } from "@/lib/api-entity";
+import {
+  parseCommaList,
+  resolveEntitySlug,
+} from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(
@@ -8,10 +15,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveSongId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Song not found" }, { status: 404 });
+    }
+
     const song = await prisma.song.findUnique({
       where: { id },
       include: {
+        seo: true,
         artists: {
           include: {
             artist: true,
@@ -28,6 +41,11 @@ export async function GET(
     });
 
     if (!song) {
+      return NextResponse.json({ error: "Song not found" }, { status: 404 });
+    }
+
+    const session = await getSession();
+    if (!song.isPublished && !isAdmin(session)) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
@@ -52,9 +70,54 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveSongId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Song not found" }, { status: 404 });
+    }
+
     const body = await request.json();
-    const { isPublished, lyrics, artistIds, ...updateData } = body;
+    const {
+      isPublished,
+      lyrics,
+      artistIds,
+      englishTitle,
+      slug,
+      description,
+      englishDescription,
+      alternativeTitles,
+      language,
+      releaseDate,
+      seo,
+      ...updateData
+    } = body;
+
+    const existing = await prisma.song.findUnique({
+      where: { id },
+      select: {
+        seoId: true,
+        slug: true,
+        title: true,
+        englishTitle: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Song not found" }, { status: 404 });
+    }
+
+    const resolvedSlug = await resolveEntitySlug("song", {
+      providedSlug: slug,
+      fallbackName:
+        englishTitle || updateData.title || existing.englishTitle || existing.title,
+      entityId: id,
+      currentSlug: slug === undefined ? existing.slug : undefined,
+    });
+
+    const seoId =
+      seo !== undefined
+        ? await upsertSeoMetadata(existing.seoId, seo)
+        : existing.seoId;
 
     if (lyrics !== undefined) {
       await prisma.lyrics.deleteMany({
@@ -72,10 +135,23 @@ export async function PATCH(
       }
     }
 
-    // Handle artists update if provided
-    const updateSongData: any = {
+    const updateSongData: Record<string, unknown> = {
       ...updateData,
+      slug: resolvedSlug,
+      ...(englishTitle !== undefined && { englishTitle: englishTitle || null }),
+      ...(description !== undefined && { description: description || null }),
+      ...(englishDescription !== undefined && {
+        englishDescription: englishDescription || null,
+      }),
+      ...(alternativeTitles !== undefined && {
+        alternativeTitles: parseCommaList(alternativeTitles),
+      }),
+      ...(language !== undefined && { language: language || "my" }),
+      ...(releaseDate !== undefined && {
+        releaseDate: releaseDate ? new Date(releaseDate) : null,
+      }),
       ...(isPublished !== undefined && { isPublished }),
+      ...(seo !== undefined && { seoId }),
     };
 
     if (artistIds !== undefined && Array.isArray(artistIds)) {
@@ -96,6 +172,7 @@ export async function PATCH(
       where: { id },
       data: updateSongData,
       include: {
+        seo: true,
         artists: {
           include: {
             artist: true,
@@ -132,7 +209,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveSongId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Song not found" }, { status: 404 });
+    }
+
     await prisma.song.delete({
       where: { id },
     });

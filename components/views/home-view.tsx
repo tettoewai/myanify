@@ -315,7 +315,7 @@ export function HomeView({
             {genres.map((genre) => (
               <button
                 key={genre.id}
-                onClick={() => navigate("genre", genre.id)}
+                onClick={() => navigate("genre", genre.slug)}
                 className="group relative aspect-square w-40 md:w-48 lg:w-56 shrink-0 rounded-xl overflow-hidden cursor-pointer"
               >
                 <Image
@@ -375,7 +375,7 @@ export function HomeView({
             {artists.map((artist) => (
               <button
                 key={artist.id}
-                onClick={() => navigate("artist", artist.id)}
+                onClick={() => navigate("artist", artist.slug)}
                 className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer shrink-0 w-32 md:w-36"
               >
                 <div className="relative">
@@ -423,7 +423,7 @@ export function HomeView({
             {albums.slice(0, 8).map((album: Album) => (
               <button
                 key={album.id}
-                onClick={() => navigate("album", album.id)}
+                onClick={() => navigate("album", album.slug)}
                 className="group text-left cursor-pointer"
               >
                 <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
@@ -471,7 +471,7 @@ export function HomeView({
             return (
               <button
                 key={playlist.id}
-                onClick={() => navigate("playlist", playlist.id)}
+                onClick={() => navigate("playlist", playlist.slug)}
                 className="group text-left cursor-pointer"
               >
                 <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg bg-muted">

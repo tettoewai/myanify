@@ -8,15 +8,15 @@ import {
 
 export interface SharePayload {
   type: ShareableEntity;
-  id: string;
+  slug: string;
   title: string;
   text?: string;
 }
 
-function resolveUrl({ type, id }: SharePayload): string {
+function resolveUrl({ type, slug }: SharePayload): string {
   const origin =
     typeof window !== "undefined" ? window.location.origin : undefined;
-  return getAbsoluteShareUrl(type, id, origin);
+  return getAbsoluteShareUrl(type, slug, origin);
 }
 
 export async function shareContent(payload: SharePayload): Promise<void> {

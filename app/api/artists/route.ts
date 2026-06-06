@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolveEntitySlugForCreate, parseCommaList } from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { calculateMonthlyListenersByArtistIds } from "@/lib/monthly-listeners";
 
 export async function GET(request: Request) {
@@ -74,18 +76,43 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, imageUrl, bio } = body;
+    const {
+      name,
+      englishName,
+      slug,
+      aliases,
+      bio,
+      englishBio,
+      country,
+      imageUrl,
+      seo,
+    } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    const tempId = crypto.randomUUID();
+    const resolvedSlug = await resolveEntitySlugForCreate("artist", {
+      providedSlug: slug,
+      fallbackName: englishName || name,
+      tempId,
+    });
+    const seoId = await upsertSeoMetadata(null, seo);
+
     const artist = await prisma.artist.create({
       data: {
         name,
-        imageUrl: imageUrl || null,
+        englishName: englishName || null,
+        slug: resolvedSlug,
+        aliases: parseCommaList(aliases),
         bio: bio || null,
+        englishBio: englishBio || null,
+        country: country || null,
+        imageUrl: imageUrl || null,
+        seoId,
       },
+      include: { seo: true },
     });
 
     return NextResponse.json(artist, { status: 201 });

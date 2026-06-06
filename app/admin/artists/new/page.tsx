@@ -15,8 +15,15 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import Link from "next/link";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 
-export const dynamic = "force-dynamic";
 
 export default function NewArtistPage() {
   const router = useRouter();
@@ -24,8 +31,14 @@ export default function NewArtistPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    englishName: "",
+    slug: "",
+    aliases: "",
     bio: "",
+    englishBio: "",
+    country: "",
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [imageUrl, setImageUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
@@ -81,6 +94,12 @@ export default function NewArtistPage() {
           ...formData,
           imageUrl: imageUrl || null,
           bio: formData.bio || null,
+          englishName: formData.englishName || null,
+          englishBio: formData.englishBio || null,
+          country: formData.country || null,
+          aliases: formData.aliases,
+          slug: formData.slug || null,
+          seo: seoFormToApi(seoData),
         }),
       });
 
@@ -184,6 +203,31 @@ export default function NewArtistPage() {
               </div>
 
               <div>
+                <Label htmlFor="englishName">English name</Label>
+                <Input
+                  id="englishName"
+                  value={formData.englishName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishName: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <SlugInput
+                value={formData.slug}
+                onChange={(slug) => setFormData({ ...formData, slug })}
+                onGenerate={() =>
+                  setFormData({
+                    ...formData,
+                    slug: clientSlugify(
+                      formData.englishName || formData.name,
+                    ),
+                  })
+                }
+              />
+
+              <div>
                 <Label htmlFor="bio">Biography</Label>
                 <textarea
                   id="bio"
@@ -199,6 +243,8 @@ export default function NewArtistPage() {
             </CardContent>
           </Card>
         </div>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         <div className="flex items-center gap-4">
           <Button type="submit" disabled={loading || uploadingImage}>

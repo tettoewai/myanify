@@ -67,7 +67,7 @@ export function FullscreenLyrics({
 
   const handleToggleLike = () => {
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -216,9 +216,8 @@ export function FullscreenLyrics({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleToggleLike}
-                disabled={!session?.user?.id}
-                aria-pressed={songIsLiked}
+              onClick={handleToggleLike}
+              aria-pressed={songIsLiked}
                 className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
               >
                 <Heart
@@ -231,7 +230,7 @@ export function FullscreenLyrics({
               <ShareButton
                 payload={{
                   type: "song",
-                  id: song.id,
+                  slug: song.slug,
                   title: song.title,
                   text: `${song.title} by ${song.artist}`,
                 }}

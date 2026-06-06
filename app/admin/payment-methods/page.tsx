@@ -16,7 +16,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePaymentMethods } from "@/lib/swr";
 
-export const dynamic = "force-dynamic";
 
 export default function PaymentMethodsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

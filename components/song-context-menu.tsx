@@ -50,7 +50,7 @@ export function SongContextMenu({ song, children }: SongContextMenuProps) {
           onSelect={() =>
             void shareContent({
               type: "song",
-              id: song.id,
+              slug: song.slug,
               title: song.title,
               text: `${song.title} by ${song.artist}`,
             })

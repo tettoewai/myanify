@@ -87,7 +87,7 @@ export function PlayerBar({
     if (!currentSong) return;
 
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -181,7 +181,6 @@ export function PlayerBar({
                     size="icon"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                     onClick={handleToggleLike}
-                    disabled={!session?.user?.id}
                     aria-pressed={songIsLiked}
                   >
                     <Heart
@@ -205,7 +204,7 @@ export function PlayerBar({
                   <ShareButton
                     payload={{
                       type: "song",
-                      id: currentSong.id,
+                      slug: currentSong.slug,
                       title: currentSong.title,
                       text: `${currentSong.title} by ${currentSong.artist}`,
                     }}

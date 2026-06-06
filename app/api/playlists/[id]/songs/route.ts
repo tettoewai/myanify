@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolvePlaylistId } from "@/lib/api-entity";
+
+async function getPlaylistIdFromParam(param: string) {
+  const id = await resolvePlaylistId(param);
+  if (!id) {
+    return null;
+  }
+  return id;
+}
 
 export async function POST(
   request: Request,
@@ -13,7 +22,14 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await getPlaylistIdFromParam(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
     const body = await request.json();
     const { songId } = body;
 
@@ -136,7 +152,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await getPlaylistIdFromParam(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const songId = searchParams.get("songId");
 
@@ -195,7 +219,15 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await getPlaylistIdFromParam(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const songId = searchParams.get("songId");
 

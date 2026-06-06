@@ -6,7 +6,6 @@ import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
 import { SearchPageSkeleton } from "@/components/loading-skeletons";
 
-export const dynamic = "force-dynamic";
 
 function SearchPageContent() {
   const { playSong, currentSong, isPlaying, isPremium } = usePlayer();

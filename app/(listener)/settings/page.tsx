@@ -34,7 +34,6 @@ import { getLoginUrl } from "@/lib/require-login";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const dynamic = "force-dynamic";
 
 // ------------------------------
 //  Header Component

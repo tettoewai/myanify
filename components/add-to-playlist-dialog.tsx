@@ -50,7 +50,7 @@ function AddToPlaylistDialogComponent({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && !session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
     setOpen(nextOpen);
@@ -58,7 +58,7 @@ function AddToPlaylistDialogComponent({
 
   const handleAddToPlaylist = async (playlistId: string) => {
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
     setIsLoading(playlistId);
@@ -174,7 +174,7 @@ export function AddToPlaylistDropdown({
 
   const handleAddToPlaylist = async (playlistId: string) => {
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -207,7 +207,7 @@ export function AddToPlaylistDropdown({
 
   const handleDropdownOpenChange = (nextOpen: boolean) => {
     if (nextOpen && !session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
   };

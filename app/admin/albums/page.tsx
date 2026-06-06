@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
 import Image from "next/image";
 import { Plus, Edit, Trash2, Search, Music } from "lucide-react";
@@ -16,13 +16,14 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-import { useAlbums, useSongs } from "@/lib/swr";
+import { AdminPagination } from "@/components/admin/admin-pagination";
+import { useAlbums } from "@/lib/swr";
+import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { AlbumType } from "@/lib/album-type";
 
-export const dynamic = "force-dynamic";
 
 interface Album {
   id: string;
@@ -38,28 +39,20 @@ interface Album {
 }
 
 export default function AlbumsPage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null);
 
-  const { albums, isLoading, mutate: mutateAlbums } = useAlbums();
-  const { songs: allSongs } = useSongs();
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
 
-  // Calculate song counts for each album using useMemo to prevent infinite loops
-  const albumsWithCounts = useMemo(() => {
-    if (!albums || albums.length === 0) return [];
-    if (!allSongs)
-      return albums.map((album: Album) => ({ ...album, _count: { songs: 0 } }));
-    return albums.map((album: Album) => {
-      const songCount = allSongs.filter(
-        (song: any) => (song as any).albumId === album.id
-      ).length;
-      return {
-        ...album,
-        _count: { songs: songCount },
-      };
-    });
-  }, [albums, allSongs]);
+  const { albums, pagination, isLoading, mutate: mutateAlbums } = useAlbums({
+    search: searchQuery || undefined,
+    page,
+    limit: ADMIN_GRID_PAGE_SIZE,
+  });
 
   const handleDeleteClick = (albumId: string) => {
     setAlbumToDelete(albumId);
@@ -88,14 +81,6 @@ export default function AlbumsPage() {
       toast.error("Failed to delete album");
     }
   };
-
-  const filteredAlbums = useMemo(
-    () =>
-      albumsWithCounts.filter((album: Album) =>
-        album.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [albumsWithCounts, searchQuery]
-  );
 
   if (isLoading) {
     return <AdminGridPageSkeleton />;
@@ -129,12 +114,12 @@ export default function AlbumsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {filteredAlbums.length === 0 ? (
+        {albums.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No albums found
           </div>
         ) : (
-          filteredAlbums.map((album: Album) => (
+          albums.map((album: Album) => (
             <div
               key={album.id}
               className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow"
@@ -191,6 +176,12 @@ export default function AlbumsPage() {
           ))
         )}
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <Dialog
         open={deleteDialogOpen}

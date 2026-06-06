@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth-utils";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || searchParams.get("q");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
@@ -21,8 +22,25 @@ export async function GET(request: Request) {
       OR: [{ endDate: null }, { endDate: { gte: now } }],
     };
 
-    // Listener app: only active, in-schedule ads. Admin list uses ?includeInactive=true
-    const whereClause = includeInactive ? {} : activeAdFilter;
+    const conditions: Record<string, unknown>[] = [];
+    if (!includeInactive) {
+      conditions.push(activeAdFilter);
+    }
+    if (search) {
+      conditions.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    const whereClause =
+      conditions.length === 0
+        ? {}
+        : conditions.length === 1
+          ? conditions[0]
+          : { AND: conditions };
 
     const [total, ads] = await Promise.all([
       prisma.ad.count({ where: whereClause }),

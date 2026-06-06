@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
+import { LoginPromptProvider } from "@/components/login-prompt-provider";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { PlayerBar } from "@/components/player-bar";
@@ -154,8 +155,10 @@ export function ListenerLayoutWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <PlayerProvider>
-      <ListenerLayoutContent>{children}</ListenerLayoutContent>
-    </PlayerProvider>
+    <LoginPromptProvider>
+      <PlayerProvider>
+        <ListenerLayoutContent>{children}</ListenerLayoutContent>
+      </PlayerProvider>
+    </LoginPromptProvider>
   );
 }

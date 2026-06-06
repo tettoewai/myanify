@@ -12,18 +12,18 @@ import { usePlayer } from "@/components/player-context";
 import { cn } from "@/lib/utils";
 
 interface SongViewProps {
-  songId: string;
+  songSlug: string;
   currentSongId: string | null;
   isPlaying: boolean;
 }
 
 export function SongView({
-  songId,
+  songSlug,
   currentSongId,
   isPlaying,
 }: SongViewProps) {
   const { navigate } = useNavigation();
-  const { song, isLoading } = useSong(songId);
+  const { song, isLoading } = useSong(songSlug);
   const { playSong } = usePlayer();
 
   if (isLoading) {
@@ -94,25 +94,25 @@ export function SongView({
         <ShareButton
           payload={{
             type: "song",
-            id: song.id,
+            slug: song.slug,
             title: song.title,
             text: `${song.title} by ${song.artist}`,
           }}
         />
-        {song.albumId ? (
+        {song.albumSlug ? (
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={() => navigate("album", song.albumId!)}
+            onClick={() => navigate("album", song.albumSlug!)}
           >
             View album
           </Button>
         ) : null}
-        {song.artistIds?.[0] ? (
+        {song.artistSlugs?.[0] ? (
           <Button
             variant="ghost"
             className="rounded-full"
-            onClick={() => navigate("artist", song.artistIds![0])}
+            onClick={() => navigate("artist", song.artistSlugs![0])}
           >
             View artist
           </Button>
@@ -120,9 +120,14 @@ export function SongView({
       </div>
 
       <div className="px-6 md:px-8 pb-8">
-        <div
+        <button
+          type="button"
+          onClick={() => playSong(song)}
+          aria-label={`Play ${song.title}`}
           className={cn(
-            "flex items-center gap-4 p-4 rounded-xl bg-card/50 border border-border",
+            "w-full flex items-center gap-4 p-4 rounded-xl bg-card/50 border border-border",
+            "hover:bg-card transition-colors cursor-pointer text-left",
+            isCurrent && isPlaying && "border-primary/50 bg-primary/5",
           )}
         >
           <Image
@@ -144,7 +149,14 @@ export function SongView({
               {song.genre ? ` · ${song.genre}` : ""}
             </p>
           </div>
-        </div>
+          <span className="shrink-0 text-muted-foreground">
+            {isCurrent && isPlaying ? (
+              <Pause className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5" />
+            )}
+          </span>
+        </button>
       </div>
     </div>
   );

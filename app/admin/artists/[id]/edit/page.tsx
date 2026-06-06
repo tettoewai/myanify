@@ -15,15 +15,29 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Artist {
   id: string;
   name: string;
+  englishName?: string | null;
+  slug?: string;
+  aliases?: string[];
   imageUrl: string | null;
   bio: string | null;
+  englishBio?: string | null;
+  country?: string | null;
+  seo?: SeoFormValues | null;
 }
 
 export default function EditArtistPage() {
@@ -36,8 +50,14 @@ export default function EditArtistPage() {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [formData, setFormData] = useState({
     name: "",
+    englishName: "",
+    slug: "",
+    aliases: "",
     bio: "",
+    englishBio: "",
+    country: "",
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [imageUrl, setImageUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
@@ -55,8 +75,14 @@ export default function EditArtistPage() {
       setArtist(data);
       setFormData({
         name: data.name,
+        englishName: data.englishName || "",
+        slug: data.slug || "",
+        aliases: (data.aliases || []).join(", "),
         bio: data.bio || "",
+        englishBio: data.englishBio || "",
+        country: data.country || "",
       });
+      setSeoData(seoFormFromApi(data.seo));
       setImageUrl(data.imageUrl || "");
     } catch (error) {
       console.error("Error fetching artist:", error);
@@ -119,6 +145,12 @@ export default function EditArtistPage() {
           ...formData,
           imageUrl: imageUrl || null,
           bio: formData.bio || null,
+          englishName: formData.englishName || null,
+          englishBio: formData.englishBio || null,
+          country: formData.country || null,
+          aliases: formData.aliases,
+          slug: formData.slug || null,
+          seo: seoFormToApi(seoData),
         }),
       });
 
@@ -230,6 +262,56 @@ export default function EditArtistPage() {
               </div>
 
               <div>
+                <Label htmlFor="englishName">English name</Label>
+                <Input
+                  id="englishName"
+                  value={formData.englishName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishName: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <SlugInput
+                value={formData.slug}
+                onChange={(slug) => setFormData({ ...formData, slug })}
+                onGenerate={() =>
+                  setFormData({
+                    ...formData,
+                    slug: clientSlugify(
+                      formData.englishName || formData.name,
+                    ),
+                  })
+                }
+              />
+
+              <div>
+                <Label htmlFor="aliases">Aliases</Label>
+                <Input
+                  id="aliases"
+                  value={formData.aliases}
+                  onChange={(e) =>
+                    setFormData({ ...formData, aliases: e.target.value })
+                  }
+                  className="mt-2"
+                  placeholder="Comma-separated alternate names"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={formData.country}
+                  onChange={(e) =>
+                    setFormData({ ...formData, country: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="bio">Biography</Label>
                 <textarea
                   id="bio"
@@ -242,9 +324,25 @@ export default function EditArtistPage() {
                   placeholder="Enter artist biography..."
                 />
               </div>
+
+              <div>
+                <Label htmlFor="englishBio">English biography</Label>
+                <textarea
+                  id="englishBio"
+                  value={formData.englishBio}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishBio: e.target.value })
+                  }
+                  rows={4}
+                  className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="English biography for SEO..."
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         <div className="flex items-center gap-4">
           <Button type="submit" disabled={saving || uploadingImage}>

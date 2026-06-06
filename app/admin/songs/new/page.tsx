@@ -36,8 +36,15 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import Link from "next/link";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 
-export const dynamic = "force-dynamic";
 
 interface Artist {
   id: string;
@@ -62,13 +69,21 @@ export default function NewSongPage() {
   const [uploadingLyrics, setUploadingLyrics] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
-    duration: 0, // Duration in seconds
-    artistIds: [] as string[], // Support multiple artists
+    englishTitle: "",
+    slug: "",
+    description: "",
+    englishDescription: "",
+    alternativeTitles: "",
+    language: "my",
+    releaseDate: "",
+    duration: 0,
+    artistIds: [] as string[],
     genreId: "",
     albumId: "",
     isPremium: false,
     isPublished: false,
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [audioUrl, setAudioUrl] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [lyricsData, setLyricsData] = useState<any[]>([]);
@@ -228,12 +243,20 @@ export default function NewSongPage() {
         },
         body: JSON.stringify({
           ...formData,
-          artistIds: formData.artistIds, // Send array of artist IDs
-          duration: formData.duration, // Already in seconds
+          artistIds: formData.artistIds,
+          duration: formData.duration,
           audioUrl,
           coverUrl: coverUrl || null,
           genreId: formData.genreId || null,
           albumId: formData.albumId || null,
+          englishTitle: formData.englishTitle || null,
+          slug: formData.slug || null,
+          description: formData.description || null,
+          englishDescription: formData.englishDescription || null,
+          alternativeTitles: formData.alternativeTitles,
+          language: formData.language || "my",
+          releaseDate: formData.releaseDate || null,
+          seo: seoFormToApi(seoData),
           lyrics: lyricsData,
         }),
       });
@@ -436,6 +459,33 @@ export default function NewSongPage() {
                 />
               </div>
               <div className="col-span-1">
+                <Label htmlFor="englishTitle">English title</Label>
+                <Input
+                  id="englishTitle"
+                  value={formData.englishTitle}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishTitle: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
+            <SlugInput
+              value={formData.slug}
+              onChange={(slug) => setFormData({ ...formData, slug })}
+              onGenerate={() =>
+                setFormData({
+                  ...formData,
+                  slug: clientSlugify(
+                    formData.englishTitle || formData.title,
+                  ),
+                })
+              }
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="col-span-1">
                 <Label htmlFor="artists">Artists *</Label>
                 <div className="mt-2">
                   <MultiSelect
@@ -542,6 +592,8 @@ export default function NewSongPage() {
             </div>
           </CardContent>
         </Card>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         <div className="flex items-center gap-4 justify-end">
           <Button

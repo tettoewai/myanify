@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolveGenreId } from "@/lib/api-entity";
+import {
+  resolveEntitySlug,
+  resolveEntitySlugForCreate,
+} from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongsResponse } from "@/lib/song-response";
 
 export async function GET(
@@ -8,10 +14,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveGenreId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Genre not found" }, { status: 404 });
+    }
+
     const genre = await prisma.genre.findUnique({
       where: { id },
       include: {
+        seo: true,
         songs: {
           where: { isPublished: true },
           include: {
@@ -54,7 +66,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveGenreId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Genre not found" }, { status: 404 });
+    }
+
     await prisma.genre.delete({
       where: { id },
     });
@@ -80,17 +97,58 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveGenreId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Genre not found" }, { status: 404 });
+    }
+
     const body = await request.json();
-    const { name, imageUrl, description } = body;
+    const {
+      name,
+      englishName,
+      slug,
+      imageUrl,
+      description,
+      englishDescription,
+      seo,
+    } = body;
+
+    const existing = await prisma.genre.findUnique({
+      where: { id },
+      select: { seoId: true, slug: true, name: true, englishName: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Genre not found" }, { status: 404 });
+    }
+
+    const resolvedSlug = await resolveEntitySlug("genre", {
+      providedSlug: slug,
+      fallbackName: englishName || name || existing.englishName || existing.name,
+      entityId: id,
+      currentSlug: slug === undefined ? existing.slug : undefined,
+    });
+
+    const seoId =
+      seo !== undefined
+        ? await upsertSeoMetadata(existing.seoId, seo)
+        : existing.seoId;
 
     const genre = await prisma.genre.update({
       where: { id },
       data: {
-        ...(name && { name }),
+        ...(name !== undefined && { name }),
+        ...(englishName !== undefined && { englishName: englishName || null }),
+        slug: resolvedSlug,
         ...(imageUrl !== undefined && { imageUrl: imageUrl || null }),
         ...(description !== undefined && { description: description || null }),
+        ...(englishDescription !== undefined && {
+          englishDescription: englishDescription || null,
+        }),
+        ...(seo !== undefined && { seoId }),
       },
+      include: { seo: true },
     });
 
     return NextResponse.json(genre);

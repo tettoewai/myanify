@@ -2,6 +2,7 @@ import type { AlbumType } from "./album-type"
 
 export interface Album {
   id: string
+  slug: string
   name: string
   coverUrl: string | null
   type: AlbumType
@@ -22,11 +23,14 @@ export interface QueueItem {
 
 export interface Song {
   id: string
+  slug: string
   title: string
   artist: string // Comma-separated artist names for display
   artists?: string[] // Array of artist names (optional, for when full list is needed)
   artistIds?: string[]
+  artistSlugs?: string[]
   albumId?: string | null
+  albumSlug?: string | null
   album: string
   albumType?: AlbumType | null
   duration: number
@@ -47,6 +51,7 @@ export interface LyricLine {
 
 export interface Artist {
   id: string
+  slug: string
   name: string
   imageUrl: string
   bio: string
@@ -56,6 +61,7 @@ export interface Artist {
 
 export interface Playlist {
   id: string
+  slug: string
   name: string
   description: string
   coverUrl: string
@@ -67,6 +73,7 @@ export interface Playlist {
 
 export interface Genre {
   id: string
+  slug: string
   name: string
   imageUrl: string
   description: string

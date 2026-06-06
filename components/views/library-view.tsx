@@ -106,7 +106,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
             {playlists.map((playlist) => (
               <button
                 key={playlist.id}
-                onClick={() => navigate("playlist", playlist.id)}
+                onClick={() => navigate("playlist", playlist.slug)}
                 className="group text-left cursor-pointer"
               >
                 <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
@@ -208,7 +208,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
             {likedArtists.map((artist) => (
               <button
                 key={artist.id}
-                onClick={() => navigate("artist", artist.id)}
+                onClick={() => navigate("artist", artist.slug)}
                 className="group text-left cursor-pointer"
               >
                 <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolveAlbumId } from "@/lib/api-entity";
+import {
+  parseCommaList,
+  resolveEntitySlug,
+  resolveEntitySlugForCreate,
+} from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { isAlbumType } from "@/lib/album-type";
 import { formatSongsResponse } from "@/lib/song-response";
 
@@ -9,10 +16,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveAlbumId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    }
+
     const album = await prisma.album.findUnique({
       where: { id },
       include: {
+        seo: true,
         songs: {
           include: {
             artists: {
@@ -55,25 +68,64 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
-    const body = await request.json();
-    const { name, coverUrl, description, releaseDate, type } = body;
-
-    if (type !== undefined && !isAlbumType(type)) {
-      return NextResponse.json({ error: "Invalid album type" }, { status: 400 });
+    const { id: param } = await params;
+    const id = await resolveAlbumId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
+
+    const body = await request.json();
+    const {
+      name,
+      englishName,
+      slug,
+      coverUrl,
+      description,
+      englishDescription,
+      releaseDate,
+      type,
+      seo,
+    } = body;
+
+    const existing = await prisma.album.findUnique({
+      where: { id },
+      select: { seoId: true, slug: true, name: true, englishName: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    }
+
+    const resolvedSlug = await resolveEntitySlug("album", {
+      providedSlug: slug,
+      fallbackName: englishName || name || existing.englishName || existing.name,
+      entityId: id,
+      currentSlug: slug === undefined ? existing.slug : undefined,
+    });
+
+    const seoId =
+      seo !== undefined
+        ? await upsertSeoMetadata(existing.seoId, seo)
+        : existing.seoId;
 
     const album = await prisma.album.update({
       where: { id },
       data: {
-        ...(name && { name }),
+        ...(name !== undefined && { name }),
+        ...(englishName !== undefined && { englishName: englishName || null }),
+        slug: resolvedSlug,
         ...(type !== undefined && isAlbumType(type) && { type }),
         ...(coverUrl !== undefined && { coverUrl: coverUrl || null }),
         ...(description !== undefined && { description: description || null }),
+        ...(englishDescription !== undefined && {
+          englishDescription: englishDescription || null,
+        }),
         ...(releaseDate !== undefined && {
           releaseDate: releaseDate ? new Date(releaseDate) : null,
         }),
+        ...(seo !== undefined && { seoId }),
       },
+      include: { seo: true },
     });
 
     return NextResponse.json(album);
@@ -97,7 +149,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolveAlbumId(param);
+    if (!id) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    }
+
     await prisma.album.delete({
       where: { id },
     });

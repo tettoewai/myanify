@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { UserRole } from "@prisma/client";
 import { useSession } from "next-auth/react";
 import { LoginPageSkeleton } from "@/components/loading-skeletons";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,9 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role) {
-      router.push("/home");
+      const destination =
+        session.user.role === UserRole.ADMIN ? "/admin" : "/home";
+      router.push(destination);
     } else if (status === "unauthenticated") {
       // If not authenticated, redirect to login
       router.push("/login");

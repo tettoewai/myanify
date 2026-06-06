@@ -14,20 +14,20 @@ import { usePlayer } from "@/components/player-context";
 import { ListMusic } from "lucide-react";
 
 interface GenreViewProps {
-  genreId: string;
+  genreSlug: string;
   onPlaySong: (song: Song) => void;
   currentSong: Song | null;
   isPlaying: boolean;
 }
 
 export function GenreView({
-  genreId,
+  genreSlug,
   onPlaySong,
   currentSong,
   isPlaying,
 }: GenreViewProps) {
   const { navigate } = useNavigation();
-  const { genre, isLoading } = useGenre(genreId);
+  const { genre, isLoading } = useGenre(genreSlug);
   const { playFromContext, isSongQueued } = usePlayer();
 
   if (isLoading) {

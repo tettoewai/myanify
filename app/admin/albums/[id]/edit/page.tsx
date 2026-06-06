@@ -23,6 +23,15 @@ import {
 } from "@/components/ui/card";
 import { useAlbum } from "@/lib/swr";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 import Link from "next/link";
 import {
   Select,
@@ -34,7 +43,6 @@ import {
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import { ALBUM_TYPES, ALBUM_TYPE_LABELS, isAlbumType, type AlbumType } from "@/lib/album-type";
 
-export const dynamic = "force-dynamic";
 
 interface Album {
   id: string;
@@ -65,10 +73,14 @@ export default function EditAlbumPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    englishName: "",
+    slug: "",
     description: "",
+    englishDescription: "",
     releaseDate: "",
     type: "ALBUM" as AlbumType,
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [coverUrl, setCoverUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
@@ -79,12 +91,16 @@ export default function EditAlbumPage() {
 
     setFormData({
       name: album.name,
+      englishName: album.englishName || "",
+      slug: album.slug || "",
       description: album.description || "",
+      englishDescription: album.englishDescription || "",
       releaseDate: album.releaseDate
         ? new Date(album.releaseDate).toISOString().split("T")[0]
         : "",
       type: isAlbumType(album.type) ? album.type : "ALBUM",
     });
+    setSeoData(seoFormFromApi(album.seo));
     setCoverUrl(album.coverUrl || "");
   }, [
     albumId,
@@ -146,10 +162,14 @@ export default function EditAlbumPage() {
         },
         body: JSON.stringify({
           name: formData.name,
+          englishName: formData.englishName || null,
+          slug: formData.slug || null,
           type: formData.type,
           coverUrl: coverUrl || null,
           description: formData.description || null,
+          englishDescription: formData.englishDescription || null,
           releaseDate: formData.releaseDate || null,
+          seo: seoFormToApi(seoData),
         }),
       });
 
@@ -268,6 +288,31 @@ export default function EditAlbumPage() {
               </div>
 
               <div>
+                <Label htmlFor="englishName">English name</Label>
+                <Input
+                  id="englishName"
+                  value={formData.englishName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishName: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <SlugInput
+                value={formData.slug}
+                onChange={(slug) => setFormData({ ...formData, slug })}
+                onGenerate={() =>
+                  setFormData({
+                    ...formData,
+                    slug: clientSlugify(
+                      formData.englishName || formData.name,
+                    ),
+                  })
+                }
+              />
+
+              <div>
                 <Label htmlFor="type">Type *</Label>
                 <Select
                   value={formData.type}
@@ -314,9 +359,27 @@ export default function EditAlbumPage() {
                   placeholder="Enter album description..."
                 />
               </div>
+
+              <div>
+                <Label htmlFor="englishDescription">English description</Label>
+                <textarea
+                  id="englishDescription"
+                  value={formData.englishDescription}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      englishDescription: e.target.value,
+                    })
+                  }
+                  rows={4}
+                  className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         {/* Songs in Album */}
         {album.songs && album.songs.length > 0 && (

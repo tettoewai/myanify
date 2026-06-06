@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { resolvePlaylistId } from "@/lib/api-entity";
 import { formatSongResponse } from "@/lib/song-response";
 
 export async function GET(
@@ -9,7 +10,15 @@ export async function GET(
 ) {
   try {
     const session = await getSession();
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolvePlaylistId(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
+
     const playlist = await prisma.playlist.findUnique({
       where: { id },
       include: {
@@ -91,7 +100,15 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolvePlaylistId(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const { name, description, coverUrl, isPublic } = body;
 
@@ -186,7 +203,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id: param } = await params;
+    const id = await resolvePlaylistId(param);
+    if (!id) {
+      return NextResponse.json(
+        { error: "Playlist not found" },
+        { status: 404 }
+      );
+    }
 
     // Check if playlist exists and user owns it
     const existingPlaylist = await prisma.playlist.findUnique({

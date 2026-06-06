@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const dynamic = "force-dynamic";
 
 export default function NewPlanPage() {
   const router = useRouter();

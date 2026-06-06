@@ -4,7 +4,9 @@ import { useMemo, useState, useEffect } from "react";
 import { Crown, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AdminListPageSkeleton } from "@/components/loading-skeletons";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { useAdminUsers } from "@/lib/swr";
+import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,7 +25,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export const dynamic = "force-dynamic";
 
 interface AdminUserStats {
   playlists: number;
@@ -56,6 +57,7 @@ interface UsersResponse {
 
 export default function AdminUsersPage() {
   const [mounted, setMounted] = useState(false);
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -66,6 +68,10 @@ export default function AdminUsersPage() {
     "all"
   );
   const [vipFilter, setVipFilter] = useState<"all" | "vip" | "non-vip">("all");
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, roleFilter, vipFilter]);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleDialogUser, setRoleDialogUser] = useState<AdminUser | null>(null);
@@ -81,6 +87,7 @@ export default function AdminUsersPage() {
 
   const {
     users,
+    pagination,
     isError: error,
     isLoading,
     mutate: mutateUsers,
@@ -88,6 +95,8 @@ export default function AdminUsersPage() {
     search: searchQuery,
     role: roleFilter,
     vip: vipFilter,
+    page,
+    limit: ADMIN_PAGE_SIZE,
   });
 
   const sortedUsers = useMemo(
@@ -426,6 +435,13 @@ export default function AdminUsersPage() {
           </table>
         )}
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
+
       <Dialog
         open={roleDialogOpen}
         onOpenChange={(open) => {

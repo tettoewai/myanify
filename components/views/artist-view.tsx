@@ -29,21 +29,21 @@ import { AlbumMetadata } from "@/components/album-metadata";
 import { ShareButton } from "@/components/share-button";
 
 interface ArtistViewProps {
-  artistId: string;
+  artistSlug: string;
   onPlaySong: (song: Song) => void;
   currentSong: Song | null;
   isPlaying: boolean;
 }
 
 export function ArtistView({
-  artistId,
+  artistSlug,
   onPlaySong,
   currentSong,
   isPlaying,
 }: ArtistViewProps) {
   const { navigate } = useNavigation();
   const { data: session } = useSession();
-  const { artist, isLoading } = useArtist(artistId);
+  const { artist, isLoading } = useArtist(artistSlug);
   const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists({
     enabled: !!session?.user?.id,
   });
@@ -51,7 +51,7 @@ export function ArtistView({
   const [isLiking, setIsLiking] = useState(false);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
 
-  const isLiked = likedArtistIds.has(artistId);
+  const isLiked = artist ? likedArtistIds.has(artist.id) : false;
 
   const handleShufflePlay = () => {
     if (!artist || artist.songs.length === 0) return;
@@ -67,17 +67,17 @@ export function ArtistView({
     if (isLiking) return;
 
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
     setIsLiking(true);
     try {
       if (isLiked) {
-        await unlikeArtist(artistId);
+        await unlikeArtist(artist.id);
         toast.success("Removed from your liked artists");
       } else {
-        await likeArtist(artistId);
+        await likeArtist(artist.id);
         toast.success("Added to your liked artists");
       }
       mutateLikedArtists();
@@ -210,7 +210,7 @@ export function ArtistView({
         <ShareButton
           payload={{
             type: "artist",
-            id: artistId,
+            slug: artist.slug,
             title: artist.name,
             text: `Listen to ${artist.name} on Myanify`,
           }}

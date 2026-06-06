@@ -16,20 +16,20 @@ import { ListMusic } from "lucide-react";
 import { ShareButton } from "@/components/share-button";
 
 interface AlbumViewProps {
-  albumId: string;
+  albumSlug: string;
   onPlaySong: (song: Song) => void;
   currentSong: Song | null;
   isPlaying: boolean;
 }
 
 export function AlbumView({
-  albumId,
+  albumSlug,
   onPlaySong,
   currentSong,
   isPlaying,
 }: AlbumViewProps) {
   const { navigate } = useNavigation();
-  const { album, isLoading } = useAlbum(albumId);
+  const { album, isLoading } = useAlbum(albumSlug);
   const { playFromContext, isSongQueued } = usePlayer();
 
   if (isLoading) {
@@ -100,7 +100,7 @@ export function AlbumView({
         <ShareButton
           payload={{
             type: "album",
-            id: albumId,
+            slug: album.slug,
             title: album.name,
             text: `Listen to ${album.name} on Myanify`,
           }}

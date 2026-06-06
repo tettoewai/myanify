@@ -1,10 +1,9 @@
 import type { MetadataRoute } from "next";
+import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
+import { MAX_STATIC_PATHS } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
-const MAX_DYNAMIC_URLS_PER_TYPE = 1000;
+export const revalidate = 3600;
 
 function absoluteUrl(siteUrl: string, path = "/") {
   return `${siteUrl}${path}`;
@@ -43,11 +42,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         select: {
-          id: true,
+          slug: true,
           updatedAt: true,
         },
         orderBy: [{ monthlyListeners: "desc" }, { updatedAt: "desc" }],
-        take: MAX_DYNAMIC_URLS_PER_TYPE,
+        take: MAX_STATIC_PATHS,
       }),
       prisma.genre.findMany({
         where: {
@@ -58,11 +57,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         select: {
-          id: true,
+          slug: true,
           updatedAt: true,
         },
         orderBy: { updatedAt: "desc" },
-        take: MAX_DYNAMIC_URLS_PER_TYPE,
+        take: MAX_STATIC_PATHS,
       }),
       prisma.playlist.findMany({
         where: {
@@ -76,11 +75,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         select: {
-          id: true,
+          slug: true,
           updatedAt: true,
         },
         orderBy: { updatedAt: "desc" },
-        take: MAX_DYNAMIC_URLS_PER_TYPE,
+        take: MAX_STATIC_PATHS,
       }),
       prisma.album.findMany({
         where: {
@@ -91,51 +90,51 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           },
         },
         select: {
-          id: true,
+          slug: true,
           updatedAt: true,
         },
         orderBy: { updatedAt: "desc" },
-        take: MAX_DYNAMIC_URLS_PER_TYPE,
+        take: MAX_STATIC_PATHS,
       }),
       prisma.song.findMany({
         where: { isPublished: true },
         select: {
-          id: true,
+          slug: true,
           updatedAt: true,
         },
         orderBy: { updatedAt: "desc" },
-        take: MAX_DYNAMIC_URLS_PER_TYPE,
+        take: MAX_STATIC_PATHS,
       }),
     ]);
 
     return [
       ...staticRoutes,
       ...artists.map((artist) => ({
-        url: absoluteUrl(siteUrl, `/artist/${artist.id}`),
+        url: absoluteUrl(siteUrl, entityPath("artist", artist.slug)),
         lastModified: artist.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.7,
       })),
       ...genres.map((genre) => ({
-        url: absoluteUrl(siteUrl, `/genre/${genre.id}`),
+        url: absoluteUrl(siteUrl, entityPath("genre", genre.slug)),
         lastModified: genre.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.6,
       })),
       ...playlists.map((playlist) => ({
-        url: absoluteUrl(siteUrl, `/playlist/${playlist.id}`),
+        url: absoluteUrl(siteUrl, entityPath("playlist", playlist.slug)),
         lastModified: playlist.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.5,
       })),
       ...albums.map((album) => ({
-        url: absoluteUrl(siteUrl, `/album/${album.id}`),
+        url: absoluteUrl(siteUrl, entityPath("album", album.slug)),
         lastModified: album.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.6,
       })),
       ...songs.map((song) => ({
-        url: absoluteUrl(siteUrl, `/song/${song.id}`),
+        url: absoluteUrl(siteUrl, entityPath("song", song.slug)),
         lastModified: song.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.5,

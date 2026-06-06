@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { AdminGridPageSkeleton } from "@/components/loading-skeletons";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { useAds } from "@/lib/swr";
+import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Ad {
   id: string;
@@ -37,12 +38,19 @@ interface Ad {
 }
 
 export default function AdsPage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [adToDelete, setAdToDelete] = useState<string | null>(null);
 
-  const { ads: allAds, isLoading, mutate: mutateAds } = useAds({
-    limit: 100,
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const { ads, pagination, isLoading, mutate: mutateAds } = useAds({
+    page,
+    limit: ADMIN_GRID_PAGE_SIZE,
+    search: searchQuery || undefined,
     includeInactive: true,
   });
 
@@ -95,16 +103,6 @@ export default function AdsPage() {
     }
   };
 
-  const filteredAds = useMemo(
-    () =>
-      (allAds || []).filter(
-        (ad: Ad) =>
-          ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ad.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [allAds, searchQuery]
-  );
-
   if (isLoading) {
     return <AdminGridPageSkeleton />;
   }
@@ -139,12 +137,12 @@ export default function AdsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAds.length === 0 ? (
+        {ads.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No ads found
           </div>
         ) : (
-          filteredAds.map((ad) => (
+          ads.map((ad) => (
             <div
               key={ad.id}
               className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow"
@@ -228,6 +226,12 @@ export default function AdsPage() {
           ))
         )}
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <Dialog
         open={deleteDialogOpen}

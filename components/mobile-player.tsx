@@ -64,7 +64,7 @@ export function MobilePlayer({
 
   const handleToggleLike = () => {
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -230,7 +230,6 @@ export function MobilePlayer({
             variant="ghost"
             size="icon"
             onClick={handleToggleLike}
-            disabled={!session?.user?.id}
           >
             <Heart
               className={cn(
@@ -250,7 +249,7 @@ export function MobilePlayer({
           <ShareButton
             payload={{
               type: "song",
-              id: currentSong.id,
+              slug: currentSong.slug,
               title: currentSong.title,
               text: `${currentSong.title} by ${currentSong.artist}`,
             }}

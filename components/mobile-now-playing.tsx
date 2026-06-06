@@ -43,7 +43,7 @@ export function MobileNowPlaying({
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -111,7 +111,6 @@ export function MobileNowPlaying({
               size="icon"
               className="text-white/70 hover:text-white h-10 w-10"
               onClick={handleToggleLike}
-              disabled={!session?.user?.id}
             >
               <Heart
                 className={cn(

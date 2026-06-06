@@ -27,6 +27,9 @@ export const authConfig = {
         if (isLoggedIn && auth.user?.role === UserRole.ADMIN) {
           return true;
         }
+        if (isLoggedIn) {
+          return Response.redirect(new URL("/home", nextUrl));
+        }
         return false;
       }
 

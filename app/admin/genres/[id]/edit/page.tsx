@@ -15,9 +15,17 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Genre {
   id: string;
@@ -36,8 +44,12 @@ export default function EditGenrePage() {
   const [genre, setGenre] = useState<Genre | null>(null);
   const [formData, setFormData] = useState({
     name: "",
+    englishName: "",
+    slug: "",
     description: "",
+    englishDescription: "",
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [imageUrl, setImageUrl] = useState("");
   const [imageFileName, setImageFileName] = useState("");
 
@@ -55,8 +67,12 @@ export default function EditGenrePage() {
       setGenre(data);
       setFormData({
         name: data.name,
+        englishName: data.englishName || "",
+        slug: data.slug || "",
         description: data.description || "",
+        englishDescription: data.englishDescription || "",
       });
+      setSeoData(seoFormFromApi(data.seo));
       setImageUrl(data.imageUrl || "");
     } catch (error) {
       console.error("Error fetching genre:", error);
@@ -119,6 +135,10 @@ export default function EditGenrePage() {
           ...formData,
           imageUrl: imageUrl || null,
           description: formData.description || null,
+          englishName: formData.englishName || null,
+          englishDescription: formData.englishDescription || null,
+          slug: formData.slug || null,
+          seo: seoFormToApi(seoData),
         }),
       });
 
@@ -230,6 +250,31 @@ export default function EditGenrePage() {
               </div>
 
               <div>
+                <Label htmlFor="englishName">English name</Label>
+                <Input
+                  id="englishName"
+                  value={formData.englishName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishName: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+
+              <SlugInput
+                value={formData.slug}
+                onChange={(slug) => setFormData({ ...formData, slug })}
+                onGenerate={() =>
+                  setFormData({
+                    ...formData,
+                    slug: clientSlugify(
+                      formData.englishName || formData.name,
+                    ),
+                  })
+                }
+              />
+
+              <div>
                 <Label htmlFor="description">Description</Label>
                 <textarea
                   id="description"
@@ -242,9 +287,27 @@ export default function EditGenrePage() {
                   placeholder="Enter genre description..."
                 />
               </div>
+
+              <div>
+                <Label htmlFor="englishDescription">English description</Label>
+                <textarea
+                  id="englishDescription"
+                  value={formData.englishDescription}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      englishDescription: e.target.value,
+                    })
+                  }
+                  rows={4}
+                  className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         <div className="flex items-center gap-4">
           <Button type="submit" disabled={saving || uploadingImage}>

@@ -45,7 +45,7 @@ function CreatePlaylistDialogComponent({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && !session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
     setOpen(nextOpen);
@@ -55,7 +55,7 @@ function CreatePlaylistDialogComponent({
     e.preventDefault();
 
     if (!session?.user?.id) {
-      requireLoginRedirect();
+      requireLoginRedirect(undefined, "save");
       return;
     }
 
@@ -90,7 +90,7 @@ function CreatePlaylistDialogComponent({
       onPlaylistCreated?.(playlist);
 
       // Navigate to the new playlist
-      router.push(`/playlist/${playlist.id}`);
+      router.push(`/playlist/${playlist.slug}`);
     } catch (error) {
       console.error("Error creating playlist:", error);
       // TODO: Show error toast

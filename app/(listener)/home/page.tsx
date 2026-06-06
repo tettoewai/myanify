@@ -4,7 +4,6 @@ import { HomeView } from "@/components/views/home-view";
 import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
 
-export const dynamic = "force-dynamic";
 
 export default function ListenerHomePage() {
   const { playSong, currentSong, isPlaying, isPremium } = usePlayer();

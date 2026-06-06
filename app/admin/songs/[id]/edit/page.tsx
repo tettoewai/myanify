@@ -36,9 +36,17 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Artist {
   id: string;
@@ -80,13 +88,21 @@ export default function EditSongPage() {
   // Use fetched data directly instead of storing in state to avoid infinite loops
   const [formData, setFormData] = useState({
     title: "",
-    duration: 0, // Duration in seconds
-    artistIds: [] as string[], // Support multiple artists
+    englishTitle: "",
+    slug: "",
+    description: "",
+    englishDescription: "",
+    alternativeTitles: "",
+    language: "my",
+    releaseDate: "",
+    duration: 0,
+    artistIds: [] as string[],
     genreId: "",
     albumId: "",
     isPremium: false,
     isPublished: false,
   });
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
   const [audioUrl, setAudioUrl] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [lyricsData, setLyricsData] = useState<any[]>([]);
@@ -107,6 +123,13 @@ export default function EditSongPage() {
     // Reset form data
     setFormData({
       title: "",
+      englishTitle: "",
+      slug: "",
+      description: "",
+      englishDescription: "",
+      alternativeTitles: "",
+      language: "my",
+      releaseDate: "",
       duration: 0,
       artistIds: [],
       genreId: "",
@@ -114,6 +137,7 @@ export default function EditSongPage() {
       isPremium: false,
       isPublished: false,
     });
+    setSeoData(emptySeoFormValues());
     setAudioUrl("");
     setCoverUrl("");
     setLyricsData([]);
@@ -156,6 +180,15 @@ export default function EditSongPage() {
 
       setFormData({
         title: song.title,
+        englishTitle: (song as any).englishTitle || "",
+        slug: (song as any).slug || "",
+        description: (song as any).description || "",
+        englishDescription: (song as any).englishDescription || "",
+        alternativeTitles: ((song as any).alternativeTitles || []).join(", "),
+        language: (song as any).language || "my",
+        releaseDate: (song as any).releaseDate
+          ? new Date((song as any).releaseDate).toISOString().split("T")[0]
+          : "",
         duration: song.duration,
         artistIds: artistIds,
         genreId: song.genreId || "",
@@ -163,6 +196,7 @@ export default function EditSongPage() {
         isPremium: song.isPremium,
         isPublished: song.isPublished,
       });
+      setSeoData(seoFormFromApi((song as any).seo));
       setAudioUrl(song.audioUrl);
       setCoverUrl(song.coverUrl || "");
       setLyricsData((song as any).lyrics || []);
@@ -319,12 +353,20 @@ export default function EditSongPage() {
         },
         body: JSON.stringify({
           ...formData,
-          artistIds: formData.artistIds, // Send array of artist IDs
-          duration: formData.duration, // Already in seconds
+          artistIds: formData.artistIds,
+          duration: formData.duration,
           audioUrl,
           coverUrl: coverUrl || null,
           genreId: formData.genreId || null,
           albumId: formData.albumId || null,
+          englishTitle: formData.englishTitle || null,
+          slug: formData.slug || null,
+          description: formData.description || null,
+          englishDescription: formData.englishDescription || null,
+          alternativeTitles: formData.alternativeTitles,
+          language: formData.language || "my",
+          releaseDate: formData.releaseDate || null,
+          seo: seoFormToApi(seoData),
           lyrics: lyricsData.length > 0 ? lyricsData : undefined,
         }),
       });
@@ -542,6 +584,103 @@ export default function EditSongPage() {
             </div>
 
             <div>
+              <Label htmlFor="englishTitle">English title</Label>
+              <Input
+                id="englishTitle"
+                value={formData.englishTitle}
+                onChange={(e) =>
+                  setFormData({ ...formData, englishTitle: e.target.value })
+                }
+                className="mt-2"
+              />
+            </div>
+
+            <SlugInput
+              value={formData.slug}
+              onChange={(slug) => setFormData({ ...formData, slug })}
+              onGenerate={() =>
+                setFormData({
+                  ...formData,
+                  slug: clientSlugify(
+                    formData.englishTitle || formData.title,
+                  ),
+                })
+              }
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="language">Language</Label>
+                <Input
+                  id="language"
+                  value={formData.language}
+                  onChange={(e) =>
+                    setFormData({ ...formData, language: e.target.value })
+                  }
+                  className="mt-2"
+                  placeholder="my"
+                />
+              </div>
+              <div>
+                <Label htmlFor="releaseDate">Release date</Label>
+                <Input
+                  id="releaseDate"
+                  type="date"
+                  value={formData.releaseDate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, releaseDate: e.target.value })
+                  }
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="alternativeTitles">Alternative titles</Label>
+              <Input
+                id="alternativeTitles"
+                value={formData.alternativeTitles}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    alternativeTitles: e.target.value,
+                  })
+                }
+                className="mt-2"
+                placeholder="Comma-separated"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                rows={3}
+                className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="englishDescription">English description</Label>
+              <textarea
+                id="englishDescription"
+                value={formData.englishDescription}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    englishDescription: e.target.value,
+                  })
+                }
+                rows={3}
+                className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
               <Label htmlFor="artists">Artists *</Label>
               <div className="mt-2">
                 <MultiSelect
@@ -653,6 +792,8 @@ export default function EditSongPage() {
             </div>
           </CardContent>
         </Card>
+
+        <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
         <div className="flex items-center gap-4 justify-end">
           <Button

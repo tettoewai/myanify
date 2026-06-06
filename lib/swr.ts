@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import type { Song, Artist, Genre, Playlist } from "./types";
+import type { PaginationMeta } from "./pagination";
 import {
   transformSong,
   transformArtist,
@@ -25,6 +26,8 @@ export function useSongs(options?: {
   albumId?: string;
   isPublished?: boolean;
   search?: string;
+  page?: number;
+  limit?: number;
   admin?: boolean; // If true, return raw data without transformation
 }) {
   const params = new URLSearchParams();
@@ -34,6 +37,8 @@ export function useSongs(options?: {
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
   if (options?.search) params.set("search", options.search);
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
 
   const key = params.toString()
     ? `/api/songs?${params.toString()}`
@@ -44,11 +49,14 @@ export function useSongs(options?: {
     revalidateOnReconnect: true,
   });
 
+  const pagination: PaginationMeta | undefined = data?.pagination;
+
   // For admin pages, return raw data without transformation
   if (options?.admin) {
     const songs = data?.data || data || [];
     return {
       songs: Array.isArray(songs) ? songs : [],
+      pagination,
       isLoading,
       isValidating,
       isError: error,
@@ -62,6 +70,7 @@ export function useSongs(options?: {
 
   return {
     songs,
+    pagination,
     isLoading,
     isValidating,
     isError: error,
@@ -69,9 +78,15 @@ export function useSongs(options?: {
   };
 }
 
-export function useArtists(options?: { search?: string }) {
+export function useArtists(options?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
 
   const key = params.toString()
     ? `/api/artists?${params.toString()}`
@@ -87,6 +102,7 @@ export function useArtists(options?: { search?: string }) {
 
   return {
     artists,
+    pagination: data?.pagination as PaginationMeta | undefined,
     isLoading,
     isValidating,
     isError: error,
@@ -94,8 +110,21 @@ export function useArtists(options?: { search?: string }) {
   };
 }
 
-export function useGenres() {
-  const { data, error, isLoading, mutate } = useSWR("/api/genres", fetcher, {
+export function useGenres(options?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.search) params.set("search", options.search);
+
+  const key = params.toString()
+    ? `/api/genres?${params.toString()}`
+    : "/api/genres";
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
   });
@@ -105,6 +134,7 @@ export function useGenres() {
 
   return {
     genres,
+    pagination: data?.pagination as PaginationMeta | undefined,
     isLoading,
     isError: error,
     mutate,
@@ -225,9 +255,9 @@ export function useSimilarSongs(
 }
 
 // Hook for fetching a single song
-export function useSong(id: string | null, admin?: boolean) {
+export function useSong(slug: string | null, admin?: boolean) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/songs/${id}` : null,
+    slug ? `/api/songs/${slug}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -253,9 +283,9 @@ export function useSong(id: string | null, admin?: boolean) {
 }
 
 // Hook for fetching a single artist with songs
-export function useArtist(id: string | null) {
+export function useArtist(slug: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/artists/${id}` : null,
+    slug ? `/api/artists/${slug}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -280,9 +310,9 @@ export function useArtist(id: string | null) {
 }
 
 // Hook for fetching a single genre with songs
-export function useGenre(id: string | null) {
+export function useGenre(slug: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/genres/${id}` : null,
+    slug ? `/api/genres/${slug}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -305,9 +335,9 @@ export function useGenre(id: string | null) {
 }
 
 // Hook for fetching a single playlist
-export function usePlaylist(id: string | null) {
+export function usePlaylist(slug: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/playlists/${id}` : null,
+    slug ? `/api/playlists/${slug}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -323,9 +353,15 @@ export function usePlaylist(id: string | null) {
 }
 
 // Hook for fetching albums
-export function useAlbums(options?: { search?: string }) {
+export function useAlbums(options?: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
 
   const key = params.toString()
     ? `/api/albums?${params.toString()}`
@@ -340,6 +376,7 @@ export function useAlbums(options?: { search?: string }) {
 
   return {
     albums: Array.isArray(albums) ? albums : [],
+    pagination: data?.pagination as PaginationMeta | undefined,
     isLoading,
     isError: error,
     mutate,
@@ -347,9 +384,9 @@ export function useAlbums(options?: { search?: string }) {
 }
 
 // Hook for fetching a single album
-export function useAlbum(id: string | null) {
+export function useAlbum(slug: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
-    id ? `/api/albums/${id}` : null,
+    slug ? `/api/albums/${slug}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -377,12 +414,16 @@ export function useAlbum(id: string | null) {
 
 // Hook for fetching ads
 export function useAds(options?: {
+  page?: number;
   limit?: number;
+  search?: string;
   /** Admin ads management only — includes inactive/expired ads */
   includeInactive?: boolean;
 }) {
   const params = new URLSearchParams();
+  if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.search) params.set("search", options.search);
   if (options?.includeInactive) params.set("includeInactive", "true");
 
   const key = params.toString() ? `/api/ads?${params.toString()}` : "/api/ads";
@@ -396,6 +437,7 @@ export function useAds(options?: {
 
   return {
     ads: Array.isArray(ads) ? ads : [],
+    pagination: data?.pagination as PaginationMeta | undefined,
     isLoading,
     isError: error,
     mutate,
@@ -653,12 +695,16 @@ export function useAdminUsers(options?: {
   search?: string;
   role?: string;
   vip?: string;
+  page?: number;
+  limit?: number;
 }) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
   if (options?.role && options.role !== "all") params.set("role", options.role);
   if (options?.vip === "vip") params.set("vip", "true");
   else if (options?.vip === "non-vip") params.set("vip", "false");
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
 
   const key = params.toString() ? `/api/admin/users?${params.toString()}` : "/api/admin/users";
 
@@ -669,6 +715,7 @@ export function useAdminUsers(options?: {
 
   return {
     users: data?.data || [],
+    pagination: data?.pagination as PaginationMeta | undefined,
     isLoading,
     isError: error,
     mutate,

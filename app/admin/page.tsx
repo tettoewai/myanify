@@ -4,7 +4,6 @@ import { Music, Users, Tag, TrendingUp, Play, Heart } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/loading-skeletons";
 import { useAdminStats } from "@/lib/swr";
 
-export const dynamic = "force-dynamic";
 
 export default function AdminDashboard() {
   const { stats, isLoading: loading } = useAdminStats();

@@ -123,10 +123,10 @@ export function Sidebar({ isPremium }: SidebarProps) {
             {playlists.map((playlist) => (
               <Link
                 key={playlist.id}
-                href={`/playlist/${playlist.id}`}
+                href={`/playlist/${playlist.slug}`}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
-                  pathname === `/playlist/${playlist.id}`
+                  pathname === `/playlist/${playlist.slug}`
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                 )}

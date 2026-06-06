@@ -17,7 +17,6 @@ import { useState } from "react";
 import { usePlans } from "@/lib/swr";
 import { mutate } from "swr";
 
-export const dynamic = "force-dynamic";
 
 export default function PlansPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

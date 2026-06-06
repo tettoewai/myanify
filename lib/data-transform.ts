@@ -16,13 +16,21 @@ export function transformSong(prismaSong: any): Song {
       ?.map((sa: { artist?: { id?: string } }) => sa.artist?.id)
       .filter((id: string | undefined): id is string => Boolean(id)) ?? [];
 
+  const artistSlugs =
+    prismaSong.artists
+      ?.map((sa: { artist?: { slug?: string } }) => sa.artist?.slug)
+      .filter((slug: string | undefined): slug is string => Boolean(slug)) ?? [];
+
   return {
     id: prismaSong.id,
+    slug: prismaSong.slug ?? prismaSong.id,
     title: prismaSong.title,
     artist: artistNames,
     artists: artists.filter((name: string) => name),
     artistIds,
+    artistSlugs,
     albumId: prismaSong.albumId ?? prismaSong.album?.id ?? null,
+    albumSlug: prismaSong.album?.slug ?? null,
     album: prismaSong.album?.name || "",
     albumType: prismaSong.album?.type ?? null,
     duration: prismaSong.duration,
@@ -43,6 +51,7 @@ export function transformSong(prismaSong: any): Song {
 export function transformArtist(prismaArtist: any): Artist {
   return {
     id: prismaArtist.id,
+    slug: prismaArtist.slug ?? prismaArtist.id,
     name: prismaArtist.name,
     imageUrl: prismaArtist.imageUrl || FALLBACK_COVER,
     bio: prismaArtist.bio || "",
@@ -54,6 +63,7 @@ export function transformArtist(prismaArtist: any): Artist {
 export function transformGenre(prismaGenre: any): Genre {
   return {
     id: prismaGenre.id,
+    slug: prismaGenre.slug ?? prismaGenre.id,
     name: prismaGenre.name,
     imageUrl: prismaGenre.imageUrl || FALLBACK_COVER,
     description: prismaGenre.description || "",
@@ -63,6 +73,7 @@ export function transformGenre(prismaGenre: any): Genre {
 export function transformPlaylist(prismaPlaylist: any): Playlist {
   return {
     id: prismaPlaylist.id,
+    slug: prismaPlaylist.slug ?? prismaPlaylist.id,
     name: prismaPlaylist.name,
     description: prismaPlaylist.description || "",
     coverUrl: prismaPlaylist.coverUrl || FALLBACK_COVER,

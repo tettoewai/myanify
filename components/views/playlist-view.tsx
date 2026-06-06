@@ -25,19 +25,19 @@ import { ListMusic } from "lucide-react";
 import { ShareButton } from "@/components/share-button";
 
 interface PlaylistViewProps {
-  playlistId: string;
+  playlistSlug: string;
   onPlaySong: (song: Song) => void;
   currentSong: Song | null;
   isPlaying: boolean;
 }
 
 export function PlaylistView({
-  playlistId,
+  playlistSlug,
   onPlaySong,
   currentSong,
   isPlaying,
 }: PlaylistViewProps) {
-  const { playlist, isLoading, mutate } = usePlaylist(playlistId);
+  const { playlist, isLoading, mutate } = usePlaylist(playlistSlug);
   const { playFromContext, isSongQueued } = usePlayer();
   const [removingSongId, setRemovingSongId] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -47,7 +47,7 @@ export function PlaylistView({
     setRemovingSongId(songId);
 
     try {
-      const response = await fetch(`/api/playlists/${playlistId}/songs?songId=${songId}`, {
+      const response = await fetch(`/api/playlists/${playlistSlug}/songs?songId=${songId}`, {
         method: "DELETE",
       });
 
@@ -103,7 +103,7 @@ export function PlaylistView({
     // Update the order in the database first
     try {
       const updates = reorderedSongs.map((song, index) => ({
-        playlistId,
+        playlistId: playlist.id,
         songId: song.id,
         order: index,
       }));
@@ -111,7 +111,7 @@ export function PlaylistView({
       // Update all song orders in the playlist
       await Promise.all(
         updates.map(update =>
-          fetch(`/api/playlists/${playlistId}/songs?songId=${update.songId}`, {
+          fetch(`/api/playlists/${playlistSlug}/songs?songId=${update.songId}`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
@@ -243,7 +243,7 @@ export function PlaylistView({
         <ShareButton
           payload={{
             type: "playlist",
-            id: playlistId,
+            slug: playlist.slug,
             title: playlist.name,
             text: `Listen to ${playlist.name} on Myanify`,
           }}

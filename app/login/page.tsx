@@ -21,6 +21,10 @@ function LoginForm() {
 
   // Helper function to get redirect URL based on user role
   const getRedirectUrl = (role: UserRole) => {
+    if (callbackUrl?.startsWith("/admin") && role !== UserRole.ADMIN) {
+      toast.error("Staff access required for the admin dashboard");
+      return "/home";
+    }
     if (callbackUrl) {
       return callbackUrl;
     }

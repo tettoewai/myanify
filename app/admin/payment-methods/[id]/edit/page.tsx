@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const dynamic = "force-dynamic";
 
 export default function EditPaymentMethodPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();

@@ -1,24 +1,22 @@
 "use client";
 
 import { use } from "react";
-import { AlbumView } from "@/components/views/album-view";
+import { ArtistView } from "@/components/views/artist-view";
 import { usePlayer } from "@/components/player-context";
 import { AdBanner } from "@/components/ad-banner";
 
-export const dynamic = "force-dynamic";
-
-export default function AlbumPage({
+export default function ArtistPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = use(params);
+  const { slug } = use(params);
   const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
 
   return (
     <div className="min-h-full pb-32">
-      <AlbumView
-        albumId={id}
+      <ArtistView
+        artistSlug={slug}
         onPlaySong={playSong}
         currentSong={currentSong}
         isPlaying={isPlaying}

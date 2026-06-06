@@ -135,7 +135,7 @@ export function SearchView({
             {genres.map((genre) => (
               <button
                 key={genre.id}
-                onClick={() => navigate("genre", genre.id)}
+                onClick={() => navigate("genre", genre.slug)}
                 className="group relative aspect-4/3 rounded-xl overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <Image
@@ -200,7 +200,7 @@ export function SearchView({
             {artists.map((artist) => (
               <button
                 key={artist.id}
-                onClick={() => navigate("artist", artist.id)}
+                onClick={() => navigate("artist", artist.slug)}
                 className="group flex flex-col items-center gap-3 p-4 rounded-xl hover:bg-card transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <div className="relative w-24 h-24">

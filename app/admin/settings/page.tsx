@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
 import { useProfile } from "@/lib/swr";
 
-export const dynamic = "force-dynamic";
 
 interface UserProfile {
   id: string;

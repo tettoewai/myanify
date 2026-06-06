@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { isAdmin } from "@/lib/require-admin";
+import {
+  parseCommaList,
+  resolveEntitySlugForCreate,
+} from "@/lib/entity-admin";
+import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse, formatSongsResponse } from "@/lib/song-response";
 
 export async function POST(request: Request) {
@@ -14,6 +20,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       title,
+      englishTitle,
+      slug,
+      description,
+      englishDescription,
+      alternativeTitles,
+      language,
+      releaseDate,
       duration,
       audioUrl,
       coverUrl,
@@ -24,6 +37,7 @@ export async function POST(request: Request) {
       isPremium,
       isPublished,
       lyrics,
+      seo,
     } = body;
 
     const artistIdsArray = artistIds && Array.isArray(artistIds) && artistIds.length > 0
@@ -41,9 +55,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const tempId = crypto.randomUUID();
+    const resolvedSlug = await resolveEntitySlugForCreate("song", {
+      providedSlug: slug,
+      fallbackName: englishTitle || title,
+      tempId,
+    });
+    const seoId = await upsertSeoMetadata(null, seo);
+
     const song = await prisma.song.create({
       data: {
         title,
+        englishTitle: englishTitle || null,
+        slug: resolvedSlug,
+        description: description || null,
+        englishDescription: englishDescription || null,
+        alternativeTitles: parseCommaList(alternativeTitles),
+        language: language || "my",
+        releaseDate: releaseDate ? new Date(releaseDate) : null,
         duration: parseInt(duration),
         audioUrl,
         coverUrl: coverUrl || null,
@@ -51,6 +80,7 @@ export async function POST(request: Request) {
         albumId: albumId || null,
         isPremium: isPremium || false,
         isPublished: isPublished || false,
+        seoId,
         artists: {
           create: artistIdsArray.map((id: string) => ({
             artistId: id,
@@ -66,6 +96,7 @@ export async function POST(request: Request) {
           : undefined,
       },
       include: {
+        seo: true,
         artists: {
           include: {
             artist: true,
@@ -93,22 +124,34 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
+    const isAdminUser = isAdmin(session);
+
     const { searchParams } = new URL(request.url);
     const genreId = searchParams.get("genreId");
     const artistId = searchParams.get("artistId");
     const albumId = searchParams.get("albumId");
     const isPublishedParam = searchParams.get("isPublished");
-    const isPublished = isPublishedParam === null ? undefined : isPublishedParam === "true";
+    const isPublished =
+      isPublishedParam === null ? undefined : isPublishedParam === "true";
     const search = searchParams.get("search") || searchParams.get("q");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      ...(isPublished !== undefined && { isPublished }),
+    const where: Record<string, unknown> = {
       ...(genreId && { genreId }),
       ...(albumId && { albumId }),
     };
+
+    // Only staff can list draft/unpublished songs or browse the full catalog
+    if (isAdminUser) {
+      if (isPublished !== undefined) {
+        where.isPublished = isPublished;
+      }
+    } else {
+      where.isPublished = true;
+    }
 
     if (artistId) {
       where.artists = {

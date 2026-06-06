@@ -1,19 +1,17 @@
 import { getSiteUrl } from "@/lib/site-url";
+import { entityPath, type RoutableEntity } from "@/lib/routes";
 
-export type ShareableEntity = "song" | "album" | "artist" | "playlist";
+export type ShareableEntity = RoutableEntity;
 
-export function sharePath(
-  type: ShareableEntity,
-  id: string,
-): string {
-  return `/${type}/${id}`;
+export function sharePath(type: ShareableEntity, slug: string): string {
+  return entityPath(type, slug);
 }
 
 export function getAbsoluteShareUrl(
   type: ShareableEntity,
-  id: string,
+  slug: string,
   origin?: string,
 ): string {
   const base = origin ?? getSiteUrl();
-  return new URL(sharePath(type, id), base).href;
+  return new URL(sharePath(type, slug), base).href;
 }

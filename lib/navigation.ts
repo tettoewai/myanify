@@ -1,31 +1,24 @@
-"use client"
+"use client";
 
-import { useRouter } from "next/navigation"
+import { useRouter } from "next/navigation";
+import { entityPath, type RoutableEntity } from "@/lib/routes";
 
 export function useNavigation() {
-  const router = useRouter()
+  const router = useRouter();
 
-  const navigate = (view: string, id?: string) => {
+  const navigate = (view: string, slug?: string) => {
     if (view === "home") {
-      router.push("/home")
+      router.push("/home");
     } else if (view === "search") {
-      router.push("/search")
+      router.push("/search");
     } else if (view === "library") {
-      router.push("/library")
+      router.push("/library");
     } else if (view === "premium") {
-      router.push("/premium")
-    } else if (view === "genre" && id) {
-      router.push(`/genre/${id}`)
-    } else if (view === "artist" && id) {
-      router.push(`/artist/${id}`)
-    } else if (view === "playlist" && id) {
-      router.push(`/playlist/${id}`)
-    } else if (view === "album" && id) {
-      router.push(`/album/${id}`)
-    } else if (view === "song" && id) {
-      router.push(`/song/${id}`)
+      router.push("/premium");
+    } else if (slug && ["genre", "artist", "playlist", "album", "song"].includes(view)) {
+      router.push(entityPath(view as RoutableEntity, slug));
     }
-  }
+  };
 
-  return { navigate }
+  return { navigate };
 }

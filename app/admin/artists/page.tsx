@@ -16,11 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Edit, Plus, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useArtists } from "@/lib/swr";
+import { AdminPagination } from "@/components/admin/admin-pagination";
+import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 
-export const dynamic = "force-dynamic";
 
 interface Artist {
   id: string;
@@ -32,15 +33,25 @@ interface Artist {
 }
 
 export default function ArtistsPage() {
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [artistToDelete, setArtistToDelete] = useState<string | null>(null);
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
   const {
-    artists: allArtists,
+    artists,
+    pagination,
     isLoading,
     mutate: mutateArtists,
-  } = useArtists();
+  } = useArtists({
+    search: searchQuery || undefined,
+    page,
+    limit: ADMIN_GRID_PAGE_SIZE,
+  });
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     e.currentTarget.onerror = null;
@@ -75,14 +86,6 @@ export default function ArtistsPage() {
     }
   };
 
-  const filteredArtists = useMemo(
-    () =>
-      (allArtists || []).filter((artist) =>
-        artist.name.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [allArtists, searchQuery]
-  );
-
   if (isLoading) {
     return <AdminGridPageSkeleton />;
   }
@@ -115,12 +118,12 @@ export default function ArtistsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredArtists.length === 0 ? (
+        {artists.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No artists found
           </div>
         ) : (
-          filteredArtists.map((artist) => (
+          artists.map((artist) => (
             <div
               key={artist.id}
               className="bg-card rounded-lg border border-border p-6 hover:shadow-lg transition-shadow flex flex-col h-full"
@@ -167,6 +170,12 @@ export default function ArtistsPage() {
           ))
         )}
       </div>
+
+      <AdminPagination
+        pagination={pagination}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <Dialog
         open={deleteDialogOpen}

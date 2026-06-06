@@ -18,7 +18,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
 
 interface Ad {
   id: string;
