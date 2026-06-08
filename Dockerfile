@@ -1,3 +1,12 @@
-FROM typesense/typesense:30.2
+FROM typesense/typesense:27.0
 
-CMD ["--data-dir", "/data", "--api-key", "44e76dfd-fe30-49cc-a282-b2279074250e", "--enable-cors"]
+USER root
+RUN apt-get update && apt-get install -y curl tar gzip
+RUN mkdir -p /data && chown typesense:typesense /data
+
+USER typesense
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
