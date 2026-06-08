@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { useNavigation } from "@/lib/navigation";
-import { useArtists, useGenres, useSongs } from "@/lib/swr";
+import { useGenres, useSearch } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import { SongContextMenu } from "@/components/song-context-menu";
@@ -82,20 +82,12 @@ export function SearchView({
   const shouldSearch = debouncedQuery.trim().length > 0;
   const {
     songs,
-    isLoading: songsLoading,
-    isValidating: songsValidating,
-  } = useSongs(
-    shouldSearch ? { isPublished: true, search: debouncedQuery } : undefined,
-  );
-  const {
     artists,
-    isLoading: artistsLoading,
-    isValidating: artistsValidating,
-  } = useArtists(shouldSearch ? { search: debouncedQuery } : undefined);
+    isLoading: searchLoading,
+  } = useSearch(shouldSearch ? debouncedQuery : undefined);
   const { genres } = useGenres();
 
-  const isLoading =
-    (songsLoading || artistsLoading) && (songsValidating || artistsValidating);
+  const isLoading = searchLoading;
   const hasResults = !isLoading && (songs.length > 0 || artists.length > 0);
   const showBrowse = !debouncedQuery.trim();
 

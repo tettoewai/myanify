@@ -109,6 +109,41 @@ export function useArtists(options?: {
   };
 }
 
+export function useSearch(
+  query?: string,
+  options?: {
+    perPage?: number;
+  },
+) {
+  const trimmedQuery = query?.trim();
+  const params = new URLSearchParams();
+  if (trimmedQuery) params.set("q", trimmedQuery);
+  if (options?.perPage) params.set("per_page", String(options.perPage));
+
+  const key = trimmedQuery ? `/api/search?${params.toString()}` : null;
+
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
+    key,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    },
+  );
+
+  const songs: Song[] = data?.songs?.map(transformSong) ?? [];
+  const artists: Artist[] = data?.artists?.map(transformArtist) ?? [];
+
+  return {
+    songs,
+    artists,
+    isLoading,
+    isValidating,
+    isError: error,
+    mutate,
+  };
+}
+
 export function useGenres(options?: {
   page?: number;
   limit?: number;
