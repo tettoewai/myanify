@@ -79,7 +79,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const showPlayer = !!currentSong;
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div className="h-screen flex bg-background overflow-hidden [--desktop-player-bar-height:6rem]">
       <Sidebar isPremium={isPremium} />
       <main className="flex-1 overflow-y-auto w-full md:w-auto pb-32 md:pb-0">
         {children}
@@ -123,9 +123,9 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
           )}
         </>
       )}
-      {showLyrics && currentSong && (
+      {showLyrics && !showFullscreenLyrics && currentSong && (
         <LyricsPanel
-          key={currentSong.id}
+          key={`lyrics-panel-${currentSong.id}`}
           song={currentSong}
           currentTime={currentTime}
           onClose={() => setShowLyrics(false)}
@@ -134,7 +134,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
       <UpNextDrawer />
       {showFullscreenLyrics && currentSong && (
         <FullscreenLyrics
-          key={currentSong.id}
+          key={`fullscreen-lyrics-${currentSong.id}`}
           song={currentSong}
           currentTime={currentTime}
           isPlaying={isPlaying}

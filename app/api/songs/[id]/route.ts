@@ -9,6 +9,10 @@ import {
 } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse } from "@/lib/song-response";
+import {
+  buildSongInclude,
+  buildSongIncludeFromRequest,
+} from "@/lib/song-query";
 
 export async function GET(
   request: Request,
@@ -25,18 +29,7 @@ export async function GET(
       where: { id },
       include: {
         seo: true,
-        artists: {
-          include: {
-            artist: true,
-          },
-        },
-        album: true,
-        genre: true,
-        lyrics: {
-          where: {
-            language: "my",
-          },
-        },
+        ...buildSongIncludeFromRequest(request),
       },
     });
 
@@ -173,22 +166,13 @@ export async function PATCH(
       data: updateSongData,
       include: {
         seo: true,
-        artists: {
-          include: {
-            artist: true,
-          },
-        },
-        album: true,
-        genre: true,
-        lyrics: {
-          where: {
-            language: "my",
-          },
-        },
+        ...buildSongInclude(true),
       },
     });
 
-    return NextResponse.json(formatSongResponse(song, request));
+    return NextResponse.json(
+      formatSongResponse(song, request, { includeLyrics: true }),
+    );
   } catch (error) {
     console.error("Error updating song:", error);
     return NextResponse.json(

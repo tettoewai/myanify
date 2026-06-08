@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import { useGenre } from "@/lib/swr";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { SongContextMenu } from "@/components/song-context-menu";
@@ -26,9 +26,9 @@ export function GenreView({
   currentSong,
   isPlaying,
 }: GenreViewProps) {
-  const { navigate } = useNavigation();
+  const { navigate, navigateBack } = useNavigation();
   const { genre, isLoading } = useGenre(genreSlug);
-  const { playFromContext, isSongQueued } = usePlayer();
+  const { playFromContext, isSongQueued, setIsShuffled } = usePlayer();
 
   if (isLoading) {
     return <DetailPageSkeleton />;
@@ -58,7 +58,7 @@ export function GenreView({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("home")}
+            onClick={() => navigateBack()}
             className="bg-black/20 hover:bg-black/40 text-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -90,6 +90,12 @@ export function GenreView({
           size="lg"
           variant="outline"
           className="rounded-full bg-transparent"
+          onClick={() => {
+            if (genre.songs.length > 0) {
+              setIsShuffled(true);
+              playFromContext(genre.songs[Math.floor(Math.random() * genre.songs.length)], genre.songs, "playlist");
+            }
+          }}
         >
           <Shuffle className="w-5 h-5 mr-2" />
           Shuffle
@@ -125,7 +131,7 @@ export function GenreView({
                     )}
                   </span>
                   <Image
-                    src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+                    src={getSongCoverUrl(song)}
                     alt={song.title}
                     width={48}
                     height={48}

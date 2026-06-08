@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import bcrypt from "bcryptjs";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 export async function PATCH(request: Request) {
   try {
@@ -10,6 +11,13 @@ export async function PATCH(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await enforceRateLimit(
+      request,
+      authLimiter,
+      session.user.id,
+    );
+    if (limited) return limited;
 
     const body = await request.json();
     const { currentPassword, newPassword } = body;
@@ -22,14 +30,14 @@ export async function PATCH(request: Request) {
       if (!newPassword) {
         return NextResponse.json(
           { error: "New password is required" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (newPassword.length < 6) {
         return NextResponse.json(
           { error: "Password must be at least 6 characters" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -45,7 +53,7 @@ export async function PATCH(request: Request) {
       if (user.passwordHash) {
         return NextResponse.json(
           { error: "Password already set. Use change password instead." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -56,27 +64,30 @@ export async function PATCH(request: Request) {
         data: { passwordHash: hashedPassword },
       });
 
-      return NextResponse.json({ success: true, message: "Password set successfully" });
+      return NextResponse.json({
+        success: true,
+        message: "Password set successfully",
+      });
     }
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json(
         { error: "Current password and new password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (currentPassword === newPassword) {
       return NextResponse.json(
         { error: "New password must be different from current password" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (newPassword.length < 6) {
       return NextResponse.json(
         { error: "New password must be at least 6 characters" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -88,19 +99,19 @@ export async function PATCH(request: Request) {
     if (!user || !user.passwordHash) {
       return NextResponse.json(
         { error: "User not found or password not set" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     const isValidPassword = await bcrypt.compare(
       currentPassword,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!isValidPassword) {
       return NextResponse.json(
         { error: "Current password is incorrect" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -116,7 +127,7 @@ export async function PATCH(request: Request) {
     console.error("Error updating password:", error);
     return NextResponse.json(
       { error: "Failed to update password" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

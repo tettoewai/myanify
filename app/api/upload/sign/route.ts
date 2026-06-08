@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-utils";
 import { generateSignedAudioUploadParams } from "@/lib/cloudinary";
 import { formatMaxAudioSize } from "@/lib/audio-upload-config";
+import { enforceRateLimit, uploadLimiter } from "@/lib/rate-limit";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await getSession();
 
@@ -14,6 +15,13 @@ export async function POST() {
     if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+
+    const limited = await enforceRateLimit(
+      request,
+      uploadLimiter,
+      session.user.id,
+    );
+    if (limited) return limited;
 
     const params = generateSignedAudioUploadParams();
 

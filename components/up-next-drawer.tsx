@@ -233,9 +233,16 @@ export function UpNextDrawer() {
                 Queue is empty. Play a song to get started.
               </p>
             )}
-            {upNext.length === 0 && currentSong && (
+            {upNext.length === 0 && currentSong && radioMode && (
               <p className="text-center text-sm text-muted-foreground py-6">
-                Nothing else queued. Enable Smart Radio for endless playback.
+                {isFetchingRadio
+                  ? "Finding similar songs for Smart Radio…"
+                  : "Smart Radio is on. Similar songs will play next."}
+              </p>
+            )}
+            {upNext.length === 0 && currentSong && !radioMode && (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                Nothing else queued. Turn on Smart Radio for endless playback.
               </p>
             )}
           </ScrollArea>

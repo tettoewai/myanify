@@ -95,20 +95,17 @@ export function useLyricsAutoScroll({
   const lastScrolledIndexRef = useRef(-1);
   const trackKeyRef = useRef(resetKey);
   const skipAutoScrollPassRef = useRef(false);
+  const currentLyricIndexRef = useRef(currentLyricIndex);
+
+  currentLyricIndexRef.current = currentLyricIndex;
 
   const scrollActiveLineIntoView = useCallback(
-    (lineIndex: number) => {
+    (lineIndex: number, { force = false }: { force?: boolean } = {}) => {
       const container = containerRef.current;
       if (!container) return;
 
       const prevIndex = lastScrolledIndexRef.current;
-      if (lineIndex === prevIndex) return;
-
-      // New track at first line: stay at scroll top until the index advances
-      if (prevIndex === -1 && lineIndex === 0) {
-        lastScrolledIndexRef.current = 0;
-        return;
-      }
+      if (!force && lineIndex === prevIndex) return;
 
       if (scrollRaf.current) {
         cancelAnimationFrame(scrollRaf.current);
@@ -121,35 +118,24 @@ export function useLyricsAutoScroll({
         if (!targetLine) return;
 
         isAutoScrollingRef.current = true;
-
-        const delta = lineIndex - prevIndex;
-
-        if (Math.abs(delta) === 1 && prevIndex >= 0 && lines[prevIndex]) {
-          const fromLine = lines[prevIndex];
-          const step =
-            getLineTopInContainer(targetLine, container) -
-            getLineTopInContainer(fromLine, container);
-
-          container.scrollTo({
-            top: container.scrollTop + step,
-            behavior: "smooth",
-          });
-        } else {
-          scrollLineToAnchor(container, targetLine, anchorRatio, "smooth");
-        }
-
+        scrollLineToAnchor(container, targetLine, anchorRatio, "smooth");
         lastScrolledIndexRef.current = lineIndex;
 
         if (autoScrollTimeoutRef.current) {
           clearTimeout(autoScrollTimeoutRef.current);
         }
         autoScrollTimeoutRef.current = setTimeout(() => {
+          // Re-anchor after scale/opacity transitions settle
+          scrollLineToAnchor(container, targetLine, anchorRatio, "auto");
           isAutoScrollingRef.current = false;
         }, LYRIC_SCROLL_DURATION_MS);
       });
     },
     [anchorRatio],
   );
+
+  const scrollActiveLineIntoViewRef = useRef(scrollActiveLineIntoView);
+  scrollActiveLineIntoViewRef.current = scrollActiveLineIntoView;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -164,7 +150,11 @@ export function useLyricsAutoScroll({
       }
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
-      }, 2000);
+        lastScrolledIndexRef.current = -1;
+        scrollActiveLineIntoViewRef.current(currentLyricIndexRef.current, {
+          force: true,
+        });
+      }, 1500);
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });

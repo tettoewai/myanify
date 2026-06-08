@@ -18,13 +18,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus } from "lucide-react";
+import {
+  ApiError,
+  RateLimitError,
+  handleFetchError,
+  handleMutationResponse,
+} from "@/lib/api-client";
 import { useSession } from "next-auth/react";
 import { requireLoginRedirect } from "@/lib/require-login";
+import { Playlist } from "@prisma/client";
 
 // Create a client-only version to avoid hydration mismatches
-const CreatePlaylistDialogContent = dynamic(() => Promise.resolve(CreatePlaylistDialogComponent), {
-  ssr: false,
-});
+const CreatePlaylistDialogContent = dynamic(
+  () => Promise.resolve(CreatePlaylistDialogComponent),
+  {
+    ssr: false,
+  },
+);
 
 interface CreatePlaylistDialogProps {
   trigger?: React.ReactNode;
@@ -76,11 +86,9 @@ function CreatePlaylistDialogComponent({
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create playlist");
-      }
-
-      const playlist = await response.json();
+      const playlist = await handleMutationResponse(response, {
+        fallbackError: "Failed to create playlist",
+      });
 
       setOpen(false);
       setName("");
@@ -90,10 +98,12 @@ function CreatePlaylistDialogComponent({
       onPlaylistCreated?.(playlist);
 
       // Navigate to the new playlist
-      router.push(`/playlist/${playlist.slug}`);
+      router.push(`/playlist/${(playlist as Playlist).slug}`);
     } catch (error) {
       console.error("Error creating playlist:", error);
-      // TODO: Show error toast
+      if (!(error instanceof ApiError) && !(error instanceof RateLimitError)) {
+        handleFetchError(error, "Failed to create playlist");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -108,9 +118,7 @@ function CreatePlaylistDialogComponent({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>

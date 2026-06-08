@@ -18,9 +18,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import { usePlayer } from "./player-context";
-import { useToggleLikeSong } from "@/lib/swr";
+import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
 import { requireLoginRedirect } from "@/lib/require-login";
 import {
   findLyricIndexByTime,
@@ -105,16 +105,19 @@ export function MobilePlayer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const { song: songWithLyrics } = useSongWithLyrics(currentSong, showLyrics);
+  const lyrics = songWithLyrics?.lyrics ?? [];
+
   const lyricTimes = useMemo(
-    () => currentSong.lyrics.map((l) => Math.max(0, l.time ?? 0)),
-    [currentSong.lyrics],
+    () => lyrics.map((l) => Math.max(0, l.time ?? 0)),
+    [lyrics],
   );
 
   const currentLyricIndex = findLyricIndexByTime(
     lyricTimes,
     currentTime + SYNC_LEAD_SECONDS,
   );
-  const currentLyric = currentSong.lyrics[currentLyricIndex];
+  const currentLyric = lyrics[currentLyricIndex];
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
@@ -133,11 +136,7 @@ export function MobilePlayer({
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-4">
         <div className="relative w-full max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8">
           <Image
-            src={
-              currentSong.albumCoverUrl ||
-              currentSong.coverUrl ||
-              "/placeholder.svg"
-            }
+            src={getSongCoverUrl(currentSong)}
             alt={currentSong.title}
             fill
             className="object-cover"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authorizeCredentials } from "@/lib/auth-providers";
 import jwt from "jsonwebtoken";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 export async function OPTIONS() {
   return NextResponse.json(
@@ -11,11 +12,14 @@ export async function OPTIONS() {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
-    }
+    },
   );
 }
 
 export async function POST(request: Request) {
+  const limited = await enforceRateLimit(request, authLimiter, "mobile-login");
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -26,7 +30,7 @@ export async function POST(request: Request) {
         {
           status: 400,
           headers: { "Access-Control-Allow-Origin": "*" },
-        }
+        },
       );
     }
 
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
         {
           status: 401,
           headers: { "Access-Control-Allow-Origin": "*" },
-        }
+        },
       );
     }
 
@@ -47,12 +51,12 @@ export async function POST(request: Request) {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.AUTH_SECRET!,
-      { expiresIn: "7d" } // Token expires in 7 days
+      { expiresIn: "7d" }, // Token expires in 7 days
     );
 
     return NextResponse.json(
       { token },
-      { headers: { "Access-Control-Allow-Origin": "*" } }
+      { headers: { "Access-Control-Allow-Origin": "*" } },
     );
   } catch (error) {
     console.error("Mobile login error:", error);
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
       {
         status: 500,
         headers: { "Access-Control-Allow-Origin": "*" },
-      }
+      },
     );
   }
 }

@@ -36,10 +36,11 @@ export interface Song {
   duration: number
   coverUrl: string
   albumCoverUrl?: string | null // Album cover URL for fallback
+  artistImageUrl?: string | null // First artist image for fallback
   audioUrl: string
   playbackUrl: string
   genre: string
-  lyrics: LyricLine[]
+  lyrics?: LyricLine[]
   isPremium: boolean
   isPublished?: boolean
 }

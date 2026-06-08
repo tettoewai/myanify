@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit, proxyLimiter } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, proxyLimiter, "image-proxy");
+  if (limited) return limited;
+
   try {
     const url = request.nextUrl.searchParams.get("url");
 
     if (!url) {
       return NextResponse.json(
         { error: "URL parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

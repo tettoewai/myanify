@@ -7,7 +7,7 @@ const nextConfig = {
     proxyClientMaxBodySize: "50mb",
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   async redirects() {
     return [

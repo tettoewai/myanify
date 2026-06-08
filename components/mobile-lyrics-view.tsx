@@ -19,7 +19,7 @@ import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
-import { useToggleLikeSong } from "@/lib/swr";
+import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
 import { AlbumMetadata } from "@/components/album-metadata";
 import {
   LyricSizeToggle,
@@ -77,7 +77,12 @@ export function MobileLyricsView({
     void toggleLike(song);
   };
 
-  const lyrics = useMemo(() => song.lyrics || [], [song.lyrics]);
+  const { song: songWithLyrics, isLoadingLyrics } = useSongWithLyrics(song);
+  const displaySong = songWithLyrics ?? song;
+  const lyrics = useMemo(
+    () => displaySong.lyrics ?? [],
+    [displaySong.lyrics],
+  );
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -148,7 +153,13 @@ export function MobileLyricsView({
             {lyrics.length > 0 && (
               <div className="min-h-[50%] shrink-0" aria-hidden />
             )}
-            {lyrics.length > 0 ? (
+            {isLoadingLyrics ? (
+              <div className="text-center py-20">
+                <p className="text-white/60 text-lg leading-loose">
+                  Loading lyrics...
+                </p>
+              </div>
+            ) : lyrics.length > 0 ? (
               <div className="space-y-10">
                 {lyrics.map((line, index) => {
                   const isActive = index === currentLyricIndex;

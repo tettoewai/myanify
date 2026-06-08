@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
+import { enforceRateLimit, writeLimiter } from "@/lib/rate-limit";
 
 // POST - Track ad click or impression
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const limited = await enforceRateLimit(request, writeLimiter, "ad-track");
+  if (limited) return limited;
+
   try {
     const { id } = await params;
     const body = await request.json();

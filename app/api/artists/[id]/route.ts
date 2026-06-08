@@ -10,40 +10,30 @@ import {
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse } from "@/lib/song-response";
 import { calculateMonthlyListeners } from "@/lib/monthly-listeners";
+import { buildSongIncludeFromRequest } from "@/lib/song-query";
 
-const artistInclude = {
-  seo: true,
-  artistGenres: {
-    include: {
-      genre: true,
-    },
-  },
-  songs: {
-    where: {
-      song: {
-        isPublished: true,
+function buildArtistInclude(request: Request) {
+  return {
+    seo: true,
+    artistGenres: {
+      include: {
+        genre: true,
       },
     },
-    include: {
-      song: {
-        include: {
-          album: true,
-          genre: true,
-          artists: {
-            include: {
-              artist: true,
-            },
-          },
-          lyrics: {
-            where: {
-              language: "my",
-            },
-          },
+    songs: {
+      where: {
+        song: {
+          isPublished: true,
+        },
+      },
+      include: {
+        song: {
+          include: buildSongIncludeFromRequest(request),
         },
       },
     },
-  },
-} as const;
+  } as const;
+}
 
 export async function GET(
   request: Request,
@@ -58,7 +48,7 @@ export async function GET(
 
     const artist = await prisma.artist.findUnique({
       where: { id },
-      include: artistInclude,
+      include: buildArtistInclude(request),
     });
 
     if (!artist) {

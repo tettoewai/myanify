@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowLeft, Play, Pause } from "lucide-react";
+import { ArrowLeft, Play, Pause, Mic2, Music2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/share-button";
 import { AlbumMetadata } from "@/components/album-metadata";
@@ -9,7 +9,8 @@ import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { useNavigation } from "@/lib/navigation";
 import { useSong } from "@/lib/swr";
 import { usePlayer } from "@/components/player-context";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
+import type { LyricLine } from "@/lib/types";
 
 interface SongViewProps {
   songSlug: string;
@@ -22,8 +23,8 @@ export function SongView({
   currentSongId,
   isPlaying,
 }: SongViewProps) {
-  const { navigate } = useNavigation();
-  const { song, isLoading } = useSong(songSlug);
+  const { navigate, navigateBack } = useNavigation();
+  const { song, isLoading } = useSong(songSlug, false, { includeLyrics: true });
   const { playSong } = usePlayer();
 
   if (isLoading) {
@@ -39,7 +40,9 @@ export function SongView({
   }
 
   const isCurrent = currentSongId === song.id;
-  const cover = song.albumCoverUrl || song.coverUrl || "/placeholder.svg";
+  const cover = getSongCoverUrl(song);
+  const hasLyrics = song.lyrics && song.lyrics.length > 0;
+  const lyricsPreview = hasLyrics ? song.lyrics!.slice(0, 6) : [];
 
   return (
     <div className="min-h-full">
@@ -51,12 +54,12 @@ export function SongView({
           className="object-cover"
           unoptimized
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-background via-background/60 to-transparent" />
         <div className="absolute top-4 left-4">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("home")}
+            onClick={() => navigateBack()}
             className="bg-black/20 hover:bg-black/40 text-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -78,7 +81,7 @@ export function SongView({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 p-6 md:p-8">
+      <div className="flex items-center gap-3 p-6 md:p-8 flex-wrap">
         <Button
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg shadow-primary/20"
@@ -119,6 +122,45 @@ export function SongView({
         ) : null}
       </div>
 
+      {/* Lyrics preview */}
+      {hasLyrics && (
+        <div className="px-6 md:px-8 pb-6">
+          <div className="rounded-xl bg-card/60 border border-border/50 overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-border/40">
+              <Mic2 className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Lyrics</span>
+            </div>
+            <div className="px-5 py-4 space-y-1">
+              {lyricsPreview.map((line: LyricLine, i: number) => (
+                <p
+                  key={i}
+                  className={cn(
+                    "text-sm leading-relaxed",
+                    line.text
+                      ? isCurrent && isPlaying
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                      : "h-3"
+                  )}
+                >
+                  {line.text || "\u00A0"}
+                </p>
+              ))}
+              {song.lyrics!.length > 6 && (
+                <button
+                  type="button"
+                  onClick={() => playSong(song)}
+                  className="mt-3 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  Play to see full lyrics →
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Song info card */}
       <div className="px-6 md:px-8 pb-8">
         <button
           type="button"
@@ -130,16 +172,23 @@ export function SongView({
             isCurrent && isPlaying && "border-primary/50 bg-primary/5",
           )}
         >
-          <Image
-            src={cover}
-            alt={song.title}
-            width={64}
-            height={64}
-            className="w-16 h-16 rounded-lg object-cover"
-            unoptimized
-          />
+          <div className="relative">
+            <Image
+              src={cover}
+              alt={song.title}
+              width={64}
+              height={64}
+              className="w-16 h-16 rounded-lg object-cover"
+              unoptimized
+            />
+            {isCurrent && isPlaying && (
+              <div className="absolute inset-0 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Music2 className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+            )}
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="font-medium truncate">{song.title}</p>
+            <p className={cn("font-medium truncate", isCurrent && "text-primary")}>{song.title}</p>
             <p className="text-sm text-muted-foreground truncate">
               {song.artist}
             </p>
@@ -147,6 +196,7 @@ export function SongView({
               {Math.floor(song.duration / 60)}:
               {(song.duration % 60).toString().padStart(2, "0")}
               {song.genre ? ` · ${song.genre}` : ""}
+              {song.isPremium && <span className="ml-2 px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs">Premium</span>}
             </p>
           </div>
           <span className="shrink-0 text-muted-foreground">

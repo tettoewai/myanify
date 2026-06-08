@@ -19,7 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
-import { useToggleLikeSong } from "@/lib/swr";
+import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
 import { AlbumMetadata } from "@/components/album-metadata";
 import {
   LyricSizeToggle,
@@ -76,7 +76,12 @@ export function FullscreenLyrics({
 
   // Lead a bit so lines flip slightly before the beat to feel on-time
 
-  const lyrics = useMemo(() => song.lyrics || [], [song.lyrics]);
+  const { song: songWithLyrics, isLoadingLyrics } = useSongWithLyrics(song);
+  const displaySong = songWithLyrics ?? song;
+  const lyrics = useMemo(
+    () => displaySong.lyrics ?? [],
+    [displaySong.lyrics],
+  );
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -137,13 +142,19 @@ export function FullscreenLyrics({
           lyricsScrollMaskClass,
         )}
       >
-        {song.lyrics.length > 0 && (
+        {lyrics.length > 0 && (
           <div className="min-h-[50%] shrink-0" aria-hidden />
         )}
         <div className="max-w-3xl mx-auto">
-          {song.lyrics.length > 0 ? (
+          {isLoadingLyrics ? (
+            <div className="text-center py-20">
+              <p className="text-white/60 text-xl leading-loose">
+                Loading lyrics...
+              </p>
+            </div>
+          ) : lyrics.length > 0 ? (
             <div className="space-y-12">
-              {song.lyrics.map((line, index) => {
+              {lyrics.map((line, index) => {
                 const isActive = index === currentLyricIndex;
                 const isPast = index < currentLyricIndex;
 
@@ -186,7 +197,7 @@ export function FullscreenLyrics({
             </div>
           )}
         </div>
-        {song.lyrics.length > 0 && (
+        {lyrics.length > 0 && (
           <div className="min-h-[50%] shrink-0" aria-hidden />
         )}
       </div>

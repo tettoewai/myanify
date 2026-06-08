@@ -3,6 +3,7 @@ import { prisma } from "@/db";
 import { UserRole } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 // Validate that GOOGLE_CLIENT_ID is set
 if (!process.env.GOOGLE_CLIENT_ID) {
@@ -20,11 +21,14 @@ export async function OPTIONS() {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
-    }
+    },
   );
 }
 
 export async function POST(request: Request) {
+  const limited = await enforceRateLimit(request, authLimiter, "google-login");
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { googleAccessToken, idToken } = body;
@@ -35,7 +39,7 @@ export async function POST(request: Request) {
         {
           status: 400,
           headers: { "Access-Control-Allow-Origin": "*" },
-        }
+        },
       );
     }
 
@@ -52,12 +56,12 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               error: "OAuth client not configured",
-              details: "GOOGLE_CLIENT_ID environment variable is missing"
+              details: "GOOGLE_CLIENT_ID environment variable is missing",
             },
             {
               status: 500,
               headers: { "Access-Control-Allow-Origin": "*" },
-            }
+            },
           );
         }
 
@@ -73,12 +77,12 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               error: "OAuth client not configured",
-              details: "At least one Google client ID must be configured"
+              details: "At least one Google client ID must be configured",
             },
             {
               status: 500,
               headers: { "Access-Control-Allow-Origin": "*" },
-            }
+            },
           );
         }
 
@@ -104,27 +108,32 @@ export async function POST(request: Request) {
 
         // Provide more specific error messages
         let errorMessage = "Invalid Google ID token";
-        if (error.message?.includes("invalid_client") || error.code === "invalid_client") {
-          errorMessage = "OAuth client configuration error. Please check GOOGLE_CLIENT_ID environment variable.";
+        if (
+          error.message?.includes("invalid_client") ||
+          error.code === "invalid_client"
+        ) {
+          errorMessage =
+            "OAuth client configuration error. Please check GOOGLE_CLIENT_ID environment variable.";
         } else if (error.message?.includes("audience")) {
-          errorMessage = "Token audience mismatch. Ensure the client ID matches the one used to generate the token.";
+          errorMessage =
+            "Token audience mismatch. Ensure the client ID matches the one used to generate the token.";
         }
 
         return NextResponse.json(
           {
             error: errorMessage,
-            details: error.message || "Token verification failed"
+            details: error.message || "Token verification failed",
           },
           {
             status: 401,
             headers: { "Access-Control-Allow-Origin": "*" },
-          }
+          },
         );
       }
     } else if (googleAccessToken) {
       // Verify access token (Backward compatibility)
       const googleResponse = await fetch(
-        `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleAccessToken}`
+        `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleAccessToken}`,
       );
 
       if (!googleResponse.ok) {
@@ -133,7 +142,7 @@ export async function POST(request: Request) {
           {
             status: 401,
             headers: { "Access-Control-Allow-Origin": "*" },
-          }
+          },
         );
       }
 
@@ -149,7 +158,7 @@ export async function POST(request: Request) {
         {
           status: 400,
           headers: { "Access-Control-Allow-Origin": "*" },
-        }
+        },
       );
     }
 
@@ -190,19 +199,19 @@ export async function POST(request: Request) {
         {
           status: 500,
           headers: { "Access-Control-Allow-Origin": "*" },
-        }
+        },
       );
     }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       authSecret,
-      { expiresIn: "30d" } // Consistent with NextAuth session duration
+      { expiresIn: "30d" }, // Consistent with NextAuth session duration
     );
 
     return NextResponse.json(
       { token },
-      { headers: { "Access-Control-Allow-Origin": "*" } }
+      { headers: { "Access-Control-Allow-Origin": "*" } },
     );
   } catch (error) {
     console.error("Google login error:", error);
@@ -211,7 +220,7 @@ export async function POST(request: Request) {
       {
         status: 500,
         headers: { "Access-Control-Allow-Origin": "*" },
-      }
+      },
     );
   }
 }

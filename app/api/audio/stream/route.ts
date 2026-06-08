@@ -5,10 +5,11 @@ import {
   isAllowedAudioSourceUrl,
   sniffAudioMimeType,
 } from "@/lib/playback-url";
+import { enforceRateLimit, streamLimiter } from "@/lib/rate-limit";
 
 function responseIncludesFileStart(
   status: number,
-  contentRange: string | null
+  contentRange: string | null,
 ): boolean {
   if (status === 200) {
     return true;
@@ -22,7 +23,7 @@ async function resolveResponseMimeType(
   upstreamContentType: string | null,
   body: ReadableStream<Uint8Array> | null,
   status: number,
-  contentRange: string | null
+  contentRange: string | null,
 ): Promise<{ mimeType: string; body: ReadableStream<Uint8Array> | null }> {
   if (upstreamContentType && !upstreamContentType.includes("octet-stream")) {
     return { mimeType: upstreamContentType, body };
@@ -63,6 +64,13 @@ async function resolveResponseMimeType(
 }
 
 export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(
+    request,
+    streamLimiter,
+    "audio-stream",
+  );
+  if (limited) return limited;
+
   try {
     const url = request.nextUrl.searchParams.get("url");
 
@@ -87,7 +95,7 @@ export async function GET(request: NextRequest) {
     if (!response.ok && response.status !== 206) {
       return NextResponse.json(
         { error: "Failed to fetch audio" },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -97,7 +105,7 @@ export async function GET(request: NextRequest) {
       response.headers.get("content-type"),
       response.body,
       response.status,
-      contentRange
+      contentRange,
     );
 
     const headers = new Headers({
@@ -124,7 +132,7 @@ export async function GET(request: NextRequest) {
     console.error("Error streaming audio:", error);
     return NextResponse.json(
       { error: "Failed to stream audio" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

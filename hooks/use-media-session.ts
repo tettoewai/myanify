@@ -147,7 +147,7 @@ export function useMediaSession({
     }
 
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
-  }, [song, isPlaying]);
+  }, [song?.id, isPlaying]);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {

@@ -3,6 +3,12 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { resolveEntitySlugForCreate } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
+import {
+  buildGenreSearchWhere,
+  paginateItems,
+  scoreNamedEntitySearch,
+  sortBySearchScore,
+} from "@/lib/search";
 
 export async function GET(request: Request) {
   try {
@@ -14,18 +20,35 @@ export async function GET(request: Request) {
 
     const where: Record<string, unknown> = {};
     if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+      where.OR = buildGenreSearchWhere(search);
     }
 
-    const [total, genres] = await Promise.all([
-      prisma.genre.count({ where }),
-      prisma.genre.findMany({
-        where,
-        orderBy: { name: "asc" },
-        take: limit,
-        skip,
-      }),
-    ]);
+    const total = await prisma.genre.count({ where });
+    let genres = await prisma.genre.findMany({
+      where,
+      ...(search
+        ? {}
+        : {
+            orderBy: { name: "asc" },
+            take: limit,
+            skip,
+          }),
+    });
+
+    if (search) {
+      genres = paginateItems(
+        sortBySearchScore(genres, search, (query, genre) =>
+          scoreNamedEntitySearch(query, {
+            primaryName: genre.name,
+            englishName: genre.englishName,
+            description: genre.description,
+            englishDescription: genre.englishDescription,
+          }),
+        ),
+        page,
+        limit,
+      );
+    }
 
     return NextResponse.json({
       data: genres,

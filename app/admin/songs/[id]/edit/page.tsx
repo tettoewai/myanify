@@ -111,7 +111,9 @@ export default function EditSongPage() {
   const [lyricsFileName, setLyricsFileName] = useState("");
   const initializedSongIdRef = useRef<string | null>(null);
 
-  const { song, isLoading: songLoading } = useSong(songId, true); // Use admin mode to get raw data
+  const { song, isLoading: songLoading } = useSong(songId, true, {
+    includeLyrics: true,
+  }); // Use admin mode to get raw data
   const { artists: fetchedArtists } = useArtists();
   const { genres: fetchedGenres } = useGenres();
   const { albums: fetchedAlbums } = useAlbums();

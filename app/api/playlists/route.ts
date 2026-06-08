@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { ensureUniqueSlug } from "@/lib/slug";
 
 export async function GET(request: Request) {
   try {
@@ -136,9 +138,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const slug = await ensureUniqueSlug("playlist", name, randomUUID());
+
     const playlist = await prisma.playlist.create({
       data: {
         name,
+        slug,
         description,
         coverUrl,
         isPublic: isPublic ?? true,

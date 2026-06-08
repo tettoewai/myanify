@@ -4,6 +4,12 @@ import { getSession } from "@/lib/auth-utils";
 import { resolveEntitySlugForCreate } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { isAlbumType } from "@/lib/album-type";
+import {
+  buildAlbumSearchWhere,
+  paginateItems,
+  scoreNamedEntitySearch,
+  sortBySearchScore,
+} from "@/lib/search";
 
 export async function GET(request: Request) {
   try {
@@ -13,27 +19,42 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
-    // Build where clause with search support
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+      where.OR = buildAlbumSearchWhere(search);
     }
 
-    // Execute count and data queries in parallel for better performance
-    const [total, albums] = await Promise.all([
-      prisma.album.count({ where }),
-      prisma.album.findMany({
-        where,
-        include: {
-          _count: {
-            select: { songs: true },
-          },
+    const total = await prisma.album.count({ where });
+    let albums = await prisma.album.findMany({
+      where,
+      include: {
+        _count: {
+          select: { songs: true },
         },
-        orderBy: { name: "asc" },
-        take: limit,
-        skip,
-      }),
-    ]);
+      },
+      ...(search
+        ? {}
+        : {
+            orderBy: { name: "asc" },
+            take: limit,
+            skip,
+          }),
+    });
+
+    if (search) {
+      albums = paginateItems(
+        sortBySearchScore(albums, search, (query, album) =>
+          scoreNamedEntitySearch(query, {
+            primaryName: album.name,
+            englishName: album.englishName,
+            description: album.description,
+            englishDescription: album.englishDescription,
+          }),
+        ),
+        page,
+        limit,
+      );
+    }
 
     return NextResponse.json({
       data: albums,

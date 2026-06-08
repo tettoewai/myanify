@@ -4,6 +4,12 @@ import { getSession } from "@/lib/auth-utils";
 import { resolveEntitySlugForCreate, parseCommaList } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { calculateMonthlyListenersByArtistIds } from "@/lib/monthly-listeners";
+import {
+  buildArtistSearchWhere,
+  paginateItems,
+  scoreArtistSearch,
+  sortBySearchScore,
+} from "@/lib/search";
 
 export async function GET(request: Request) {
   try {
@@ -13,41 +19,54 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = (page - 1) * limit;
 
-    // Build where clause with search support
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+      where.OR = buildArtistSearchWhere(search);
     }
 
-    // Execute count and data queries in parallel for better performance
-    const [total, artists] = await Promise.all([
-      prisma.artist.count({ where }),
-      prisma.artist.findMany({
-        where,
-        include: {
-          artistGenres: {
-            include: {
-              genre: true,
-            },
+    const total = await prisma.artist.count({ where });
+    let artists = await prisma.artist.findMany({
+      where,
+      include: {
+        artistGenres: {
+          include: {
+            genre: true,
           },
         },
-        orderBy: { monthlyListeners: "desc" },
-        take: limit,
-        skip,
-      }),
-    ]);
+      },
+      ...(search
+        ? {}
+        : {
+            orderBy: { monthlyListeners: "desc" },
+            take: limit,
+            skip,
+          }),
+    });
 
     const listenerCounts = await calculateMonthlyListenersByArtistIds(
-      artists.map((artist) => artist.id)
+      artists.map((artist) => artist.id),
     );
 
-    const artistsWithListenerCounts = artists.map((artist) => ({
+    let artistsWithListenerCounts = artists.map((artist) => ({
       ...artist,
       monthlyListeners: Math.max(
         artist.monthlyListeners,
         listenerCounts.get(artist.id) ?? 0
       ),
     }));
+
+    if (search) {
+      artistsWithListenerCounts = paginateItems(
+        sortBySearchScore(
+          artistsWithListenerCounts,
+          search,
+          scoreArtistSearch,
+          (left, right) => right.monthlyListeners - left.monthlyListeners,
+        ),
+        page,
+        limit,
+      );
+    }
 
     return NextResponse.json({
       data: artistsWithListenerCounts,

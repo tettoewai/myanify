@@ -3,6 +3,7 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { updateMonthlyListenersForPlay } from "@/lib/monthly-listeners";
 import { formatSongResponse } from "@/lib/song-response";
+import { enforceRateLimit, writeLimiter } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   try {
@@ -77,6 +78,13 @@ export async function POST(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const limited = await enforceRateLimit(
+      request,
+      writeLimiter,
+      `play-history:${session.user.id}`,
+    );
+    if (limited) return limited;
 
     const body = await request.json();
     const { songId, duration } = body;

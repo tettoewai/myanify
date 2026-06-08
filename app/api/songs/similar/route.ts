@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { formatSongsResponse } from "@/lib/song-response";
-
-const songInclude = {
-  artists: { include: { artist: true } },
-  album: true,
-  genre: true,
-  lyrics: { where: { language: "my" } },
-} as const;
+import { buildSongIncludeFromRequest } from "@/lib/song-query";
 
 function shuffleInPlace<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -79,7 +73,7 @@ export async function GET(request: Request) {
           isPublished: true,
           id: { notIn: Array.from(excludeSet) },
         },
-        include: songInclude,
+        include: buildSongIncludeFromRequest(request),
         orderBy: { playCount: "desc" },
         take: limit,
       });
@@ -92,7 +86,7 @@ export async function GET(request: Request) {
 
     const candidates = await prisma.song.findMany({
       where: candidateWhere,
-      include: songInclude,
+      include: buildSongIncludeFromRequest(request),
       take: limit * 3,
     });
 
@@ -144,12 +138,17 @@ export async function GET(request: Request) {
           isPublished: true,
           id: { notIn: Array.from(moreExclude) },
         },
-        include: songInclude,
+        include: buildSongIncludeFromRequest(request),
         orderBy: { playCount: "desc" },
         take: (limit - result.length) * 2,
       });
       const shuffled = shuffleInPlace(backfill);
-      result.push(...shuffled.slice(0, limit - result.length));
+      result.push(
+        ...shuffled.slice(0, limit - result.length).map((song) => ({
+          ...song,
+          score: 0,
+        })),
+      );
     }
 
     return NextResponse.json({

@@ -12,7 +12,7 @@ import {
 import { requireLoginRedirect } from "@/lib/require-login";
 import { useToggleLikeSong } from "@/lib/swr";
 import type { Song } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import {
   Heart,
   ListMusic,
@@ -76,6 +76,7 @@ export function PlayerBar({
     radioMode,
     setShowQueue,
     showQueue,
+    currentSongLyrics,
   } = usePlayer();
 
   const nextUp = upNext[0]?.song;
@@ -116,7 +117,7 @@ export function PlayerBar({
 
   return (
     <TooltipProvider>
-      <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-gradient-to-t from-stone-950 to-stone-900/95 backdrop-blur-xl border-t border-amber-900/20 z-50 hidden md:block">
+      <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-linear-to-t from-background to-card/95 backdrop-blur-xl border-t border-border/40 z-50 hidden md:block">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
@@ -131,11 +132,7 @@ export function PlayerBar({
                     className="relative group shrink-0 size-14 overflow-hidden rounded-lg shadow-lg ring-1 ring-primary/25 transition-all hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <Image
-                      src={
-                        currentSong.albumCoverUrl ||
-                        currentSong.coverUrl ||
-                        "/placeholder.svg"
-                      }
+                      src={getSongCoverUrl(currentSong)}
                       alt=""
                       fill
                       sizes="56px"
@@ -244,7 +241,7 @@ export function PlayerBar({
                       size="icon"
                       className={cn(
                         "text-muted-foreground hover:text-foreground",
-                        isShuffled && "text-amber-500",
+                        isShuffled && "text-primary",
                       )}
                       onClick={() => setIsShuffled(!isShuffled)}
                     >
@@ -272,7 +269,7 @@ export function PlayerBar({
                   <TooltipTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 text-stone-900 shadow-lg shadow-primary/25 cursor-pointer"
+                      className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 cursor-pointer"
                       onClick={onTogglePlay}
                     >
                       {isPlaying ? (
@@ -306,7 +303,7 @@ export function PlayerBar({
                       size="icon"
                       className={cn(
                         "text-muted-foreground hover:text-foreground relative",
-                        repeatMode !== "off" && "text-amber-500",
+                        repeatMode !== "off" && "text-primary",
                       )}
                       onClick={cycleRepeat}
                     >
@@ -350,13 +347,14 @@ export function PlayerBar({
                     variant="ghost"
                     size="icon"
                     disabled={
-                      !currentSong.lyrics || currentSong.lyrics.length === 0
+                      currentSongLyrics !== undefined &&
+                      currentSongLyrics.length === 0
                     }
                     className={cn(
                       "text-muted-foreground hover:text-foreground",
                       showLyrics && "text-primary bg-primary/10",
-                      (!currentSong.lyrics ||
-                        currentSong.lyrics.length === 0) &&
+                      currentSongLyrics !== undefined &&
+                        currentSongLyrics.length === 0 &&
                         "opacity-50 cursor-not-allowed",
                     )}
                     onClick={onToggleLyrics}
@@ -365,7 +363,8 @@ export function PlayerBar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {!currentSong.lyrics || currentSong.lyrics.length === 0
+                  {currentSongLyrics !== undefined &&
+                  currentSongLyrics.length === 0
                     ? "No lyrics available"
                     : showLyrics
                       ? "Hide lyrics"

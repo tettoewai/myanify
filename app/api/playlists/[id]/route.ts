@@ -3,6 +3,7 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { resolvePlaylistId } from "@/lib/api-entity";
 import { formatSongResponse } from "@/lib/song-response";
+import { buildSongInclude, buildSongIncludeFromRequest } from "@/lib/song-query";
 
 export async function GET(
   request: Request,
@@ -32,20 +33,7 @@ export async function GET(
         songs: {
           include: {
             song: {
-              include: {
-                artists: {
-                  include: {
-                    artist: true,
-                  },
-                },
-                album: true,
-                genre: true,
-                lyrics: {
-                  where: {
-                    language: "my",
-                  },
-                },
-              },
+              include: buildSongIncludeFromRequest(request),
             },
           },
           orderBy: { order: "asc" },
@@ -148,20 +136,7 @@ export async function PUT(
         songs: {
           include: {
             song: {
-              include: {
-                artists: {
-                  include: {
-                    artist: true,
-                  },
-                },
-                album: true,
-                genre: true,
-                lyrics: {
-                  where: {
-                    language: "my",
-                  },
-                },
-              },
+              include: buildSongInclude(true),
             },
           },
           orderBy: { order: "asc" },
@@ -173,7 +148,7 @@ export async function PUT(
       const song = playlistSong.song;
       return {
         ...playlistSong,
-        song: formatSongResponse(song, request),
+        song: formatSongResponse(song, request, { includeLyrics: true }),
       };
     });
 

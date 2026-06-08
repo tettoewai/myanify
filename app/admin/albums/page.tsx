@@ -113,7 +113,7 @@ export default function AlbumsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {albums.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No albums found
@@ -124,7 +124,7 @@ export default function AlbumsPage() {
               key={album.id}
               className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow"
             >
-              <div className="aspect-square relative">
+              <div className="aspect-3/2 relative">
                 <Image
                   src={album.coverUrl || "/placeholder.svg"}
                   alt={album.name}
@@ -133,25 +133,27 @@ export default function AlbumsPage() {
                   unoptimized
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <AlbumTypeBadge type={album.type} />
                   </div>
-                  <h3 className="font-bold text-white text-lg">{album.name}</h3>
+                  <h3 className="font-bold text-white text-base line-clamp-1">
+                    {album.name}
+                  </h3>
                   {album.releaseDate && (
-                    <p className="text-sm text-white/80">
+                    <p className="text-xs text-white/80">
                       {new Date(album.releaseDate).getFullYear()}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-3">
                 {album.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
                     {album.description}
                   </p>
                 )}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                   <Music className="w-4 h-4" />
                   <span>{album._count?.songs || 0} songs</span>
                 </div>

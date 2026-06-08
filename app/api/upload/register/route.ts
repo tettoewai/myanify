@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-utils";
 import { prisma } from "@/db";
+import { enforceRateLimit, uploadLimiter } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,13 @@ export async function POST(request: Request) {
     if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+
+    const limited = await enforceRateLimit(
+      request,
+      uploadLimiter,
+      session.user.id,
+    );
+    if (limited) return limited;
 
     const body = await request.json();
     const { url, fileName, fileSize, mimeType } = body;

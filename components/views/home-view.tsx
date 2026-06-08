@@ -8,7 +8,7 @@ import { useNavigation } from "@/lib/navigation";
 import { useSongs, useArtists, usePlaylists, useGenres, useAlbums } from "@/lib/swr";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { Album } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl, isPlaceholderCoverUrl } from "@/lib/utils";
 import { useRef, useState, useEffect, useMemo } from "react";
 import { usePlayer } from "@/components/player-context";
 import { AddToPlaylistDialog, AddToPlaylistDropdown } from "@/components/add-to-playlist-dialog";
@@ -192,7 +192,10 @@ export function HomeView({
       <section className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary/30 via-primary/10 to-card p-6 md:p-8 lg:p-10 myanmar-pattern">
         <div className="relative z-10 max-w-xl">
           <div className="flex items-center gap-2 text-primary mb-3">
-            <span className="text-sm font-medium">Featured Today</span>
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />
+              Featured Today
+            </span>
           </div>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
             Discover Myanmar's Musical Soul
@@ -201,10 +204,10 @@ export function HomeView({
             From ancient melodies to modern beats — experience the rich tapestry
             of Myanmar music with synchronized lyrics.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-shadow rounded-full"
               onClick={() => songs[0] && onPlaySong(songs[0])}
               disabled={songs.length === 0}
             >
@@ -214,6 +217,7 @@ export function HomeView({
             <Button
               size="lg"
               variant="outline"
+              className="rounded-full"
               onClick={() => navigate("search")}
             >
               Explore All
@@ -240,34 +244,35 @@ export function HomeView({
               className={cn(
                 "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative",
                 currentSong?.id === song.id &&
-                  "bg-primary/10 ring-1 ring-primary/30"
+                  "bg-primary/10 ring-1 ring-primary/30 hover:bg-primary/15"
               )}
             >
               <button
                 onClick={() => onPlaySong(song)}
                 className="flex items-center gap-3 flex-1 min-w-0"
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <Image
-                    src={
-                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                    }
+                    src={getSongCoverUrl(song)}
                     alt={song.title}
                     width={56}
                     height={56}
                     className="w-14 h-14 rounded-md object-cover"
                     unoptimized
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
                     {currentSong?.id === song.id && isPlaying ? (
                       <Pause className="w-5 h-5 text-white" />
                     ) : (
-                      <Play className="w-5 h-5 text-white" />
+                      <Play className="w-5 h-5 text-white ml-0.5" />
                     )}
                   </div>
+                  {currentSong?.id === song.id && isPlaying && (
+                    <div className="absolute inset-0 rounded-md ring-2 ring-primary/60 group-hover:opacity-0 transition-opacity" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-sm text-start">{song.title}</p>
+                  <p className={cn("font-medium truncate text-sm text-start", currentSong?.id === song.id && "text-primary")}>{song.title}</p>
                   <p className="text-xs text-muted-foreground truncate text-start">
                     {song.artist}
                   </p>
@@ -291,7 +296,7 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Browse Genres
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "genres")}>
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -351,7 +356,7 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Popular Artists
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "artists")}>
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -418,6 +423,9 @@ export function HomeView({
             <h2 className="text-xl md:text-2xl font-bold text-foreground">
               Albums & Releases
             </h2>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "albums")}>
+              See All <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {albums.slice(0, 8).map((album: Album) => (
@@ -456,7 +464,7 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Featured Playlists
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "playlists")}>
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -465,8 +473,8 @@ export function HomeView({
             // Get up to 4 song covers for the composite image
             const songCovers = playlist.songs
               .slice(0, 4)
-              .map(song => song.albumCoverUrl || song.coverUrl)
-              .filter(url => url && url !== "/placeholder.svg");
+              .map((song) => getSongCoverUrl(song))
+              .filter((url) => !isPlaceholderCoverUrl(url));
 
             return (
               <button
@@ -528,6 +536,9 @@ export function HomeView({
             <h2 className="text-xl md:text-2xl font-bold text-foreground">
               Recently Played
             </h2>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "recently-played")}>
+              See All <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {recentlyPlayed.map((song) => (
@@ -539,9 +550,7 @@ export function HomeView({
                 >
                   <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
                     <Image
-                      src={
-                        song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                      }
+                      src={getSongCoverUrl(song)}
                       alt={song.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"

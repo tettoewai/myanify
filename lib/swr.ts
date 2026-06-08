@@ -1,7 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import type { Song, Artist, Genre, Playlist } from "./types";
+import {
+  RateLimitError,
+  notifyRateLimitError,
+  parseApiErrorBody,
+  swrFetcher,
+} from "./api-client";
+import type { Song, Artist, Genre, Playlist, LyricLine } from "./types";
 import type { PaginationMeta } from "./pagination";
 import {
   transformSong,
@@ -10,14 +16,7 @@ import {
   transformPlaylist,
 } from "./data-transform";
 
-// Fetcher function for SWR
-const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Failed to fetch data");
-  }
-  return response.json();
-};
+const fetcher = swrFetcher;
 
 // Custom hooks for data fetching
 export function useSongs(options?: {
@@ -255,13 +254,21 @@ export function useSimilarSongs(
 }
 
 // Hook for fetching a single song
-export function useSong(slug: string | null, admin?: boolean) {
+export function useSong(
+  slug: string | null,
+  admin?: boolean,
+  options?: { includeLyrics?: boolean },
+) {
+  const params = new URLSearchParams();
+  if (options?.includeLyrics) params.set("include", "lyrics");
+  const query = params.toString();
+
   const { data, error, isLoading, mutate } = useSWR(
-    slug ? `/api/songs/${slug}` : null,
+    slug ? `/api/songs/${slug}${query ? `?${query}` : ""}` : null,
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   // For admin pages, return raw data without transformation
@@ -279,6 +286,69 @@ export function useSong(slug: string | null, admin?: boolean) {
     isLoading,
     isError: error,
     mutate,
+  };
+}
+
+export async function fetchSongLyrics(
+  songIdOrSlug: string,
+): Promise<LyricLine[]> {
+  const response = await fetch(
+    `/api/songs/${encodeURIComponent(songIdOrSlug)}?include=lyrics`,
+  );
+  if (!response.ok) {
+    if (response.status === 429) {
+      const { retryAfterSeconds } = await parseApiErrorBody(response);
+      notifyRateLimitError(retryAfterSeconds);
+    }
+    throw new Error("Failed to fetch song lyrics");
+  }
+
+  const data = await response.json();
+  return transformSong(data).lyrics ?? [];
+}
+
+export function useSongWithLyrics(song: Song | null, enabled = true) {
+  const [resolvedLyrics, setResolvedLyrics] = useState<
+    LyricLine[] | undefined
+  >(song?.lyrics);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+
+  useEffect(() => {
+    setResolvedLyrics(song?.lyrics);
+  }, [song?.id, song?.lyrics]);
+
+  useEffect(() => {
+    if (!enabled || !song || song.lyrics !== undefined) {
+      setIsLoadingLyrics(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingLyrics(true);
+
+    fetchSongLyrics(song.slug)
+      .then((lyrics) => {
+        if (!cancelled) setResolvedLyrics(lyrics);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedLyrics([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingLyrics(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, song?.id, song?.slug, song?.lyrics]);
+
+  if (!song) {
+    return { song: null, isLoadingLyrics: false };
+  }
+
+  return {
+    song: { ...song, lyrics: resolvedLyrics ?? song.lyrics },
+    isLoadingLyrics,
   };
 }
 
@@ -582,9 +652,13 @@ export function useToggleLikeSong(options?: { enabled?: boolean }) {
         );
       } catch (error) {
         console.error("Error toggling like:", error);
-        toast.error(
-          wasLiked ? "Couldn't remove from liked songs" : "Couldn't save song"
-        );
+        if (error instanceof RateLimitError) {
+          notifyRateLimitError(error.retryAfterSeconds);
+        } else {
+          toast.error(
+            wasLiked ? "Couldn't remove from liked songs" : "Couldn't save song",
+          );
+        }
       } finally {
         setTogglingId(null);
       }
@@ -625,6 +699,19 @@ export function useLikedArtists(options?: { enabled?: boolean }) {
 }
 
 // Helper functions for liking/unliking songs
+async function handleLikeMutationResponse(response: Response): Promise<boolean> {
+  if (response.ok) {
+    return true;
+  }
+
+  if (response.status === 429) {
+    const { retryAfterSeconds } = await parseApiErrorBody(response);
+    throw new RateLimitError("Too many requests", retryAfterSeconds);
+  }
+
+  return false;
+}
+
 export async function likeSong(songId: string): Promise<boolean> {
   try {
     const response = await fetch("/api/liked-songs", {
@@ -632,8 +719,11 @@ export async function likeSong(songId: string): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ songId }),
     });
-    return response.ok;
-  } catch {
+    return handleLikeMutationResponse(response);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error;
+    }
     return false;
   }
 }
@@ -643,8 +733,11 @@ export async function unlikeSong(songId: string): Promise<boolean> {
     const response = await fetch(`/api/liked-songs?songId=${songId}`, {
       method: "DELETE",
     });
-    return response.ok;
-  } catch {
+    return handleLikeMutationResponse(response);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error;
+    }
     return false;
   }
 }
@@ -657,8 +750,11 @@ export async function likeArtist(artistId: string): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ artistId }),
     });
-    return response.ok;
-  } catch {
+    return handleLikeMutationResponse(response);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error;
+    }
     return false;
   }
 }
@@ -668,8 +764,11 @@ export async function unlikeArtist(artistId: string): Promise<boolean> {
     const response = await fetch(`/api/liked-artists?artistId=${artistId}`, {
       method: "DELETE",
     });
-    return response.ok;
-  } catch {
+    return handleLikeMutationResponse(response);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error;
+    }
     return false;
   }
 }

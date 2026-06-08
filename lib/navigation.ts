@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { entityPath, type RoutableEntity } from "@/lib/routes";
+import { entityPath, seeAllPath, type RoutableEntity } from "@/lib/routes";
+import { isSeeAllSection } from "@/lib/see-all-sections";
 
 export function useNavigation() {
   const router = useRouter();
@@ -15,10 +16,14 @@ export function useNavigation() {
       router.push("/library");
     } else if (view === "premium") {
       router.push("/premium");
+    } else if (view === "see-all" && slug && isSeeAllSection(slug)) {
+      router.push(seeAllPath(slug));
     } else if (slug && ["genre", "artist", "playlist", "album", "song"].includes(view)) {
       router.push(entityPath(view as RoutableEntity, slug));
     }
   };
 
-  return { navigate };
+  const navigateBack = () => router.back();
+
+  return { navigate, navigateBack };
 }

@@ -23,6 +23,12 @@ import { requireLoginRedirect } from "@/lib/require-login";
 import { usePlaylists } from "@/lib/swr";
 import { Plus, ListMusic } from "lucide-react";
 import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
+import {
+  ApiError,
+  RateLimitError,
+  handleFetchError,
+  handleMutationResponse,
+} from "@/lib/api-client";
 
 // Create a client-only version to avoid hydration mismatches
 const AddToPlaylistDialogContent = dynamic(() => Promise.resolve(AddToPlaylistDialogComponent), {
@@ -72,18 +78,18 @@ function AddToPlaylistDialogComponent({
         body: JSON.stringify({ songId }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to add song to playlist");
-      }
+      await handleMutationResponse(response, {
+        fallbackError: "Failed to add song to playlist",
+      });
 
-      // Refresh playlists data
       mutate();
-
       onSongAdded?.();
       setOpen(false);
     } catch (error) {
       console.error("Error adding song to playlist:", error);
-      // TODO: Show error toast
+      if (!(error instanceof ApiError) && !(error instanceof RateLimitError)) {
+        handleFetchError(error, "Failed to add song to playlist");
+      }
     } finally {
       setIsLoading(null);
     }
@@ -189,17 +195,17 @@ export function AddToPlaylistDropdown({
         body: JSON.stringify({ songId }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to add song to playlist");
-      }
+      await handleMutationResponse(response, {
+        fallbackError: "Failed to add song to playlist",
+      });
 
-      // Refresh playlists data
       mutate();
-
       onSongAdded?.();
     } catch (error) {
       console.error("Error adding song to playlist:", error);
-      // TODO: Show error toast
+      if (!(error instanceof ApiError) && !(error instanceof RateLimitError)) {
+        handleFetchError(error, "Failed to add song to playlist");
+      }
     } finally {
       setIsLoading(null);
     }

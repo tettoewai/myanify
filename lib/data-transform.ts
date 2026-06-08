@@ -21,6 +21,13 @@ export function transformSong(prismaSong: any): Song {
       ?.map((sa: { artist?: { slug?: string } }) => sa.artist?.slug)
       .filter((slug: string | undefined): slug is string => Boolean(slug)) ?? [];
 
+  const artistImageUrl =
+    prismaSong.artists
+      ?.map(
+        (sa: { artist?: { imageUrl?: string | null } }) => sa.artist?.imageUrl,
+      )
+      .find((url: string | null | undefined) => Boolean(url)) ?? null;
+
   return {
     id: prismaSong.id,
     slug: prismaSong.slug ?? prismaSong.id,
@@ -35,16 +42,25 @@ export function transformSong(prismaSong: any): Song {
     albumType: prismaSong.album?.type ?? null,
     duration: prismaSong.duration,
     coverUrl: prismaSong.coverUrl || FALLBACK_COVER,
-    albumCoverUrl: prismaSong.album?.coverUrl || null, // Include album cover for fallback
+    albumCoverUrl: prismaSong.album?.coverUrl || null,
+    artistImageUrl,
     audioUrl: prismaSong.audioUrl,
     playbackUrl: prismaSong.playbackUrl || getPlaybackUrl(prismaSong.audioUrl),
     genre: prismaSong.genre?.name || "",
     isPremium: prismaSong.isPremium,
     isPublished: prismaSong.isPublished,
-    lyrics: (prismaSong.lyrics || []).map((lyric: any): LyricLine => ({
-      time: lyric.time,
-      text: lyric.text,
-    })),
+    lyrics:
+      prismaSong.lyrics === undefined
+        ? undefined
+        : (Array.isArray(prismaSong.lyrics)
+            ? prismaSong.lyrics
+            : []
+          ).map(
+            (lyric: { time?: number; text?: string }): LyricLine => ({
+              time: lyric.time ?? 0,
+              text: lyric.text ?? "",
+            }),
+          ),
   };
 }
 

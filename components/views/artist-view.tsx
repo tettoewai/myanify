@@ -17,10 +17,11 @@ import { useLikedArtists, likeArtist, unlikeArtist } from "@/lib/swr";
 import { usePlayer } from "@/components/player-context";
 import { SongContextMenu } from "@/components/song-context-menu";
 import { ListMusic } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import Image from "next/image";
 import { useState } from "react";
 import { toast } from "sonner";
+import { RateLimitError, notifyRateLimitError } from "@/lib/api-client";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
@@ -41,7 +42,7 @@ export function ArtistView({
   currentSong,
   isPlaying,
 }: ArtistViewProps) {
-  const { navigate } = useNavigation();
+  const { navigate, navigateBack } = useNavigation();
   const { data: session } = useSession();
   const { artist, isLoading } = useArtist(artistSlug);
   const { likedArtistIds, mutate: mutateLikedArtists } = useLikedArtists({
@@ -64,7 +65,7 @@ export function ArtistView({
   };
 
   const handleLikeToggle = async () => {
-    if (isLiking) return;
+    if (isLiking || !artist) return;
 
     if (!session?.user?.id) {
       requireLoginRedirect(undefined, "save");
@@ -73,16 +74,27 @@ export function ArtistView({
 
     setIsLiking(true);
     try {
-      if (isLiked) {
-        await unlikeArtist(artist.id);
-        toast.success("Removed from your liked artists");
+      const ok = isLiked
+        ? await unlikeArtist(artist.id)
+        : await likeArtist(artist.id);
+
+      if (ok) {
+        toast.success(
+          isLiked
+            ? "Removed from your liked artists"
+            : "Added to your liked artists",
+        );
+        mutateLikedArtists();
       } else {
-        await likeArtist(artist.id);
-        toast.success("Added to your liked artists");
+        toast.error("Couldn't update liked artists");
       }
-      mutateLikedArtists();
     } catch (error) {
       console.error("Failed to toggle like:", error);
+      if (error instanceof RateLimitError) {
+        notifyRateLimitError(error.retryAfterSeconds);
+      } else {
+        toast.error("Couldn't update liked artists");
+      }
     } finally {
       setIsLiking(false);
     }
@@ -122,7 +134,7 @@ export function ArtistView({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("home")}
+            onClick={() => navigateBack()}
             className="bg-black/20 hover:bg-black/40 text-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -252,9 +264,7 @@ export function ArtistView({
                   <Image
                     width={48}
                     height={48}
-                    src={
-                      song.albumCoverUrl || song.coverUrl || "/placeholder.svg"
-                    }
+                    src={getSongCoverUrl(song)}
                     alt={song.title || song.album || "Song cover"}
                     className="w-12 h-12 rounded-md object-cover"
                   />

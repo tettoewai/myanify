@@ -163,6 +163,30 @@ export function LibraryPageSkeleton() {
   );
 }
 
+export function SeeAllPageSkeleton({
+  section = "genres",
+}: {
+  section?: "genres" | "artists" | "albums" | "playlists" | "recently-played";
+}) {
+  return (
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-32" aria-hidden>
+      <div className="flex items-start gap-4">
+        <Skeleton className="w-10 h-10 rounded-md shrink-0" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-9 w-48 max-w-full" />
+          <Skeleton className="h-4 w-64 max-w-full" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      </div>
+      {section === "artists" ? (
+        <ArtistGridSkeleton count={12} />
+      ) : (
+        <AlbumGridSkeleton count={12} />
+      )}
+    </div>
+  );
+}
+
 export function SearchPageSkeleton() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 pb-32" aria-hidden>

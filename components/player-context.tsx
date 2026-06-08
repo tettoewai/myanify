@@ -14,10 +14,15 @@ import {
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import type { QueueItem, QueueItemSource, Song } from "@/lib/types";
+import type { QueueItem, QueueItemSource, Song, LyricLine } from "@/lib/types";
 import { requireLoginRedirect } from "@/lib/require-login";
 import { useMediaSession } from "@/hooks/use-media-session";
-import { useSongs, usePlayHistory } from "@/lib/swr";
+import {
+  notifyRateLimitError,
+  parseApiErrorBody,
+  swrFetcher,
+} from "@/lib/api-client";
+import { useSongs, usePlayHistory, fetchSongLyrics } from "@/lib/swr";
 import { transformSong } from "@/lib/data-transform";
 import {
   createQueueItem,
@@ -43,6 +48,7 @@ export interface PlaySongOptions {
 
 interface PlayerContextType {
   currentSong: Song | null;
+  currentSongLyrics: LyricLine[] | undefined;
   isPlaying: boolean;
   currentTime: number;
   queue: Song[];
@@ -104,6 +110,9 @@ const PRELOAD_SECONDS_BEFORE_END = 20;
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { data: session, status: sessionStatus } = useSession();
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [currentSongLyrics, setCurrentSongLyrics] = useState<
+    LyricLine[] | undefined
+  >(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [queue, setQueue] = useState<Song[]>([]);
@@ -136,6 +145,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const upNextBaselineRef = useRef<QueueItem[]>([]);
   const hasRestoredUpNextRef = useRef(false);
   const preloadedQidRef = useRef<string | null>(null);
+  const userDisabledRadioRef = useRef(false);
+  const loadedSongIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     upNextRef.current = upNext;
@@ -155,13 +166,40 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const { data: profile } = useSWR(
     session?.user ? "/api/user/profile" : null,
-    async (url: string) => {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch profile");
-      return response.json();
-    },
+    swrFetcher,
     { revalidateOnFocus: false, revalidateOnReconnect: true },
   );
+
+  useEffect(() => {
+    setCurrentSongLyrics(currentSong?.lyrics);
+  }, [currentSong?.id, currentSong?.lyrics]);
+
+  useEffect(() => {
+    if (!currentSong || (!showLyrics && !showFullscreenLyrics)) return;
+    if (currentSongLyrics !== undefined) return;
+
+    let cancelled = false;
+
+    fetchSongLyrics(currentSong.slug)
+      .then((lyrics) => {
+        if (cancelled) return;
+        setCurrentSongLyrics(lyrics);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCurrentSongLyrics([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentSong?.id,
+    currentSong?.slug,
+    currentSongLyrics,
+    showLyrics,
+    showFullscreenLyrics,
+  ]);
 
   const persistUserUpNext = useCallback((items: QueueItem[]) => {
     if (typeof window === "undefined") return;
@@ -233,7 +271,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const res = await fetch(
           `/api/songs/similar?seedSongId=${encodeURIComponent(seedId)}&excludeIds=${encodeURIComponent(exclude)}&limit=${RADIO_BATCH_SIZE}`,
         );
-        if (!res.ok) throw new Error("Similar songs fetch failed");
+        if (!res.ok) {
+          if (res.status === 429) {
+            const { retryAfterSeconds } = await parseApiErrorBody(res);
+            notifyRateLimitError(retryAfterSeconds);
+          }
+          throw new Error("Similar songs fetch failed");
+        }
         const json = await res.json();
         const raw = json.data || [];
         let newSongs: Song[] = raw.map(transformSong);
@@ -280,6 +324,74 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [radioMode, radioSeedSongId, fetchSimilarSongs],
   );
+
+  const enableSmartRadio = useCallback(
+    (seedSong: Song, append = true) => {
+      userDisabledRadioRef.current = false;
+      setRadioMode(true);
+      setRadioSeedSongId(seedSong.id);
+      markSongSeen(seedSong.id);
+      void fetchSimilarSongs(seedSong.id, append);
+    },
+    [fetchSimilarSongs, markSongSeen],
+  );
+
+  const handleSetRadioMode = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        const seed = currentSongRef.current;
+        if (!seed) {
+          setRadioMode(true);
+          return;
+        }
+        enableSmartRadio(seed, true);
+        return;
+      }
+
+      userDisabledRadioRef.current = true;
+      setRadioMode(false);
+      setUpNext((prev) => {
+        const next = prev.filter(
+          (i) => i.source !== "radio" && i.source !== "autoplay",
+        );
+        if (next.length === prev.length) return prev;
+        upNextBaselineRef.current = next;
+        persistUserUpNext(next);
+        syncLegacyQueue(next);
+        return next;
+      });
+    },
+    [enableSmartRadio, persistUserUpNext, syncLegacyQueue],
+  );
+
+  const ensureSmartRadioForEmptyQueue = useCallback(() => {
+    const song = currentSongRef.current;
+    if (!song || upNextRef.current.length > 0 || userDisabledRadioRef.current) {
+      return;
+    }
+
+    if (!radioMode || radioSeedSongId !== song.id) {
+      enableSmartRadio(song, true);
+      return;
+    }
+
+    const hasSuggested = upNextRef.current.some(
+      (i) => i.source === "radio" || i.source === "autoplay",
+    );
+    if (!hasSuggested && !isFetchingRadio) {
+      void fetchSimilarSongs(song.id, true);
+    }
+  }, [
+    radioMode,
+    radioSeedSongId,
+    isFetchingRadio,
+    enableSmartRadio,
+    fetchSimilarSongs,
+  ]);
+
+  useEffect(() => {
+    ensureSmartRadioForEmptyQueue();
+  }, [upNext.length, currentSong?.id, ensureSmartRadioForEmptyQueue]);
 
   useEffect(() => {
     if (profile && typeof profile.isPremium === "boolean") {
@@ -386,8 +498,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       nextSongRef.current();
     };
 
-    const handleError = () => {
+    const handleError = async () => {
       console.error("Audio playback error");
+      const playbackUrl = currentSongRef.current?.playbackUrl;
+
+      if (playbackUrl) {
+        try {
+          const response = await fetch(playbackUrl, {
+            headers: { Range: "bytes=0-0" },
+          });
+          if (response.status === 429) {
+            const { retryAfterSeconds } = await parseApiErrorBody(response);
+            notifyRateLimitError(retryAfterSeconds);
+            return;
+          }
+        } catch {
+          // Fall through to generic playback error
+        }
+      }
+
       toast.error("Couldn't play this track. Skipping…");
       nextSongRef.current();
     };
@@ -450,8 +579,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const usePreloaded =
       preloadedQidRef.current &&
-      upNext[0]?.qid === preloadedQidRef.current &&
+      upNextRef.current[0]?.qid === preloadedQidRef.current &&
       preloadRef.current?.src;
+
+    if (!usePreloaded && loadedSongIdRef.current === currentSong.id) {
+      return;
+    }
+
+    loadedSongIdRef.current = currentSong.id;
+    isChangingSongRef.current = true;
 
     audioRef.current.pause();
     if (usePreloaded && preloadRef.current) {
@@ -514,14 +650,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         "loadedmetadata",
         handleLoadedMetadata,
       );
-      isChangingSongRef.current = false;
     };
   }, [
     currentSong?.id,
     currentSong?.playbackUrl,
     currentSong?.audioUrl,
     currentSong?.duration,
-    upNext,
   ]);
 
   useEffect(() => {
@@ -535,7 +669,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     preloadRef.current.src = url;
     preloadRef.current.load();
     preloadedQidRef.current = next.qid;
-  }, [currentTime, currentSong, upNext]);
+  }, [currentTime, currentSong?.id, currentSong?.duration, upNext]);
 
   const seekingRef = useRef(false);
   useEffect(() => {
@@ -551,7 +685,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         seekingRef.current = false;
       }, 100);
     }
-  }, [currentTime, currentSong]);
+  }, [currentTime, currentSong?.id]);
 
   useEffect(() => {
     if (isPlaying && currentSong) {
@@ -579,7 +713,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       clearInterval(positionSaveIntervalRef.current);
       positionSaveIntervalRef.current = null;
     }
-  }, [isPlaying, currentSong]);
+  }, [isPlaying, currentSong?.id]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -672,6 +806,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       if (currentSong?.id !== song.id) {
+        loadedSongIdRef.current = null;
         restorePositionRef.current = null;
         setCurrentTime(0);
         isChangingSongRef.current = true;
@@ -701,9 +836,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         (!hasUpNext && options?.source !== "playlist");
 
       if (shouldRadio) {
-        setRadioMode(true);
-        setRadioSeedSongId(song.id);
-        void fetchSimilarSongs(song.id, true);
+        enableSmartRadio(song, true);
       } else if (options?.source === "playlist") {
         setRadioMode(false);
       }
@@ -714,7 +847,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       markSongSeen,
       upNext.length,
       applyUpNext,
-      fetchSimilarSongs,
+      enableSmartRadio,
     ],
   );
 
@@ -807,14 +940,51 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const startRadio = useCallback(
     (seedSong: Song) => {
       if (!requireAuthForUserAction()) return;
-      setRadioMode(true);
-      setRadioSeedSongId(seedSong.id);
-      markSongSeen(seedSong.id);
       applyUpNext([]);
       playSongInternal(seedSong, { enableRadio: true, skipAuth: true });
     },
-    [applyUpNext, markSongSeen, playSongInternal],
+    [applyUpNext, playSongInternal],
   );
+
+  const playNextFromSmartRadio = useCallback(() => {
+    if (!currentSong) return false;
+
+    const seedId = radioSeedSongId ?? currentSong.id;
+    const fallbacks = pickAutoplaySongs(
+      songs,
+      recentlyPlayedSongs,
+      seenSongIdsRef.current,
+      seedId,
+      1,
+    );
+    if (fallbacks.length > 0) {
+      const items = createQueueItems(fallbacks, "autoplay");
+      for (const s of fallbacks) markSongSeen(s.id);
+      applyUpNext(items);
+      playSongInternal(fallbacks[0], { skipAuth: true });
+      void fetchSimilarSongs(seedId, true);
+      return true;
+    }
+
+    void (async () => {
+      const added = await fetchSimilarSongs(seedId, true);
+      if (added.length > 0) {
+        playSongInternal(added[0], { skipAuth: true });
+      } else {
+        setIsPlaying(false);
+      }
+    })();
+    return true;
+  }, [
+    currentSong,
+    radioSeedSongId,
+    songs,
+    recentlyPlayedSongs,
+    markSongSeen,
+    fetchSimilarSongs,
+    applyUpNext,
+    playSongInternal,
+  ]);
 
   const isSongQueued = useCallback(
     (songId: string) => {
@@ -872,29 +1042,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
 
     if (radioMode && radioSeedSongId) {
-      const fallbacks = pickAutoplaySongs(
-        songs,
-        recentlyPlayedSongs,
-        seenSongIdsRef.current,
-        radioSeedSongId,
-        1,
-      );
-      if (fallbacks.length > 0) {
-        const items = createQueueItems(fallbacks, "autoplay");
-        for (const s of fallbacks) markSongSeen(s.id);
-        applyUpNext(items);
-        playSongInternal(fallbacks[0].song, { skipAuth: true });
-        void fetchSimilarSongs(radioSeedSongId, true);
-        return;
-      }
-      void (async () => {
-        const added = await fetchSimilarSongs(radioSeedSongId, true);
-        if (added.length > 0) {
-          playSongInternal(added[0], { skipAuth: true });
-        } else {
-          setIsPlaying(false);
-        }
-      })();
+      playNextFromSmartRadio();
+      return;
+    }
+
+    if (!userDisabledRadioRef.current && currentSong) {
+      enableSmartRadio(currentSong, true);
+      playNextFromSmartRadio();
       return;
     }
 
@@ -904,10 +1058,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     repeatMode,
     radioMode,
     radioSeedSongId,
-    songs,
-    recentlyPlayedSongs,
-    markSongSeen,
-    fetchSimilarSongs,
     pushToHistory,
     getActiveUpNext,
     isShuffled,
@@ -917,6 +1067,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     persistUserUpNext,
     syncLegacyQueue,
     applyUpNext,
+    enableSmartRadio,
+    playNextFromSmartRadio,
   ]);
 
   const nextSong = useCallback(() => {
@@ -995,6 +1147,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     <PlayerContext.Provider
       value={{
         currentSong,
+        currentSongLyrics,
         isPlaying,
         currentTime,
         queue,
@@ -1024,7 +1177,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsMuted,
         setIsShuffled: handleSetIsShuffled,
         setRepeatMode,
-        setRadioMode,
+        setRadioMode: handleSetRadioMode,
         playSong,
         playFromContext,
         addToQueue,

@@ -14,6 +14,7 @@ import {
   isSchemaMarkup,
   notFoundMetadata,
 } from "@/lib/seo";
+import { resolveSongCoverUrl } from "@/lib/utils";
 import { getPublishedSongSlugs, safeStaticParams } from "@/lib/seo-static";
 
 export const revalidate = SEO_REVALIDATE_SECONDS;
@@ -61,7 +62,13 @@ export async function generateMetadata({
     const description = `Listen to ${song.title} by ${artistNames}${
       song.album ? ` from ${song.album.name}` : ""
     } on Myanify - Myanmar Music Streaming Platform.`;
-    const imageUrl = song.coverUrl || song.album?.coverUrl || "/placeholder.svg";
+    const artistImageUrl =
+      song.artists.find((sa) => sa.artist.imageUrl)?.artist.imageUrl ?? null;
+    const imageUrl = resolveSongCoverUrl({
+      coverUrl: song.coverUrl,
+      albumCoverUrl: song.album?.coverUrl,
+      artistImageUrl,
+    });
 
     return buildEntityMetadata(song.seo, {
       title,
@@ -125,7 +132,13 @@ export default async function SongLayout({
             artist={artistNames}
             album={song.album?.name}
             duration={formatDuration(song.duration)}
-            image={song.coverUrl || song.album?.coverUrl || undefined}
+            image={resolveSongCoverUrl({
+              coverUrl: song.coverUrl,
+              albumCoverUrl: song.album?.coverUrl,
+              artistImageUrl:
+                song.artists.find((sa) => sa.artist.imageUrl)?.artist
+                  .imageUrl ?? null,
+            })}
             url={url}
           />
         );

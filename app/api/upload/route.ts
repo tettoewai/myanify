@@ -11,6 +11,7 @@ import {
   MAX_AUDIO_INPUT_BYTES,
 } from "@/lib/audio-upload-config";
 import { prisma } from "@/db";
+import { enforceRateLimit, uploadLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes for large file uploads
@@ -23,13 +24,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const limited = await enforceRateLimit(
+      request,
+      uploadLimiter,
+      session.user.id,
+    );
+    if (limited) return limited;
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const fileType = formData.get("type") as string; // "audio" or "image"
 
     // Only Admin can upload audio or lyrics
     if (session.user.role !== "ADMIN" && fileType !== "image") {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     if (!file) {
@@ -39,7 +47,7 @@ export async function POST(request: Request) {
     if (!fileType || !["audio", "image", "lyrics"].includes(fileType)) {
       return NextResponse.json(
         { error: "Invalid file type. Must be 'audio', 'image', or 'lyrics'" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,8 +56,8 @@ export async function POST(request: Request) {
       fileType === "audio"
         ? MAX_AUDIO_INPUT_BYTES
         : fileType === "image"
-        ? 10 * 1024 * 1024
-        : 1 * 1024 * 1024;
+          ? 10 * 1024 * 1024
+          : 1 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
         {
@@ -57,11 +65,11 @@ export async function POST(request: Request) {
             fileType === "audio"
               ? formatMaxAudioSize()
               : fileType === "image"
-              ? "10MB"
-              : "1MB"
+                ? "10MB"
+                : "1MB"
           }`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -76,7 +84,7 @@ export async function POST(request: Request) {
             error:
               "Invalid audio format. Allowed: mp3, wav, m4a, flac, ogg, aac, wma",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } else if (fileType === "image") {
@@ -85,10 +93,10 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: `Invalid image format. Allowed: ${allowedImageExtensions.join(
-              ", "
+              ", ",
             )}`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     } else if (fileType === "lyrics") {
@@ -97,10 +105,10 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: `Invalid lyric format. Allowed: ${allowedLyricExtensions.join(
-              ", "
+              ", ",
             )}`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -150,7 +158,7 @@ export async function POST(request: Request) {
     console.error("Error uploading file:", error);
     return NextResponse.json(
       { error: "Failed to upload file" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

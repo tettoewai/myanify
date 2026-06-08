@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/db";
 import type { SlugModel } from "@/lib/slug-types";
 import { parseCommaList } from "@/lib/slug-utils";
@@ -22,24 +23,27 @@ function emptyToNull(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeSeoInput(input: SeoInput) {
-  let schemaMarkup: unknown | null | undefined;
+function normalizeSeoInput(input: SeoInput): Prisma.SeoMetadataCreateInput {
+  let schemaMarkup:
+    | Prisma.InputJsonValue
+    | Prisma.NullableJsonNullValueInput
+    | undefined;
 
   if (input.schemaMarkup === null) {
-    schemaMarkup = null;
+    schemaMarkup = Prisma.JsonNull;
   } else if (
     typeof input.schemaMarkup === "string" &&
     input.schemaMarkup.trim()
   ) {
-    schemaMarkup = JSON.parse(input.schemaMarkup);
+    schemaMarkup = JSON.parse(input.schemaMarkup) as Prisma.InputJsonValue;
   } else if (
     typeof input.schemaMarkup === "object" &&
     input.schemaMarkup !== null
   ) {
-    schemaMarkup = input.schemaMarkup;
+    schemaMarkup = input.schemaMarkup as Prisma.InputJsonValue;
   }
 
-  return {
+  const data: Prisma.SeoMetadataCreateInput = {
     title: emptyToNull(input.title ?? undefined),
     description: emptyToNull(input.description ?? undefined),
     keywords: parseCommaList(input.keywords),
@@ -50,15 +54,20 @@ function normalizeSeoInput(input: SeoInput) {
     twitterTitle: emptyToNull(input.twitterTitle ?? undefined),
     twitterDescription: emptyToNull(input.twitterDescription ?? undefined),
     twitterImageUrl: emptyToNull(input.twitterImageUrl ?? undefined),
-    ...(schemaMarkup !== undefined ? { schemaMarkup } : {}),
   };
+
+  if (schemaMarkup !== undefined) {
+    data.schemaMarkup = schemaMarkup;
+  }
+
+  return data;
 }
 
 function hasSeoContent(data: ReturnType<typeof normalizeSeoInput>): boolean {
   return Boolean(
     data.title ||
       data.description ||
-      data.keywords.length > 0 ||
+      (Array.isArray(data.keywords) && data.keywords.length > 0) ||
       data.canonicalUrl ||
       data.ogTitle ||
       data.ogDescription ||

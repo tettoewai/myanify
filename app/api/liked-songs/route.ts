@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { formatSongResponse } from "@/lib/song-response";
+import { buildSongIncludeFromRequest } from "@/lib/song-query";
 
 // GET - Fetch user's liked songs
 export async function GET(request: Request) {
@@ -18,20 +19,7 @@ export async function GET(request: Request) {
       },
       include: {
         song: {
-          include: {
-            artists: {
-              include: {
-                artist: true,
-              },
-            },
-            album: true,
-            genre: true,
-            lyrics: {
-              where: {
-                language: "my",
-              },
-            },
-          },
+          include: buildSongIncludeFromRequest(request),
         },
       },
       orderBy: {
@@ -121,20 +109,7 @@ export async function POST(request: Request) {
       },
       include: {
         song: {
-          include: {
-            artists: {
-              include: {
-                artist: true,
-              },
-            },
-            album: true,
-            genre: true,
-            lyrics: {
-              where: {
-                language: "my",
-              },
-            },
-          },
+          include: buildSongIncludeFromRequest(request),
         },
       },
     });

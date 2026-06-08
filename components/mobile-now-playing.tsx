@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import { MobileLyricsView } from "./mobile-lyrics-view";
 import { useToggleLikeSong } from "@/lib/swr";
 import { requireLoginRedirect } from "@/lib/require-login";
@@ -71,27 +71,27 @@ export function MobileNowPlaying({
   return (
     <div className="fixed bottom-16 left-0 right-0 md:hidden z-40">
       {/* Progress bar at top */}
-      <div className="h-0.5 bg-amber-900/30">
+      <div className="h-0.5 bg-primary/20">
         <div
-          className="h-full bg-linear-to-r from-amber-500 to-amber-400 transition-all duration-300"
+          className="h-full bg-linear-to-r from-primary to-secondary transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
 
       <div
-        className="bg-stone-900/95 backdrop-blur-xl border-t border-amber-900/20 px-4 py-3"
+        className="bg-card/95 backdrop-blur-xl border-t border-border/40 px-4 py-3"
         onClick={() => setShowFullView(true)}
       >
         <div className="flex items-center gap-3">
           {/* Album art with subtle animation */}
           <div className="relative">
             <Image
-              src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+              src={getSongCoverUrl(song)}
               alt={song.title}
               width={48}
               height={48}
               className={cn(
-                "w-12 h-12 rounded-lg object-cover shadow-lg ring-1 ring-amber-500/20",
+                "w-12 h-12 rounded-lg object-cover shadow-lg ring-1 ring-primary/20",
                 isPlaying && "animate-pulse"
               )}
               unoptimized
@@ -100,8 +100,8 @@ export function MobileNowPlaying({
 
           {/* Song info */}
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-white truncate">{song.title}</p>
-            <p className="text-sm text-amber-500/70 truncate">{song.artist}</p>
+            <p className="font-medium text-foreground truncate">{song.title}</p>
+            <p className="text-sm text-primary/70 truncate">{song.artist}</p>
           </div>
 
           {/* Quick controls */}
@@ -109,7 +109,7 @@ export function MobileNowPlaying({
             <Button
               variant="ghost"
               size="icon"
-              className="text-white/70 hover:text-white h-10 w-10"
+              className="text-muted-foreground hover:text-foreground h-10 w-10"
               onClick={handleToggleLike}
             >
               <Heart
@@ -122,7 +122,7 @@ export function MobileNowPlaying({
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:text-white h-10 w-10"
+              className="text-foreground hover:text-foreground h-10 w-10"
               onClick={(e) => {
                 e.stopPropagation();
                 onTogglePlay();
@@ -137,7 +137,7 @@ export function MobileNowPlaying({
             <Button
               variant="ghost"
               size="icon"
-              className="text-white/70 hover:text-white h-10 w-10"
+              className="text-muted-foreground hover:text-foreground h-10 w-10"
               onClick={(e) => {
                 e.stopPropagation();
                 onNext();
@@ -148,7 +148,7 @@ export function MobileNowPlaying({
           </div>
 
           {/* Expand indicator */}
-          <ChevronUp className="w-4 h-4 text-white/40" />
+          <ChevronUp className="w-4 h-4 text-muted-foreground/60" />
         </div>
       </div>
     </div>

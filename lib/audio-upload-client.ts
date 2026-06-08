@@ -3,6 +3,7 @@ import {
   isAllowedAudioExtension,
   MAX_AUDIO_INPUT_BYTES,
 } from "@/lib/audio-upload-config";
+import { checkApiResponse } from "@/lib/api-client";
 import type { SignedAudioUploadParams } from "@/lib/cloudinary";
 
 type CloudinaryUploadResponse = {
@@ -40,11 +41,9 @@ export async function uploadAudioFile(file: File): Promise<AudioUploadResult> {
     throw new Error(validationError);
   }
 
-  const signResponse = await fetch("/api/upload/sign", { method: "POST" });
-  if (!signResponse.ok) {
-    const error = await signResponse.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to prepare audio upload");
-  }
+  const signResponse = await checkApiResponse(
+    await fetch("/api/upload/sign", { method: "POST" }),
+  );
 
   const signData: SignedAudioUploadParams = await signResponse.json();
 
@@ -80,10 +79,7 @@ export async function uploadAudioFile(file: File): Promise<AudioUploadResult> {
     }),
   });
 
-  if (!registerResponse.ok) {
-    const error = await registerResponse.json().catch(() => ({}));
-    throw new Error(error.error || "Failed to register audio upload");
-  }
+  await checkApiResponse(registerResponse);
 
   const registered = await registerResponse.json();
 

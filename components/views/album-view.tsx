@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import { useAlbum } from "@/lib/swr";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
@@ -28,7 +28,7 @@ export function AlbumView({
   currentSong,
   isPlaying,
 }: AlbumViewProps) {
-  const { navigate } = useNavigation();
+  const { navigate, navigateBack } = useNavigation();
   const { album, isLoading } = useAlbum(albumSlug);
   const { playFromContext, isSongQueued } = usePlayer();
 
@@ -61,7 +61,7 @@ export function AlbumView({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("home")}
+            onClick={() => navigateBack()}
             className="bg-black/20 hover:bg-black/40 text-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -136,7 +136,7 @@ export function AlbumView({
                     )}
                   </span>
                   <Image
-                    src={song.albumCoverUrl || song.coverUrl || "/placeholder.svg"}
+                    src={getSongCoverUrl(song)}
                     alt={song.title}
                     width={48}
                     height={48}

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigation } from "@/lib/navigation";
 import { useArtists, useGenres, useSongs } from "@/lib/swr";
 import type { Song } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getSongCoverUrl } from "@/lib/utils";
 import { SongContextMenu } from "@/components/song-context-menu";
 import { usePlayer } from "@/components/player-context";
 import { ListMusic } from "lucide-react";
@@ -258,11 +258,7 @@ export function SearchView({
                   </span>
                   <div className="relative w-12 h-12 shrink-0">
                     <Image
-                      src={
-                        song.albumCoverUrl ||
-                        song.coverUrl ||
-                        "/placeholder.svg"
-                      }
+                      src={getSongCoverUrl(song)}
                       alt={song.title}
                       fill
                       className="rounded-md object-cover"

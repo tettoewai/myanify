@@ -105,7 +105,7 @@ export default function GenresPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {genres.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No genres found
@@ -116,20 +116,22 @@ export default function GenresPage() {
               key={genre.id}
               className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow"
             >
-              <div className="aspect-square relative">
+              <div className="aspect-3/2 relative">
                 <img
                   src={genre.imageUrl || "/placeholder.svg"}
                   alt={genre.name}
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="font-bold text-white text-lg">{genre.name}</h3>
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="font-bold text-white text-base line-clamp-1">
+                    {genre.name}
+                  </h3>
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-3">
                 {genre.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
                     {genre.description}
                   </p>
                 )}

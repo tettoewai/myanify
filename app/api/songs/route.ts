@@ -8,6 +8,16 @@ import {
 } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse, formatSongsResponse } from "@/lib/song-response";
+import {
+  buildSongInclude,
+  buildSongIncludeFromRequest,
+} from "@/lib/song-query";
+import {
+  buildSongSearchWhere,
+  paginateItems,
+  scoreSongSearch,
+  sortBySearchScore,
+} from "@/lib/search";
 
 export async function POST(request: Request) {
   try {
@@ -112,7 +122,10 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(formatSongResponse(song, request), { status: 201 });
+    return NextResponse.json(
+      formatSongResponse(song, request, { includeLyrics: true }),
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Error creating song:", error);
     return NextResponse.json(
@@ -162,35 +175,33 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { artists: { some: { artist: { name: { contains: search, mode: "insensitive" } } } } },
-      ];
+      where.OR = buildSongSearchWhere(search);
     }
 
-    const [total, songs] = await Promise.all([
-      prisma.song.count({ where }),
-      prisma.song.findMany({
-        where,
-        include: {
-          artists: {
-            include: {
-              artist: true,
-            },
-          },
-          album: true,
-          genre: true,
-          lyrics: {
-            where: {
-              language: "my",
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip,
-      }),
-    ]);
+    const total = await prisma.song.count({ where });
+    const songInclude = buildSongIncludeFromRequest(request);
+
+    let songs = await prisma.song.findMany({
+      where,
+      include: songInclude,
+      ...(search
+        ? {}
+        : {
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            skip,
+          }),
+    });
+
+    if (search) {
+      songs = paginateItems(
+        sortBySearchScore(songs, search, scoreSongSearch, (left, right) =>
+          right.createdAt.getTime() - left.createdAt.getTime(),
+        ),
+        page,
+        limit,
+      );
+    }
 
     return NextResponse.json({
       data: formatSongsResponse(songs, request),
