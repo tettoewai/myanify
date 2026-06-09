@@ -28,6 +28,12 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get("limit") || "50");
         const skip = (page - 1) * limit;
 
+        const sort = searchParams.get("sort");
+        const orderBy =
+          sort === "recent"
+            ? ({ createdAt: "desc" } as const)
+            : ({ name: "asc" } as const);
+
         const where: Record<string, unknown> = {};
         if (search) {
           where.OR = buildAlbumSearchWhere(search);
@@ -44,7 +50,7 @@ export async function GET(request: Request) {
           ...(search
             ? {}
             : {
-                orderBy: { name: "asc" },
+                orderBy,
                 take: limit,
                 skip,
               }),

@@ -486,11 +486,13 @@ export function useAlbums(options?: {
   search?: string;
   page?: number;
   limit?: number;
+  sort?: "name" | "recent";
 }) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.sort) params.set("sort", options.sort);
 
   const key = params.toString()
     ? `/api/albums?${params.toString()}`

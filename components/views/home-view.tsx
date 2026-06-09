@@ -71,7 +71,7 @@ export function HomeView({
     isPublic: true,
   });
   const { genres, isLoading: genresLoading } = useGenres();
-  const { albums, isLoading: albumsLoading } = useAlbums({ limit: 4 });
+  const { albums, isLoading: albumsLoading } = useAlbums({ limit: 4, sort: "recent" });
   const { songs: recentlyPlayed } = usePlayHistory({
     limit: 4,
     enabled: !!session?.user?.id,
@@ -385,7 +385,16 @@ export function HomeView({
                   <p className="font-semibold text-sm truncate max-w-[100px]">
                     {artist.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">Artist</p>
+                  {artist.monthlyListeners > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {artist.monthlyListeners >= 1000
+                        ? `${(artist.monthlyListeners / 1000).toFixed(0)}K`
+                        : artist.monthlyListeners}{" "}
+                      listeners
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Artist</p>
+                  )}
                 </div>
               </button>
             ))}
@@ -434,11 +443,18 @@ export function HomeView({
                   </div>
                 </div>
                 <h3 className="font-semibold truncate">{album.name}</h3>
-                {album.releaseDate && (
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(album.releaseDate).getFullYear()}
-                  </p>
-                )}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {album.releaseDate && (
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(album.releaseDate).getFullYear()}
+                    </p>
+                  )}
+                  {(album as any)._count?.songs != null && (
+                    <p className="text-sm text-muted-foreground">
+                      {album.releaseDate ? "·" : ""} {(album as any)._count.songs} songs
+                    </p>
+                  )}
+                </div>
               </button>
             ))}
           </div>
