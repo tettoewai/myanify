@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { Play, Pause, SkipForward, Heart, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +8,9 @@ import { cn, getSongCoverUrl } from "@/lib/utils";
 import { MobileLyricsView } from "./mobile-lyrics-view";
 import { useToggleLikeSong } from "@/lib/swr";
 import { requireLoginRedirect } from "@/lib/require-login";
+import { usePlayer } from "@/components/player-context";
+import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
+import Image from "next/image";
 
 interface MobileNowPlayingProps {
   song: Song;
@@ -31,7 +32,8 @@ export function MobileNowPlaying({
   onTimeChange,
 }: MobileNowPlayingProps) {
   const { data: session } = useSession();
-  const [showFullView, setShowFullView] = useState(false);
+  const { showNowPlaying, setShowNowPlaying } = usePlayer();
+  const { isHome, setPlayerInUrl } = useHomePlayerUrl();
   
   // Fetch liked songs from database
   const { isLiked, toggleLike } = useToggleLikeSong({
@@ -52,14 +54,28 @@ export function MobileNowPlaying({
 
   const progress = (currentTime / song.duration) * 100;
 
-  if (showFullView) {
+  const openFullView = () => {
+    setShowNowPlaying(true);
+    if (isHome) {
+      setPlayerInUrl(true);
+    }
+  };
+
+  const closeFullView = () => {
+    setShowNowPlaying(false);
+    if (isHome) {
+      setPlayerInUrl(false);
+    }
+  };
+
+  if (showNowPlaying) {
     return (
       <MobileLyricsView
         key={song.id}
         song={song}
         currentTime={currentTime}
         isPlaying={isPlaying}
-        onClose={() => setShowFullView(false)}
+        onClose={closeFullView}
         onTogglePlay={onTogglePlay}
         onNext={onNext}
         onPrev={onPrev}
@@ -80,7 +96,7 @@ export function MobileNowPlaying({
 
       <div
         className="bg-card/95 backdrop-blur-xl border-t border-border/40 px-4 py-3"
-        onClick={() => setShowFullView(true)}
+        onClick={openFullView}
       >
         <div className="flex items-center gap-3">
           {/* Album art with subtle animation */}

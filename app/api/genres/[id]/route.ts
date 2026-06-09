@@ -8,6 +8,12 @@ import {
 } from "@/lib/entity-admin";
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongsResponse } from "@/lib/song-response";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 export async function GET(
   request: Request,
@@ -20,33 +26,45 @@ export async function GET(
       return NextResponse.json({ error: "Genre not found" }, { status: 404 });
     }
 
-    const genre = await prisma.genre.findUnique({
-      where: { id },
-      include: {
-        seo: true,
-        songs: {
-          where: { isPublished: true },
+    const payload = await getCached(
+      cacheKeyFromRequest("genres:detail", request, id),
+      async () => {
+        const genre = await prisma.genre.findUnique({
+          where: { id },
           include: {
-            artists: {
+            seo: true,
+            songs: {
+              where: { isPublished: true },
               include: {
-                artist: true,
+                artists: {
+                  include: {
+                    artist: true,
+                  },
+                },
+                album: true,
               },
             },
-            album: true,
           },
-        },
-      },
-    });
+        });
 
-    if (!genre) {
+        if (!genre) {
+          throw new Error("GENRE_NOT_FOUND");
+        }
+
+        return {
+          ...genre,
+          songs: formatSongsResponse(genre.songs, request),
+        };
+      },
+      CACHE_TTL.DETAIL,
+    );
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof Error && error.message === "GENRE_NOT_FOUND") {
       return NextResponse.json({ error: "Genre not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      ...genre,
-      songs: formatSongsResponse(genre.songs, request),
-    });
-  } catch (error) {
     console.error("Error fetching genre:", error);
     return NextResponse.json(
       { error: "Failed to fetch genre" },
@@ -75,6 +93,8 @@ export async function DELETE(
     await prisma.genre.delete({
       where: { id },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -150,6 +170,8 @@ export async function PATCH(
       },
       include: { seo: true },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json(genre);
   } catch (error) {

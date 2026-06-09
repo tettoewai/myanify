@@ -3,6 +3,11 @@ import { prisma } from "@/db";
 import { getSearchClient } from "@/lib/typesense/client";
 import { formatSongsResponse } from "@/lib/song-response";
 import { buildSongIncludeFromRequest } from "@/lib/song-query";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+} from "@/lib/cache";
 
 const COLLECTIONS = [
   "songs",
@@ -91,29 +96,37 @@ export async function GET(req: NextRequest) {
 
   if (!collection || collection === "all") {
     try {
-      const [songsResults, artistsResults] = await Promise.all([
-        searchCollection("songs", q, perPage),
-        searchCollection("artists", q, perPage),
-      ]);
+      const payload = await getCached(
+        cacheKeyFromRequest("search:all", req),
+        async () => {
+          const [songsResults, artistsResults] = await Promise.all([
+            searchCollection("songs", q, perPage),
+            searchCollection("artists", q, perPage),
+          ]);
 
-      const songIds =
-        songsResults.hits?.map((hit) =>
-          String((hit.document as { id: string }).id),
-        ) ?? [];
-      const artistIds =
-        artistsResults.hits?.map((hit) =>
-          String((hit.document as { id: string }).id),
-        ) ?? [];
+          const songIds =
+            songsResults.hits?.map((hit) =>
+              String((hit.document as { id: string }).id),
+            ) ?? [];
+          const artistIds =
+            artistsResults.hits?.map((hit) =>
+              String((hit.document as { id: string }).id),
+            ) ?? [];
 
-      const [songs, artists] = await Promise.all([
-        hydrateSongs(songIds, req),
-        hydrateArtists(artistIds),
-      ]);
+          const [songs, artists] = await Promise.all([
+            hydrateSongs(songIds, req),
+            hydrateArtists(artistIds),
+          ]);
 
-      return NextResponse.json({
-        songs: formatSongsResponse(songs, req),
-        artists,
-      });
+          return {
+            songs: formatSongsResponse(songs, req),
+            artists,
+          };
+        },
+        CACHE_TTL.SEARCH,
+      );
+
+      return NextResponse.json(payload);
     } catch (error) {
       console.error("Typesense combined search error:", error);
       return NextResponse.json(
@@ -131,13 +144,21 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const results = await searchCollection(
-      collection as SearchCollection,
-      q,
-      perPage,
+    const payload = await getCached(
+      cacheKeyFromRequest("search", req, collection),
+      async () => {
+        const results = await searchCollection(
+          collection as SearchCollection,
+          q,
+          perPage,
+        );
+        const hits = results.hits?.map((hit) => hit.document) || [];
+        return { hits };
+      },
+      CACHE_TTL.SEARCH,
     );
-    const hits = results.hits?.map((hit) => hit.document) || [];
-    return NextResponse.json({ hits });
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error(`Typesense search error on ${collection}:`, error);
     return NextResponse.json(

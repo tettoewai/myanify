@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const skip = parseInt(searchParams.get("skip") || "0");
 
-    // Get play history for the current user, ordered by most recent first
+    // Fetch extra rows so deduplication can still satisfy skip + limit
     const playHistory = await prisma.playHistory.findMany({
       where: {
         userId: session.user.id,
@@ -38,28 +38,36 @@ export async function GET(request: Request) {
       orderBy: {
         playedAt: "desc",
       },
-      take: limit,
-      skip,
+      take: Math.min((skip + limit) * 10, 500),
     });
 
-    // Transform to return songs with play history metadata and artist names
-    const songs = playHistory.map((entry) => {
+    const seenSongIds = new Set<string>();
+    const uniqueSongs = [];
+
+    for (const entry of playHistory) {
+      if (seenSongIds.has(entry.songId)) continue;
+      seenSongIds.add(entry.songId);
+
       const song = entry.song;
       const artistNames = song.artists
         ?.map((sa: any) => sa.artist?.name)
         .filter(Boolean)
         .join(", ") || "Unknown Artist";
 
-      return formatSongResponse(
-        {
-          ...song,
-          artist: artistNames,
-          playedAt: entry.playedAt,
-          duration: entry.duration,
-        },
-        request
+      uniqueSongs.push(
+        formatSongResponse(
+          {
+            ...song,
+            artist: artistNames,
+            playedAt: entry.playedAt,
+            duration: entry.duration,
+          },
+          request,
+        ),
       );
-    });
+    }
+
+    const songs = uniqueSongs.slice(skip, skip + limit);
 
     return NextResponse.json({ data: songs });
   } catch (error) {

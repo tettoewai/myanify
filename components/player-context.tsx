@@ -49,6 +49,7 @@ export interface PlaySongOptions {
 interface PlayerContextType {
   currentSong: Song | null;
   currentSongLyrics: LyricLine[] | undefined;
+  isLoadingLyrics: boolean;
   isPlaying: boolean;
   currentTime: number;
   queue: Song[];
@@ -57,6 +58,7 @@ interface PlayerContextType {
   isPremium: boolean;
   showLyrics: boolean;
   showFullscreenLyrics: boolean;
+  showNowPlaying: boolean;
   showQueue: boolean;
   volume: number;
   isMuted: boolean;
@@ -73,6 +75,8 @@ interface PlayerContextType {
   setIsPremium: (premium: boolean) => void;
   setShowLyrics: (show: boolean) => void;
   setShowFullscreenLyrics: (show: boolean) => void;
+  setShowNowPlaying: (show: boolean) => void;
+  requestCurrentSongLyrics: () => void;
   setShowQueue: (show: boolean) => void;
   setVolume: (volume: number) => void;
   setIsMuted: (muted: boolean) => void;
@@ -113,6 +117,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [currentSongLyrics, setCurrentSongLyrics] = useState<
     LyricLine[] | undefined
   >(undefined);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+  const lyricsCacheRef = useRef<Map<string, LyricLine[]>>(new Map());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [queue, setQueue] = useState<Song[]>([]);
@@ -122,6 +128,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showFullscreenLyrics, setShowFullscreenLyrics] = useState(false);
+  const [showNowPlaying, setShowNowPlaying] = useState(false);
+  const [lyricsRequested, setLyricsRequested] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
@@ -171,23 +179,67 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    setCurrentSongLyrics(currentSong?.lyrics);
+    setLyricsRequested(false);
+
+    if (!currentSong) {
+      setCurrentSongLyrics(undefined);
+      setIsLoadingLyrics(false);
+      return;
+    }
+
+    if (currentSong.lyrics !== undefined) {
+      lyricsCacheRef.current.set(currentSong.id, currentSong.lyrics);
+      setCurrentSongLyrics(currentSong.lyrics);
+      setIsLoadingLyrics(false);
+      return;
+    }
+
+    const cached = lyricsCacheRef.current.get(currentSong.id);
+    if (cached !== undefined) {
+      setCurrentSongLyrics(cached);
+      setIsLoadingLyrics(false);
+      return;
+    }
+
+    setCurrentSongLyrics(undefined);
+    setIsLoadingLyrics(false);
   }, [currentSong?.id, currentSong?.lyrics]);
 
+  const requestCurrentSongLyrics = useCallback(() => {
+    setLyricsRequested(true);
+  }, []);
+
   useEffect(() => {
-    if (!currentSong || (!showLyrics && !showFullscreenLyrics)) return;
+    if (
+      !currentSong ||
+      (!showLyrics && !showFullscreenLyrics && !lyricsRequested)
+    ) {
+      return;
+    }
     if (currentSongLyrics !== undefined) return;
 
+    const cached = lyricsCacheRef.current.get(currentSong.id);
+    if (cached !== undefined) {
+      setCurrentSongLyrics(cached);
+      return;
+    }
+
     let cancelled = false;
+    setIsLoadingLyrics(true);
 
     fetchSongLyrics(currentSong.slug)
       .then((lyrics) => {
         if (cancelled) return;
+        lyricsCacheRef.current.set(currentSong.id, lyrics);
         setCurrentSongLyrics(lyrics);
       })
       .catch(() => {
         if (cancelled) return;
+        lyricsCacheRef.current.set(currentSong.id, []);
         setCurrentSongLyrics([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingLyrics(false);
       });
 
     return () => {
@@ -199,6 +251,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     currentSongLyrics,
     showLyrics,
     showFullscreenLyrics,
+    lyricsRequested,
   ]);
 
   const persistUserUpNext = useCallback((items: QueueItem[]) => {
@@ -1148,6 +1201,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       value={{
         currentSong,
         currentSongLyrics,
+        isLoadingLyrics,
         isPlaying,
         currentTime,
         queue,
@@ -1156,6 +1210,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         isPremium,
         showLyrics,
         showFullscreenLyrics,
+        showNowPlaying,
         showQueue,
         volume,
         isMuted,
@@ -1172,6 +1227,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setIsPremium,
         setShowLyrics,
         setShowFullscreenLyrics,
+        setShowNowPlaying,
+        requestCurrentSongLyrics,
         setShowQueue,
         setVolume,
         setIsMuted,

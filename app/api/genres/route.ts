@@ -9,56 +9,70 @@ import {
   scoreNamedEntitySearch,
   sortBySearchScore,
 } from "@/lib/search";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || searchParams.get("q");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "100");
-    const skip = (page - 1) * limit;
+    const payload = await getCached(
+      cacheKeyFromRequest("genres:list", request),
+      async () => {
+        const { searchParams } = new URL(request.url);
+        const search = searchParams.get("search") || searchParams.get("q");
+        const page = parseInt(searchParams.get("page") || "1");
+        const limit = parseInt(searchParams.get("limit") || "100");
+        const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
-    if (search) {
-      where.OR = buildGenreSearchWhere(search);
-    }
+        const where: Record<string, unknown> = {};
+        if (search) {
+          where.OR = buildGenreSearchWhere(search);
+        }
 
-    const total = await prisma.genre.count({ where });
-    let genres = await prisma.genre.findMany({
-      where,
-      ...(search
-        ? {}
-        : {
-            orderBy: { name: "asc" },
-            take: limit,
-            skip,
-          }),
-    });
+        const total = await prisma.genre.count({ where });
+        let genres = await prisma.genre.findMany({
+          where,
+          ...(search
+            ? {}
+            : {
+                orderBy: { name: "asc" },
+                take: limit,
+                skip,
+              }),
+        });
 
-    if (search) {
-      genres = paginateItems(
-        sortBySearchScore(genres, search, (query, genre) =>
-          scoreNamedEntitySearch(query, {
-            primaryName: genre.name,
-            englishName: genre.englishName,
-            description: genre.description,
-            englishDescription: genre.englishDescription,
-          }),
-        ),
-        page,
-        limit,
-      );
-    }
+        if (search) {
+          genres = paginateItems(
+            sortBySearchScore(genres, search, (query, genre) =>
+              scoreNamedEntitySearch(query, {
+                primaryName: genre.name,
+                englishName: genre.englishName,
+                description: genre.description,
+                englishDescription: genre.englishDescription,
+              }),
+            ),
+            page,
+            limit,
+          );
+        }
 
-    return NextResponse.json({
-      data: genres,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        return {
+          data: genres,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
       },
-    });
+      CACHE_TTL.LIST,
+    );
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching genres:", error);
     return NextResponse.json(
@@ -111,6 +125,8 @@ export async function POST(request: Request) {
       },
       include: { seo: true },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json(genre, { status: 201 });
   } catch (error) {

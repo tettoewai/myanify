@@ -11,6 +11,12 @@ import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse } from "@/lib/song-response";
 import { calculateMonthlyListeners } from "@/lib/monthly-listeners";
 import { buildSongIncludeFromRequest } from "@/lib/song-query";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 function buildArtistInclude(request: Request) {
   return {
@@ -46,33 +52,45 @@ export async function GET(
       return NextResponse.json({ error: "Artist not found" }, { status: 404 });
     }
 
-    const artist = await prisma.artist.findUnique({
-      where: { id },
-      include: buildArtistInclude(request),
-    });
+    const payload = await getCached(
+      cacheKeyFromRequest("artists:detail", request, id),
+      async () => {
+        const artist = await prisma.artist.findUnique({
+          where: { id },
+          include: buildArtistInclude(request),
+        });
 
-    if (!artist) {
+        if (!artist) {
+          throw new Error("ARTIST_NOT_FOUND");
+        }
+
+        const transformedSongs = (artist as any).songs?.map(
+          (songArtist: any) => {
+            const song = songArtist.song;
+            return {
+              ...songArtist,
+              song: formatSongResponse(song, request),
+            };
+          },
+        );
+
+        const monthlyListeners = await calculateMonthlyListeners(id);
+
+        return {
+          ...artist,
+          monthlyListeners: Math.max(artist.monthlyListeners, monthlyListeners),
+          songs: transformedSongs,
+        };
+      },
+      CACHE_TTL.DETAIL,
+    );
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof Error && error.message === "ARTIST_NOT_FOUND") {
       return NextResponse.json({ error: "Artist not found" }, { status: 404 });
     }
 
-    const transformedSongs = (artist as any).songs?.map((songArtist: any) => {
-      const song = songArtist.song;
-      return {
-        ...songArtist,
-        song: formatSongResponse(song, request),
-      };
-    });
-
-    const monthlyListeners = await calculateMonthlyListeners(id);
-
-    const responseArtist = {
-      ...artist,
-      monthlyListeners: Math.max(artist.monthlyListeners, monthlyListeners),
-      songs: transformedSongs,
-    };
-
-    return NextResponse.json(responseArtist);
-  } catch (error) {
     console.error("Error fetching artist:", error);
     return NextResponse.json(
       { error: "Failed to fetch artist" },
@@ -101,6 +119,8 @@ export async function DELETE(
     await prisma.artist.delete({
       where: { id },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -178,6 +198,8 @@ export async function PATCH(
       },
       include: { seo: true },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json(artist);
   } catch (error) {

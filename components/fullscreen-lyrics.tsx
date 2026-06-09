@@ -19,7 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
-import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
 import { AlbumMetadata } from "@/components/album-metadata";
 import {
   LyricSizeToggle,
@@ -56,7 +56,7 @@ export function FullscreenLyrics({
   onTimeChange,
 }: FullscreenLyricsProps) {
   const { data: session } = useSession();
-  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode } =
+  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode, currentSongLyrics, isLoadingLyrics } =
     usePlayer();
 
   const { isLiked, toggleLike } = useToggleLikeSong({
@@ -76,11 +76,9 @@ export function FullscreenLyrics({
 
   // Lead a bit so lines flip slightly before the beat to feel on-time
 
-  const { song: songWithLyrics, isLoadingLyrics } = useSongWithLyrics(song);
-  const displaySong = songWithLyrics ?? song;
   const lyrics = useMemo(
-    () => displaySong.lyrics ?? [],
-    [displaySong.lyrics],
+    () => currentSongLyrics ?? [],
+    [currentSongLyrics],
   );
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(

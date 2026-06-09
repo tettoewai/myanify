@@ -20,7 +20,7 @@ import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import { usePlayer } from "./player-context";
-import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
 import { requireLoginRedirect } from "@/lib/require-login";
 import {
   findLyricIndexByTime,
@@ -50,7 +50,14 @@ export function MobilePlayer({
   onClose,
 }: MobilePlayerProps) {
   const { data: session } = useSession();
-  const { isShuffled, setIsShuffled, repeatMode, setRepeatMode } = usePlayer();
+  const {
+    isShuffled,
+    setIsShuffled,
+    repeatMode,
+    setRepeatMode,
+    currentSongLyrics,
+    requestCurrentSongLyrics,
+  } = usePlayer();
   const [showLyrics, setShowLyrics] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeRef = useRef(currentTime);
@@ -105,8 +112,15 @@ export function MobilePlayer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const { song: songWithLyrics } = useSongWithLyrics(currentSong, showLyrics);
-  const lyrics = songWithLyrics?.lyrics ?? [];
+  const lyrics = currentSongLyrics ?? [];
+
+  const handleToggleLyrics = () => {
+    setShowLyrics((prev) => {
+      const next = !prev;
+      if (next) requestCurrentSongLyrics();
+      return next;
+    });
+  };
 
   const lyricTimes = useMemo(
     () => lyrics.map((l) => Math.max(0, l.time ?? 0)),
@@ -240,7 +254,7 @@ export function MobilePlayer({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowLyrics(!showLyrics)}
+            onClick={handleToggleLyrics}
             className={cn(showLyrics && "text-primary")}
           >
             <ListMusic className="w-6 h-6" />

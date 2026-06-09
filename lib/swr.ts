@@ -77,6 +77,30 @@ export function useSongs(options?: {
   };
 }
 
+export function useQuickPlaySongs(limit = 4) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+
+  const { data, error, isLoading, mutate } = useSWR(
+    `/api/songs/quick-play?${params.toString()}`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    },
+  );
+
+  const songs: Song[] = data?.data?.map(transformSong) || [];
+
+  return {
+    songs,
+    featuredSong: songs[0] ?? null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 export function useArtists(options?: {
   search?: string;
   page?: number;

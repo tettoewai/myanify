@@ -13,7 +13,6 @@ import {
 } from "@/components/lyric-size-toggle";
 import { usePlayer } from "@/components/player-context";
 import { useSyncedLyrics } from "@/lib/lyrics-sync";
-import { useSongWithLyrics } from "@/lib/swr";
 import { LyricsAlbumBackdrop } from "@/components/lyrics-album-backdrop";
 import {
   LYRIC_LINE_TRANSITION,
@@ -26,13 +25,17 @@ interface LyricsPanelProps {
   song: Song;
   currentTime: number;
   onClose: () => void;
+  className?: string;
 }
 
-export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
-  const { audioRef } = usePlayer();
-  const { song: songWithLyrics, isLoadingLyrics } = useSongWithLyrics(song);
-  const displaySong = songWithLyrics ?? song;
-  const lyrics = useMemo(() => displaySong.lyrics ?? [], [displaySong.lyrics]);
+export function LyricsPanel({
+  song,
+  currentTime,
+  onClose,
+  className,
+}: LyricsPanelProps) {
+  const { audioRef, currentSongLyrics, isLoadingLyrics } = usePlayer();
+  const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -51,7 +54,12 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
   const [size, setSize] = useState<LyricSize>("md");
 
   return (
-    <aside className="relative w-80 lg:w-[420px] h-[calc(100vh-var(--desktop-player-bar-height))] shrink-0 overflow-hidden border-l border-amber-900/20 flex-col hidden lg:flex leading-loose">
+    <aside
+      className={cn(
+        "relative w-80 lg:w-[420px] h-[calc(100vh-var(--desktop-player-bar-height))] shrink-0 overflow-hidden border-l border-amber-900/20 flex-col hidden lg:flex leading-loose",
+        className,
+      )}
+    >
       <LyricsAlbumBackdrop song={song} variant="panel" />
 
       <div className="relative z-10 flex flex-col h-full min-h-0">
@@ -101,14 +109,14 @@ export function LyricsPanel({ song, currentTime, onClose }: LyricsPanelProps) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-foreground leading-loose">
-                {displaySong.title}
+                {song.title}
               </p>
               <p className="text-xs text-primary/80 truncate leading-loose">
-                {displaySong.artist}
+                {song.artist}
               </p>
               <AlbumMetadata
-                name={displaySong.album}
-                type={displaySong.albumType}
+                name={song.album}
+                type={song.albumType}
                 className="text-xs text-muted-foreground mt-1 leading-loose"
               />
             </div>

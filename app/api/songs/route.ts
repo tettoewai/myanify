@@ -18,6 +18,12 @@ import {
   scoreSongSearch,
   sortBySearchScore,
 } from "@/lib/search";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 export async function POST(request: Request) {
   try {
@@ -122,6 +128,8 @@ export async function POST(request: Request) {
       },
     });
 
+    await invalidateContentCache();
+
     return NextResponse.json(
       formatSongResponse(song, request, { includeLyrics: true }),
       { status: 201 },
@@ -140,78 +148,89 @@ export async function GET(request: Request) {
     const session = await getSession();
     const isAdminUser = isAdmin(session);
 
-    const { searchParams } = new URL(request.url);
-    const genreId = searchParams.get("genreId");
-    const artistId = searchParams.get("artistId");
-    const albumId = searchParams.get("albumId");
-    const isPublishedParam = searchParams.get("isPublished");
-    const isPublished =
-      isPublishedParam === null ? undefined : isPublishedParam === "true";
-    const search = searchParams.get("search") || searchParams.get("q");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
+    const fetchSongs = async () => {
+      const { searchParams } = new URL(request.url);
+      const genreId = searchParams.get("genreId");
+      const artistId = searchParams.get("artistId");
+      const albumId = searchParams.get("albumId");
+      const isPublishedParam = searchParams.get("isPublished");
+      const isPublished =
+        isPublishedParam === null ? undefined : isPublishedParam === "true";
+      const search = searchParams.get("search") || searchParams.get("q");
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "50");
+      const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
-      ...(genreId && { genreId }),
-      ...(albumId && { albumId }),
-    };
+      const where: Record<string, unknown> = {
+        ...(genreId && { genreId }),
+        ...(albumId && { albumId }),
+      };
 
-    // Only staff can list draft/unpublished songs or browse the full catalog
-    if (isAdminUser) {
-      if (isPublished !== undefined) {
-        where.isPublished = isPublished;
+      if (isAdminUser) {
+        if (isPublished !== undefined) {
+          where.isPublished = isPublished;
+        }
+      } else {
+        where.isPublished = true;
       }
-    } else {
-      where.isPublished = true;
-    }
 
-    if (artistId) {
-      where.artists = {
-        some: {
-          artistId: artistId,
+      if (artistId) {
+        where.artists = {
+          some: {
+            artistId: artistId,
+          },
+        };
+      }
+
+      if (search) {
+        where.OR = buildSongSearchWhere(search);
+      }
+
+      const total = await prisma.song.count({ where });
+      const songInclude = buildSongIncludeFromRequest(request);
+
+      let songs = await prisma.song.findMany({
+        where,
+        include: songInclude,
+        ...(search
+          ? {}
+          : {
+              orderBy: { createdAt: "desc" },
+              take: limit,
+              skip,
+            }),
+      });
+
+      if (search) {
+        songs = paginateItems(
+          sortBySearchScore(songs, search, scoreSongSearch, (left, right) =>
+            right.createdAt.getTime() - left.createdAt.getTime(),
+          ),
+          page,
+          limit,
+        );
+      }
+
+      return {
+        data: formatSongsResponse(songs, request),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
         },
       };
-    }
+    };
 
-    if (search) {
-      where.OR = buildSongSearchWhere(search);
-    }
+    const payload = isAdminUser
+      ? await fetchSongs()
+      : await getCached(
+          cacheKeyFromRequest("songs:list", request),
+          fetchSongs,
+          CACHE_TTL.LIST,
+        );
 
-    const total = await prisma.song.count({ where });
-    const songInclude = buildSongIncludeFromRequest(request);
-
-    let songs = await prisma.song.findMany({
-      where,
-      include: songInclude,
-      ...(search
-        ? {}
-        : {
-            orderBy: { createdAt: "desc" },
-            take: limit,
-            skip,
-          }),
-    });
-
-    if (search) {
-      songs = paginateItems(
-        sortBySearchScore(songs, search, scoreSongSearch, (left, right) =>
-          right.createdAt.getTime() - left.createdAt.getTime(),
-        ),
-        page,
-        limit,
-      );
-    }
-
-    return NextResponse.json({
-      data: formatSongsResponse(songs, request),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Error fetching songs:", error);
     return NextResponse.json(

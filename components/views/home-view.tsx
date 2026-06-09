@@ -5,11 +5,12 @@ import { Play, Pause, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { useSongs, useArtists, usePlaylists, useGenres, useAlbums } from "@/lib/swr";
+import { useQuickPlaySongs, useArtists, usePlaylists, useGenres, useAlbums, usePlayHistory } from "@/lib/swr";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { Album } from "@/lib/types";
 import { cn, getSongCoverUrl, isPlaceholderCoverUrl } from "@/lib/utils";
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { usePlayer } from "@/components/player-context";
 import { AddToPlaylistDialog, AddToPlaylistDropdown } from "@/components/add-to-playlist-dialog";
 import { HomePageSkeleton } from "@/components/loading-skeletons";
@@ -28,7 +29,8 @@ export function HomeView({
   isPlaying,
 }: HomeViewProps) {
   const { navigate } = useNavigation();
-  const { getRecentlyPlayed, isSongQueued } = usePlayer();
+  const { data: session } = useSession();
+  const { isSongQueued } = usePlayer();
 
   // Refs for scrollable containers
   const genresScrollRef = useRef<HTMLDivElement>(null);
@@ -62,13 +64,18 @@ export function HomeView({
   };
 
   // Use SWR hooks for data fetching
-  const { songs, isLoading: songsLoading } = useSongs({ isPublished: true });
+  const { songs: quickPlaySongs, featuredSong, isLoading: quickPlayLoading } =
+    useQuickPlaySongs(4);
   const { artists, isLoading: artistsLoading } = useArtists();
   const { playlists, isLoading: playlistsLoading } = usePlaylists({
     isPublic: true,
   });
   const { genres, isLoading: genresLoading } = useGenres();
-  const { albums, isLoading: albumsLoading } = useAlbums();
+  const { albums, isLoading: albumsLoading } = useAlbums({ limit: 4 });
+  const { songs: recentlyPlayed } = usePlayHistory({
+    limit: 4,
+    enabled: !!session?.user?.id,
+  });
 
   // Scroll handlers
   const scrollGenres = (direction: "left" | "right") => {
@@ -158,29 +165,7 @@ export function HomeView({
   }, [genres.length, artists.length]); // Only depend on lengths, not the arrays themselves
 
   const loading =
-    songsLoading || artistsLoading || playlistsLoading || genresLoading;
-
-  // Get recently played songs and filter to only include songs that exist in the current songs list
-  const recentlyPlayed = useMemo(() => {
-    const played = getRecentlyPlayed();
-    // Filter to only include songs that are in the current songs list (in case songs were deleted)
-    const songIds = new Set(songs.map((s) => s.id));
-    const validPlayed = played.filter((song) => songIds.has(song.id));
-
-    // Deduplicate songs (keep only the first occurrence - most recent play)
-    const seenIds = new Set<string>();
-    const uniquePlayed = validPlayed.filter((song) => {
-      if (seenIds.has(song.id)) return false;
-      seenIds.add(song.id);
-      return true;
-    });
-
-    // Map to full song objects from the current songs list to ensure we have latest data
-    return uniquePlayed
-      .map((playedSong) => songs.find((s) => s.id === playedSong.id))
-      .filter((song): song is Song => song !== undefined)
-      .slice(0, 6); // Show only the 6 most recent
-  }, [getRecentlyPlayed, songs]);
+    quickPlayLoading || artistsLoading || playlistsLoading || genresLoading;
 
   if (loading) {
     return <HomePageSkeleton />;
@@ -208,8 +193,8 @@ export function HomeView({
             <Button
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-shadow rounded-full"
-              onClick={() => songs[0] && onPlaySong(songs[0])}
-              disabled={songs.length === 0}
+              onClick={() => featuredSong && onPlaySong(featuredSong)}
+              disabled={!featuredSong}
             >
               <Play className="w-5 h-5 mr-2" />
               Play Featured
@@ -237,19 +222,19 @@ export function HomeView({
             Quick Play
           </h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {songs.slice(0, 4).map((song) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {quickPlaySongs.map((song) => (
             <SongContextMenu key={song.id} song={song}>
             <div
               className={cn(
-                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative",
+                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative min-w-0",
                 currentSong?.id === song.id &&
                   "bg-primary/10 ring-1 ring-primary/30 hover:bg-primary/15"
               )}
             >
               <button
                 onClick={() => onPlaySong(song)}
-                className="flex items-center gap-3 flex-1 min-w-0"
+                className="flex items-center gap-3 flex-1 min-w-0 pr-6 sm:pr-7"
               >
                 <div className="relative shrink-0">
                   <Image
@@ -257,7 +242,7 @@ export function HomeView({
                     alt={song.title}
                     width={56}
                     height={56}
-                    className="w-14 h-14 rounded-md object-cover"
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-md object-cover"
                     unoptimized
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
@@ -271,18 +256,20 @@ export function HomeView({
                     <div className="absolute inset-0 rounded-md ring-2 ring-primary/60 group-hover:opacity-0 transition-opacity" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className={cn("font-medium truncate text-sm text-start", currentSong?.id === song.id && "text-primary")}>{song.title}</p>
                   <p className="text-xs text-muted-foreground truncate text-start">
                     {song.artist}
                   </p>
                 </div>
               </button>
-              {isSongQueued(song.id) && (
-                <ListMusic className="w-4 h-4 text-primary shrink-0" />
-              )}
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <AddToPlaylistDialog songId={song.id} />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                {isSongQueued(song.id) && (
+                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                )}
+                <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
+                  <AddToPlaylistDialog songId={song.id} />
+                </div>
               </div>
             </div>
             </SongContextMenu>
@@ -428,7 +415,7 @@ export function HomeView({
             </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {albums.slice(0, 8).map((album: Album) => (
+            {albums.map((album: Album) => (
               <button
                 key={album.id}
                 onClick={() => navigate("album", album.slug)}
@@ -540,13 +527,13 @@ export function HomeView({
               See All <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {recentlyPlayed.map((song) => (
               <SongContextMenu key={song.id} song={song}>
-              <div className="group text-left relative">
+              <div className="group text-left relative w-full min-w-0">
                 <button
                   onClick={() => onPlaySong(song)}
-                  className="w-full"
+                  className="w-full min-w-0"
                 >
                   <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
                     <Image
@@ -569,10 +556,12 @@ export function HomeView({
                       </div>
                     )}
                   </div>
-                  <h3 className="font-medium text-sm truncate">{song.title}</h3>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {song.artist}
-                  </p>
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-sm truncate">{song.title}</h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {song.artist}
+                    </p>
+                  </div>
                 </button>
               </div>
               </SongContextMenu>

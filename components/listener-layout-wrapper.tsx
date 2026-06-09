@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { LoginPromptProvider } from "@/components/login-prompt-provider";
 import { Sidebar } from "@/components/sidebar";
@@ -11,6 +11,7 @@ import { MobilePlayer } from "@/components/mobile-player";
 import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
 import { UpNextDrawer } from "@/components/up-next-drawer";
+import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -25,25 +26,31 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     setShowLyrics,
     showFullscreenLyrics,
     setShowFullscreenLyrics,
+    showNowPlaying,
+    setShowNowPlaying,
     isPremium,
   } = usePlayer();
+  const { isHome, setPlayerInUrl } = useHomePlayerUrl();
   const [showMobilePlayer, setShowMobilePlayer] = useState(false);
   const hasPushedHistoryState = useRef(false);
 
-  // Handle back button when fullscreen lyrics is open
   useEffect(() => {
-    // Listen for popstate (back button)
-    const handlePopState = (event: PopStateEvent) => {
-      // If we're in fullscreen lyrics and back is pressed, close it instead of navigating
+    if (isHome || !showNowPlaying) return;
+    setShowNowPlaying(false);
+  }, [isHome, showNowPlaying, setShowNowPlaying]);
+
+  // Handle back button when fullscreen lyrics is open (non-home routes)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isHome) return;
+
       if (showFullscreenLyrics) {
         setShowFullscreenLyrics(false);
         hasPushedHistoryState.current = false;
-        // Prevent the default navigation by pushing the state back
-        // This keeps the user on the current page
         window.history.pushState(
           { lyricsFullscreen: false },
           "",
-          window.location.href
+          window.location.href,
         );
       }
     };
@@ -53,27 +60,34 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [showFullscreenLyrics, setShowFullscreenLyrics]);
+  }, [showFullscreenLyrics, setShowFullscreenLyrics, isHome]);
 
-  // Push history state when opening fullscreen lyrics
+  // Push history state when opening fullscreen lyrics (non-home routes)
   useEffect(() => {
+    if (isHome) return;
+
     if (showFullscreenLyrics && !hasPushedHistoryState.current) {
       hasPushedHistoryState.current = true;
       window.history.pushState(
         { lyricsFullscreen: true },
         "",
-        window.location.href
+        window.location.href,
       );
     }
-  }, [showFullscreenLyrics]);
+  }, [showFullscreenLyrics, isHome]);
 
-  // Handle opening fullscreen lyrics with history state
   const handleOpenFullscreenLyrics = () => {
     setShowFullscreenLyrics(true);
+    if (isHome) {
+      setPlayerInUrl(true);
+    }
   };
 
   const handleCloseFullscreenLyrics = () => {
     setShowFullscreenLyrics(false);
+    if (isHome) {
+      setPlayerInUrl(false);
+    }
   };
 
   const showPlayer = !!currentSong;
@@ -123,12 +137,13 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
           )}
         </>
       )}
-      {showLyrics && !showFullscreenLyrics && currentSong && (
+      {currentSong && (
         <LyricsPanel
           key={`lyrics-panel-${currentSong.id}`}
           song={currentSong}
           currentTime={currentTime}
           onClose={() => setShowLyrics(false)}
+          className={showLyrics && !showFullscreenLyrics ? undefined : "hidden"}
         />
       )}
       <UpNextDrawer />
@@ -157,7 +172,9 @@ export function ListenerLayoutWrapper({
   return (
     <LoginPromptProvider>
       <PlayerProvider>
-        <ListenerLayoutContent>{children}</ListenerLayoutContent>
+        <Suspense fallback={null}>
+          <ListenerLayoutContent>{children}</ListenerLayoutContent>
+        </Suspense>
       </PlayerProvider>
     </LoginPromptProvider>
   );

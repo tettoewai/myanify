@@ -10,6 +10,12 @@ import {
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { isAlbumType } from "@/lib/album-type";
 import { formatSongsResponse } from "@/lib/song-response";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 export async function GET(
   request: Request,
@@ -22,33 +28,45 @@ export async function GET(
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    const album = await prisma.album.findUnique({
-      where: { id },
-      include: {
-        seo: true,
-        songs: {
+    const payload = await getCached(
+      cacheKeyFromRequest("albums:detail", request, id),
+      async () => {
+        const album = await prisma.album.findUnique({
+          where: { id },
           include: {
-            artists: {
+            seo: true,
+            songs: {
               include: {
-                artist: true,
+                artists: {
+                  include: {
+                    artist: true,
+                  },
+                },
+                genre: true,
               },
+              orderBy: { createdAt: "asc" },
             },
-            genre: true,
           },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-    });
+        });
 
-    if (!album) {
+        if (!album) {
+          throw new Error("ALBUM_NOT_FOUND");
+        }
+
+        return {
+          ...album,
+          songs: formatSongsResponse(album.songs, request),
+        };
+      },
+      CACHE_TTL.DETAIL,
+    );
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof Error && error.message === "ALBUM_NOT_FOUND") {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      ...album,
-      songs: formatSongsResponse(album.songs, request),
-    });
-  } catch (error) {
     console.error("Error fetching album:", error);
     return NextResponse.json(
       { error: "Failed to fetch album" },
@@ -128,6 +146,8 @@ export async function PATCH(
       include: { seo: true },
     });
 
+    await invalidateContentCache();
+
     return NextResponse.json(album);
   } catch (error) {
     console.error("Error updating album:", error);
@@ -158,6 +178,8 @@ export async function DELETE(
     await prisma.album.delete({
       where: { id },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {

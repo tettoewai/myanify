@@ -13,6 +13,12 @@ import {
   buildSongInclude,
   buildSongIncludeFromRequest,
 } from "@/lib/song-query";
+import {
+  CACHE_TTL,
+  cacheKeyFromRequest,
+  getCached,
+  invalidateContentCache,
+} from "@/lib/cache";
 
 export async function GET(
   request: Request,
@@ -25,24 +31,45 @@ export async function GET(
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
-    const song = await prisma.song.findUnique({
-      where: { id },
-      include: {
-        seo: true,
-        ...buildSongIncludeFromRequest(request),
-      },
-    });
-
-    if (!song) {
-      return NextResponse.json({ error: "Song not found" }, { status: 404 });
-    }
-
     const session = await getSession();
-    if (!song.isPublished && !isAdmin(session)) {
-      return NextResponse.json({ error: "Song not found" }, { status: 404 });
-    }
+    const isAdminUser = isAdmin(session);
 
-    return NextResponse.json(formatSongResponse(song, request));
+    const fetchSong = async () => {
+      const song = await prisma.song.findUnique({
+        where: { id },
+        include: {
+          seo: true,
+          ...buildSongIncludeFromRequest(request),
+        },
+      });
+
+      if (!song) {
+        throw new Error("SONG_NOT_FOUND");
+      }
+
+      if (!song.isPublished && !isAdminUser) {
+        throw new Error("SONG_NOT_FOUND");
+      }
+
+      return formatSongResponse(song, request);
+    };
+
+    try {
+      const payload = isAdminUser
+        ? await fetchSong()
+        : await getCached(
+            cacheKeyFromRequest("songs:detail", request, id),
+            fetchSong,
+            CACHE_TTL.DETAIL,
+          );
+
+      return NextResponse.json(payload);
+    } catch (error) {
+      if (error instanceof Error && error.message === "SONG_NOT_FOUND") {
+        return NextResponse.json({ error: "Song not found" }, { status: 404 });
+      }
+      throw error;
+    }
   } catch (error) {
     console.error("Error fetching song:", error);
     return NextResponse.json(
@@ -170,6 +197,8 @@ export async function PATCH(
       },
     });
 
+    await invalidateContentCache();
+
     return NextResponse.json(
       formatSongResponse(song, request, { includeLyrics: true }),
     );
@@ -202,6 +231,8 @@ export async function DELETE(
     await prisma.song.delete({
       where: { id },
     });
+
+    await invalidateContentCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {

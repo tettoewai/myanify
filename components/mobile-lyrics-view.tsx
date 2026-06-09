@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import {
@@ -19,7 +19,7 @@ import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
-import { useToggleLikeSong, useSongWithLyrics } from "@/lib/swr";
+import { useToggleLikeSong } from "@/lib/swr";
 import { AlbumMetadata } from "@/components/album-metadata";
 import {
   LyricSizeToggle,
@@ -58,9 +58,21 @@ export function MobileLyricsView({
   onTimeChange,
 }: MobileLyricsViewProps) {
   const { data: session } = useSession();
-  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode } =
-    usePlayer();
+  const {
+    audioRef,
+    isShuffled,
+    setIsShuffled,
+    repeatMode,
+    setRepeatMode,
+    currentSongLyrics,
+    isLoadingLyrics,
+    requestCurrentSongLyrics,
+  } = usePlayer();
   const [showLyrics, setShowLyrics] = useState(true);
+
+  useEffect(() => {
+    requestCurrentSongLyrics();
+  }, [requestCurrentSongLyrics]);
 
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
@@ -77,11 +89,9 @@ export function MobileLyricsView({
     void toggleLike(song);
   };
 
-  const { song: songWithLyrics, isLoadingLyrics } = useSongWithLyrics(song);
-  const displaySong = songWithLyrics ?? song;
   const lyrics = useMemo(
-    () => displaySong.lyrics ?? [],
-    [displaySong.lyrics],
+    () => currentSongLyrics ?? [],
+    [currentSongLyrics],
   );
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
