@@ -1,26 +1,21 @@
 "use client";
 
-import Image from "next/image";
 import { Drawer } from "vaul";
-import {
-  GripVertical,
-  ListMusic,
-  Radio,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { GripVertical, ListMusic, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlayer } from "@/components/player-context";
 import type { QueueItem } from "@/lib/types";
 import { cn, getSongCoverUrl } from "@/lib/utils";
+import Image from "next/image";
+
+interface MobileQueueDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
 function QueueRow({
   item,
-  index,
   canReorder,
   onRemove,
   onDragStart,
@@ -28,7 +23,6 @@ function QueueRow({
   onDrop,
 }: {
   item: QueueItem;
-  index: number;
   canReorder: boolean;
   onRemove: () => void;
   onDragStart: () => void;
@@ -44,17 +38,17 @@ function QueueRow({
       onDragOver={canReorder ? onDragOver : undefined}
       onDrop={canReorder ? onDrop : undefined}
       className={cn(
-        "flex items-center gap-3 py-2 px-3 rounded-lg group",
+        "flex items-center gap-3 py-3 px-4 rounded-lg group",
         canReorder && "cursor-grab active:cursor-grabbing",
         isSuggested && "opacity-90",
       )}
     >
       {canReorder ? (
-        <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+        <GripVertical className="w-5 h-5 text-muted-foreground shrink-0" />
       ) : (
-        <Sparkles className="w-4 h-4 text-primary/70 shrink-0" />
+        <Sparkles className="w-5 h-5 text-primary/70 shrink-0" />
       )}
-      <div className="relative w-10 h-10 rounded overflow-hidden shrink-0">
+      <div className="relative w-12 h-12 rounded overflow-hidden shrink-0">
         <Image
           src={getSongCoverUrl(item.song)}
           alt=""
@@ -64,8 +58,8 @@ function QueueRow({
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{item.song.title}</p>
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-base font-medium truncate">{item.song.title}</p>
+        <p className="text-sm text-muted-foreground truncate">
           {item.song.artist}
           {isSuggested && <span className="text-primary/80"> · Suggested</span>}
         </p>
@@ -74,30 +68,30 @@ function QueueRow({
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0 opacity-0 group-hover:opacity-100 h-8 w-8 md:h-8 md:w-8"
+          className="shrink-0 h-10 w-10"
           onClick={onRemove}
           aria-label="Remove from queue"
         >
-          <X className="w-4 h-4 md:w-4 md:h-4" />
+          <X className="w-5 h-5" />
         </Button>
       )}
     </div>
   );
 }
 
-export function UpNextDrawer() {
+export function MobileQueueDrawer({
+  open,
+  onOpenChange,
+}: MobileQueueDrawerProps) {
   const {
     currentSong,
     upNext,
-    showQueue,
-    setShowQueue,
-    radioMode,
-    setRadioMode,
-    radioSeedSongId,
-    isFetchingRadio,
     removeFromQueue,
     reorderUpNext,
     clearQueue,
+    radioMode,
+    radioSeedSongId,
+    isFetchingRadio,
   } = usePlayer();
 
   const userItems = upNext.filter(
@@ -110,17 +104,16 @@ export function UpNextDrawer() {
   const dragIndexRef = { current: -1 };
 
   return (
-    <Drawer.Root open={showQueue} onOpenChange={setShowQueue}>
+    <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/60 z-[60]" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[70] mx-auto w-full max-w-full md:max-w-lg rounded-t-2xl bg-background border-t border-border flex flex-col max-h-[85vh]">
+        <Drawer.Title className="sr-only">Queue</Drawer.Title>
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[70] mx-auto rounded-t-2xl bg-background border-t border-border flex flex-col max-h-[85vh]">
           <div className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-muted mt-3 mb-2" />
           <div className="flex items-center justify-between px-4 pt-2 pb-2">
             <div className="flex items-center gap-2">
               <ListMusic className="w-5 h-5 text-primary" />
-              <Drawer.Title className="text-lg font-semibold">
-                Up Next
-              </Drawer.Title>
+              <h3 className="text-lg font-semibold">Queue</h3>
             </div>
             <Button
               variant="ghost"
@@ -129,31 +122,9 @@ export function UpNextDrawer() {
               disabled={upNext.length === 0}
               className="text-muted-foreground"
             >
-              <Trash2 className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Clear</span>
-              <span className="sm:hidden">Clear all</span>
+              Clear
             </Button>
           </div>
-
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-primary" />
-              <Label htmlFor="smart-radio" className="text-sm font-medium">
-                Smart Radio
-              </Label>
-            </div>
-            <Switch
-              id="smart-radio"
-              checked={radioMode}
-              onCheckedChange={setRadioMode}
-            />
-          </div>
-          {radioMode && radioSeedSongId && (
-            <p className="px-4 text-xs text-muted-foreground pb-2">
-              Suggested tracks based on your current listen
-              {isFetchingRadio ? " · Loading…" : ""}
-            </p>
-          )}
 
           <ScrollArea className="flex-1 px-2 pb-6">
             {currentSong && (
@@ -162,7 +133,7 @@ export function UpNextDrawer() {
                   Now Playing
                 </p>
                 <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-primary/10 ring-1 ring-primary/20">
-                  <div className="relative w-10 h-10 rounded overflow-hidden shrink-0">
+                  <div className="relative w-12 h-12 rounded overflow-hidden shrink-0">
                     <Image
                       src={getSongCoverUrl(currentSong)}
                       alt=""
@@ -172,10 +143,10 @@ export function UpNextDrawer() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-base font-medium truncate">
                       {currentSong.title}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-sm text-muted-foreground truncate">
                       {currentSong.artist}
                     </p>
                   </div>
@@ -196,7 +167,6 @@ export function UpNextDrawer() {
                     <QueueRow
                       key={item.qid}
                       item={item}
-                      index={idx}
                       canReorder
                       onRemove={() => removeFromQueue(item.qid)}
                       onDragStart={() => {
@@ -227,7 +197,6 @@ export function UpNextDrawer() {
                   <QueueRow
                     key={item.qid}
                     item={item}
-                    index={0}
                     canReorder={false}
                     onRemove={() => removeFromQueue(item.qid)}
                     onDragStart={() => {}}
@@ -238,16 +207,16 @@ export function UpNextDrawer() {
               </div>
             )}
 
+            {radioMode && radioSeedSongId && (
+              <p className="px-4 text-xs text-muted-foreground pb-2">
+                Smart Radio is on
+                {isFetchingRadio ? " · Loading…" : ""}
+              </p>
+            )}
+
             {upNext.length === 0 && !currentSong && (
               <p className="text-center text-sm text-muted-foreground py-8">
                 Queue is empty. Play a song to get started.
-              </p>
-            )}
-            {upNext.length === 0 && currentSong && radioMode && (
-              <p className="text-center text-sm text-muted-foreground py-6">
-                {isFetchingRadio
-                  ? "Finding similar songs for Smart Radio…"
-                  : "Smart Radio is on. Similar songs will play next."}
               </p>
             )}
             {upNext.length === 0 && currentSong && !radioMode && (

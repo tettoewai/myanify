@@ -13,6 +13,9 @@ import {
   Shuffle,
   Repeat,
 } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { ListMusic } from "lucide-react";
+import { MobileQueueDrawer } from "./mobile-queue-drawer";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { Song } from "@/lib/types";
@@ -69,6 +72,7 @@ export function MobileLyricsView({
     requestCurrentSongLyrics,
   } = usePlayer();
   const [showLyrics, setShowLyrics] = useState(true);
+  const [showQueueDrawer, setShowQueueDrawer] = useState(false);
 
   useEffect(() => {
     requestCurrentSongLyrics();
@@ -89,10 +93,7 @@ export function MobileLyricsView({
     void toggleLike(song);
   };
 
-  const lyrics = useMemo(
-    () => currentSongLyrics ?? [],
-    [currentSongLyrics],
-  );
+  const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -142,11 +143,25 @@ export function MobileLyricsView({
             className="text-sm text-white/60 mt-0.5 leading-loose max-w-36 mx-auto"
           />
         </div>
-
-        <LyricSizeToggle
-          size={size}
-          onSizeChange={setSize}
-          className="shrink-0"
+        <div className="flex items-center gap-2">
+          <LyricSizeToggle
+            size={size}
+            onSizeChange={setSize}
+            className="shrink-0"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowQueueDrawer(true)}
+            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+            aria-label="Queue"
+          >
+            <ListMusic className="w-5 h-5" />
+          </Button>
+        </div>
+        <MobileQueueDrawer
+          open={showQueueDrawer}
+          onOpenChange={setShowQueueDrawer}
         />
       </div>
 

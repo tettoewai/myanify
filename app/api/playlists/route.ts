@@ -13,11 +13,7 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
     const isPublicParam = searchParams.get("isPublic");
 
-    if (!session?.user) {
-      if (isPublicParam !== "true") {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
+    if (isPublicParam === "true") {
       const whereClause = { isPublic: true };
       const [total, playlists] = await Promise.all([
         prisma.playlist.count({ where: whereClause }),
@@ -62,6 +58,10 @@ export async function GET(request: Request) {
           totalPages: Math.ceil(total / limit),
         },
       });
+    }
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const whereClause = {

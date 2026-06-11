@@ -56,8 +56,15 @@ export function FullscreenLyrics({
   onTimeChange,
 }: FullscreenLyricsProps) {
   const { data: session } = useSession();
-  const { audioRef, isShuffled, setIsShuffled, repeatMode, setRepeatMode, currentSongLyrics, isLoadingLyrics } =
-    usePlayer();
+  const {
+    audioRef,
+    isShuffled,
+    setIsShuffled,
+    repeatMode,
+    setRepeatMode,
+    currentSongLyrics,
+    isLoadingLyrics,
+  } = usePlayer();
 
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
@@ -76,10 +83,7 @@ export function FullscreenLyrics({
 
   // Lead a bit so lines flip slightly before the beat to feel on-time
 
-  const lyrics = useMemo(
-    () => currentSongLyrics ?? [],
-    [currentSongLyrics],
-  );
+  const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -225,8 +229,8 @@ export function FullscreenLyrics({
               <Button
                 variant="ghost"
                 size="icon"
-              onClick={handleToggleLike}
-              aria-pressed={songIsLiked}
+                onClick={handleToggleLike}
+                aria-pressed={songIsLiked}
                 className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
               >
                 <Heart

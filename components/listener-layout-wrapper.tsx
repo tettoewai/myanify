@@ -137,7 +137,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
           )}
         </>
       )}
-      {currentSong && (
+      {currentSong && showLyrics && (
         <LyricsPanel
           key={`lyrics-panel-${currentSong.id}`}
           song={currentSong}

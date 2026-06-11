@@ -5,14 +5,24 @@ import { Play, Pause, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
-import { useQuickPlaySongs, useArtists, usePlaylists, useGenres, useAlbums, usePlayHistory } from "@/lib/swr";
+import {
+  useQuickPlaySongs,
+  useArtists,
+  usePlaylists,
+  useGenres,
+  useAlbums,
+  usePlayHistory,
+} from "@/lib/swr";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { Album } from "@/lib/types";
 import { cn, getSongCoverUrl, isPlaceholderCoverUrl } from "@/lib/utils";
 import { useRef, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePlayer } from "@/components/player-context";
-import { AddToPlaylistDialog, AddToPlaylistDropdown } from "@/components/add-to-playlist-dialog";
+import {
+  AddToPlaylistDialog,
+  AddToPlaylistDropdown,
+} from "@/components/add-to-playlist-dialog";
 import { HomePageSkeleton } from "@/components/loading-skeletons";
 import { SongContextMenu } from "@/components/song-context-menu";
 import { ListMusic } from "lucide-react";
@@ -53,7 +63,7 @@ export function HomeView({
     setState: (state: {
       canScrollLeft: boolean;
       canScrollRight: boolean;
-    }) => void
+    }) => void,
   ) => {
     if (!container) return;
     const { scrollLeft, scrollWidth, clientWidth } = container;
@@ -64,14 +74,20 @@ export function HomeView({
   };
 
   // Use SWR hooks for data fetching
-  const { songs: quickPlaySongs, featuredSong, isLoading: quickPlayLoading } =
-    useQuickPlaySongs(4);
+  const {
+    songs: quickPlaySongs,
+    featuredSong,
+    isLoading: quickPlayLoading,
+  } = useQuickPlaySongs(4);
   const { artists, isLoading: artistsLoading } = useArtists();
   const { playlists, isLoading: playlistsLoading } = usePlaylists({
     isPublic: true,
   });
   const { genres, isLoading: genresLoading } = useGenres();
-  const { albums, isLoading: albumsLoading } = useAlbums({ limit: 4, sort: "recent" });
+  const { albums, isLoading: albumsLoading } = useAlbums({
+    limit: 4,
+    sort: "recent",
+  });
   const { songs: recentlyPlayed } = usePlayHistory({
     limit: 4,
     enabled: !!session?.user?.id,
@@ -222,56 +238,63 @@ export function HomeView({
             Quick Play
           </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
           {quickPlaySongs.map((song) => (
             <SongContextMenu key={song.id} song={song}>
-            <div
-              className={cn(
-                "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative min-w-0",
-                currentSong?.id === song.id &&
-                  "bg-primary/10 ring-1 ring-primary/30 hover:bg-primary/15"
-              )}
-            >
-              <button
-                onClick={() => onPlaySong(song)}
-                className="flex items-center gap-3 flex-1 min-w-0 pr-6 sm:pr-7"
+              <div
+                className={cn(
+                  "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative min-w-0",
+                  currentSong?.id === song.id &&
+                    "bg-primary/10 ring-1 ring-primary/30 hover:bg-primary/15",
+                )}
               >
-                <div className="relative shrink-0">
-                  <Image
-                    src={getSongCoverUrl(song)}
-                    alt={song.title}
-                    width={56}
-                    height={56}
-                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-md object-cover"
-                    unoptimized
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
-                    {currentSong?.id === song.id && isPlaying ? (
-                      <Pause className="w-5 h-5 text-white" />
-                    ) : (
-                      <Play className="w-5 h-5 text-white ml-0.5" />
+                <button
+                  onClick={() => onPlaySong(song)}
+                  className="flex items-center gap-3 flex-1 min-w-0 pr-6 sm:pr-7"
+                >
+                  <div className="relative shrink-0">
+                    <Image
+                      src={getSongCoverUrl(song)}
+                      alt={song.title}
+                      width={56}
+                      height={56}
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-md object-cover"
+                      unoptimized
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
+                      {currentSong?.id === song.id && isPlaying ? (
+                        <Pause className="w-5 h-5 text-white" />
+                      ) : (
+                        <Play className="w-5 h-5 text-white ml-0.5" />
+                      )}
+                    </div>
+                    {currentSong?.id === song.id && isPlaying && (
+                      <div className="absolute inset-0 rounded-md ring-2 ring-primary/60 group-hover:opacity-0 transition-opacity" />
                     )}
                   </div>
-                  {currentSong?.id === song.id && isPlaying && (
-                    <div className="absolute inset-0 rounded-md ring-2 ring-primary/60 group-hover:opacity-0 transition-opacity" />
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p
+                      className={cn(
+                        "font-medium truncate text-sm text-start",
+                        currentSong?.id === song.id && "text-primary",
+                      )}
+                    >
+                      {song.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate text-start">
+                      {song.artist}
+                    </p>
+                  </div>
+                </button>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  {isSongQueued(song.id) && (
+                    <ListMusic className="w-4 h-4 text-primary shrink-0" />
                   )}
-                </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className={cn("font-medium truncate text-sm text-start", currentSong?.id === song.id && "text-primary")}>{song.title}</p>
-                  <p className="text-xs text-muted-foreground truncate text-start">
-                    {song.artist}
-                  </p>
-                </div>
-              </button>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                {isSongQueued(song.id) && (
-                  <ListMusic className="w-4 h-4 text-primary shrink-0" />
-                )}
-                <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AddToPlaylistDialog songId={song.id} />
+                  <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
+                    <AddToPlaylistDialog songId={song.id} />
+                  </div>
                 </div>
               </div>
-            </div>
             </SongContextMenu>
           ))}
         </div>
@@ -283,7 +306,12 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Browse Genres
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "genres")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate("see-all", "genres")}
+          >
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -343,7 +371,12 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Popular Artists
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "artists")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate("see-all", "artists")}
+          >
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -419,7 +452,12 @@ export function HomeView({
             <h2 className="text-xl md:text-2xl font-bold text-foreground">
               Albums & Releases
             </h2>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "albums")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate("see-all", "albums")}
+            >
               See All <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
@@ -451,7 +489,8 @@ export function HomeView({
                   )}
                   {(album as any)._count?.songs != null && (
                     <p className="text-sm text-muted-foreground">
-                      {album.releaseDate ? "·" : ""} {(album as any)._count.songs} songs
+                      {album.releaseDate ? "·" : ""}{" "}
+                      {(album as any)._count.songs} songs
                     </p>
                   )}
                 </div>
@@ -467,7 +506,12 @@ export function HomeView({
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Featured Playlists
           </h2>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "playlists")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate("see-all", "playlists")}
+          >
             See All <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
@@ -500,11 +544,16 @@ export function HomeView({
                         </div>
                       ))}
                       {/* Fill empty slots with placeholder if less than 4 songs */}
-                      {Array.from({ length: 4 - songCovers.length }).map((_, index) => (
-                        <div key={`placeholder-${index}`} className="relative bg-muted flex items-center justify-center">
-                          <div className="w-8 h-8 rounded bg-muted-foreground/20" />
-                        </div>
-                      ))}
+                      {Array.from({ length: 4 - songCovers.length }).map(
+                        (_, index) => (
+                          <div
+                            key={`placeholder-${index}`}
+                            className="relative bg-muted flex items-center justify-center"
+                          >
+                            <div className="w-8 h-8 rounded bg-muted-foreground/20" />
+                          </div>
+                        ),
+                      )}
                     </div>
                   ) : (
                     // Fallback to single cover or placeholder
@@ -539,47 +588,54 @@ export function HomeView({
             <h2 className="text-xl md:text-2xl font-bold text-foreground">
               Recently Played
             </h2>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate("see-all", "recently-played")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate("see-all", "recently-played")}
+            >
               See All <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {recentlyPlayed.map((song) => (
               <SongContextMenu key={song.id} song={song}>
-              <div className="group text-left relative w-full min-w-0">
-                <button
-                  onClick={() => onPlaySong(song)}
-                  className="w-full min-w-0"
-                >
-                  <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
-                    <Image
-                      src={getSongCoverUrl(song)}
-                      alt={song.title}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      unoptimized
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      {currentSong?.id === song.id && isPlaying ? (
-                        <Pause className="w-10 h-10 text-white" />
-                      ) : (
-                        <Play className="w-10 h-10 text-white" />
+                <div className="group text-left relative w-full min-w-0">
+                  <button
+                    onClick={() => onPlaySong(song)}
+                    className="w-full min-w-0"
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
+                      <Image
+                        src={getSongCoverUrl(song)}
+                        alt={song.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        {currentSong?.id === song.id && isPlaying ? (
+                          <Pause className="w-10 h-10 text-white" />
+                        ) : (
+                          <Play className="w-10 h-10 text-white" />
+                        )}
+                      </div>
+                      {song.isPremium && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                          Premium
+                        </div>
                       )}
                     </div>
-                    {song.isPremium && (
-                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                        Premium
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-medium text-sm truncate">{song.title}</h3>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {song.artist}
-                    </p>
-                  </div>
-                </button>
-              </div>
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm truncate">
+                        {song.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {song.artist}
+                      </p>
+                    </div>
+                  </button>
+                </div>
               </SongContextMenu>
             ))}
           </div>
