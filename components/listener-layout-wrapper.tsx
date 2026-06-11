@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
-import { PlayerProvider, usePlayer } from "@/components/player-context";
-import { LoginPromptProvider } from "@/components/login-prompt-provider";
-import { Sidebar } from "@/components/sidebar";
-import { MobileNav } from "@/components/mobile-nav";
-import { PlayerBar } from "@/components/player-bar";
-import { MobileNowPlaying } from "@/components/mobile-now-playing";
-import { MobilePlayer } from "@/components/mobile-player";
-import { LyricsPanel } from "@/components/lyrics-panel";
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
+import { LoginPromptProvider } from "@/components/login-prompt-provider";
+import { LyricsPanel } from "@/components/lyrics-panel";
+import { MobileNav } from "@/components/mobile-nav";
+import { MobileNowPlaying } from "@/components/mobile-now-playing";
+import { PlayerBar } from "@/components/player-bar";
+import { PlayerProvider, usePlayer } from "@/components/player-context";
+import { Sidebar } from "@/components/sidebar";
 import { UpNextDrawer } from "@/components/up-next-drawer";
 import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
+import { Suspense, useEffect, useRef } from "react";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -31,7 +30,6 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     isPremium,
   } = usePlayer();
   const { isHome, setPlayerInUrl } = useHomePlayerUrl();
-  const [showMobilePlayer, setShowMobilePlayer] = useState(false);
   const hasPushedHistoryState = useRef(false);
 
   useEffect(() => {
@@ -123,18 +121,6 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
             onPrev={prevSong}
             onTimeChange={setCurrentTime}
           />
-          {showMobilePlayer && (
-            <MobilePlayer
-              currentSong={currentSong}
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              onTogglePlay={togglePlay}
-              onNext={nextSong}
-              onPrev={prevSong}
-              onTimeChange={setCurrentTime}
-              onClose={() => setShowMobilePlayer(false)}
-            />
-          )}
         </>
       )}
       {currentSong && showLyrics && (

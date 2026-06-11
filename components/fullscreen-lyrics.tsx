@@ -100,6 +100,8 @@ export function FullscreenLyrics({
   });
 
   const [size, setSize] = useState<LyricSize>("md");
+  const [seekValue, setSeekValue] = useState<number | null>(null);
+  const displayTime = seekValue ?? currentTime;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -259,11 +261,15 @@ export function FullscreenLyrics({
               {formatTime(currentTime)}
             </span>
             <Slider
-              value={[currentTime]}
+              value={[displayTime]}
               max={song.duration}
               step={1}
-              onValueChange={(v) => onTimeChange(v[0])}
-              className="flex-1 **:[[role=slider]]:bg-white **:[[role=slider]]:border-0 [&_.bg-primary]:bg-primary"
+              onValueChange={(v) => setSeekValue(v[0])} // local only while dragging
+              onValueCommit={(v) => {
+                // fires on pointer up
+                onTimeChange(v[0]);
+                setSeekValue(null);
+              }}
             />
             <span className="text-xs text-white/60 w-10 font-mono leading-loose">
               {formatTime(song.duration)}

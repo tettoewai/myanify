@@ -110,13 +110,22 @@ const LAST_PLAYBACK_POSITION_KEY = "myanify_last_playback_position";
 const MAX_RECENTLY_PLAYED = 50;
 const POSITION_SAVE_INTERVAL = 5000;
 const PRELOAD_SECONDS_BEFORE_END = 20;
+const CROSSFADE_DURATION_MS = 2000;
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { data: session, status: sessionStatus } = useSession();
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+
   const [currentSongLyrics, setCurrentSongLyrics] = useState<
     LyricLine[] | undefined
-  >(undefined);
+  >(() => {
+    // lyricsCacheRef isn't populated yet on first mount, so this is
+    // mainly useful after the ref is already tracking. The effect
+    // still handles async fetching — this just eliminates the flicker
+    // on re-renders where the cache already has the answer.
+    return undefined;
+  });
+
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
   const lyricsCacheRef = useRef<Map<string, LyricLine[]>>(new Map());
   const [isPlaying, setIsPlaying] = useState(false);
@@ -131,7 +140,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [showNowPlaying, setShowNowPlaying] = useState(false);
   const [lyricsRequested, setLyricsRequested] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const [volume, setVolume] = useState(80);
+  const [volume, setVolume] = useState(() => {
+    if (typeof window === "undefined") return 80;
+    return Number(localStorage.getItem("myanify_volume") ?? 80);
+  });
   const [isMuted, setIsMuted] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
@@ -155,10 +167,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const preloadedQidRef = useRef<string | null>(null);
   const userDisabledRadioRef = useRef(false);
   const loadedSongIdRef = useRef<string | null>(null);
+  const crossfadeRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     upNextRef.current = upNext;
   }, [upNext]);
+
+  useEffect(() => {
+    localStorage.setItem("myanify_volume", String(volume));
+  }, [volume]);
 
   const { songs } = useSongs({ isPublished: true });
   const songsById = useMemo(
@@ -216,13 +233,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     ) {
       return;
     }
-    if (currentSongLyrics !== undefined) return;
-
     const cached = lyricsCacheRef.current.get(currentSong.id);
     if (cached !== undefined) {
       setCurrentSongLyrics(cached);
+      setIsLoadingLyrics(false);
       return;
     }
+    if (currentSongLyrics !== undefined) return;
 
     let cancelled = false;
     setIsLoadingLyrics(true);
@@ -296,11 +313,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const appendRadioSongs = useCallback(
-    (
-      newSongs: Song[],
-      source: QueueItemSource,
-      append: boolean,
-    ) => {
+    (newSongs: Song[], source: QueueItemSource, append: boolean) => {
       if (newSongs.length === 0) return;
       setUpNext((prev) => {
         const radioItems = createQueueItems(newSongs, source);
@@ -484,11 +497,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setQueue(songs);
     }
 
-    if (
-      !currentSong &&
-      session?.user?.id &&
-      typeof window !== "undefined"
-    ) {
+    if (!currentSong && session?.user?.id && typeof window !== "undefined") {
       try {
         const lastPlayedData = localStorage.getItem(LAST_PLAYED_SONG_KEY);
         const lastPositionData = localStorage.getItem(
@@ -649,8 +658,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       preloadedQidRef.current = null;
       audioRef.current.src = preloadedSrc;
     } else {
-      audioRef.current.src =
-        currentSong.playbackUrl || currentSong.audioUrl;
+      audioRef.current.src = currentSong.playbackUrl || currentSong.audioUrl;
     }
     audioRef.current.load();
 
@@ -661,8 +669,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const handleLoadedMetadata = () => {
       if (audioRef.current && restorePositionRef.current !== null) {
         const position = restorePositionRef.current;
-        const duration =
-          audioRef.current.duration || currentSong.duration;
+        const duration = audioRef.current.duration || currentSong.duration;
         if (position >= 0 && position < duration) {
           audioRef.current.currentTime = position;
           setCurrentTime(position);
@@ -676,8 +683,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const handleCanPlay = () => {
       if (audioRef.current && restorePositionRef.current !== null) {
         const position = restorePositionRef.current;
-        const duration =
-          audioRef.current.duration || currentSong.duration;
+        const duration = audioRef.current.duration || currentSong.duration;
         if (position >= 0 && position < duration) {
           audioRef.current.currentTime = position;
           setCurrentTime(position);
@@ -715,14 +721,58 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!currentSong || !preloadRef.current || upNext.length === 0) return;
     const remaining = currentSong.duration - currentTime;
     if (remaining > PRELOAD_SECONDS_BEFORE_END) return;
+
     const next = upNext[0];
-    if (!next || preloadedQidRef.current === next.qid) return;
-    const url = next.song.playbackUrl || next.song.audioUrl;
-    if (!url) return;
-    preloadRef.current.src = url;
-    preloadRef.current.load();
-    preloadedQidRef.current = next.qid;
-  }, [currentTime, currentSong?.id, currentSong?.duration, upNext]);
+    if (!next) return;
+
+    // Preload as before
+    if (preloadedQidRef.current !== next.qid) {
+      const url = next.song.playbackUrl || next.song.audioUrl;
+      if (!url) return;
+      preloadRef.current.src = url;
+      preloadRef.current.load();
+      preloadedQidRef.current = next.qid;
+    }
+
+    // Start crossfade in the last CROSSFADE_DURATION_MS ms
+    if (remaining * 1000 > CROSSFADE_DURATION_MS) return;
+    if (crossfadeRafRef.current) return; // already running
+
+    const startTime = performance.now();
+    const initialVolume = isMuted ? 0 : volume / 100;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / CROSSFADE_DURATION_MS, 1);
+      if (audioRef.current) {
+        audioRef.current.volume = initialVolume * (1 - progress);
+      }
+      if (progress < 1) {
+        crossfadeRafRef.current = requestAnimationFrame(tick);
+      } else {
+        crossfadeRafRef.current = null;
+        // Let the natural 'ended' event call nextSong()
+      }
+    };
+    crossfadeRafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (crossfadeRafRef.current) {
+        cancelAnimationFrame(crossfadeRafRef.current);
+        crossfadeRafRef.current = null;
+      }
+      // Restore volume when song changes
+      if (audioRef.current) {
+        audioRef.current.volume = isMuted ? 0 : volume / 100;
+      }
+    };
+  }, [
+    currentTime,
+    currentSong?.id,
+    currentSong?.duration,
+    upNext,
+    volume,
+    isMuted,
+  ]);
 
   const seekingRef = useRef(false);
   useEffect(() => {
@@ -747,10 +797,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       positionSaveIntervalRef.current = setInterval(() => {
         if (audioRef.current && currentSong) {
-          savePlaybackPosition(
-            currentSong.id,
-            audioRef.current.currentTime,
-          );
+          savePlaybackPosition(currentSong.id, audioRef.current.currentTime);
         }
       }, POSITION_SAVE_INTERVAL);
       return () => {
@@ -774,23 +821,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [volume, isMuted]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.key === "q" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
-      ) {
-        setShowQueue((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const saveToRecentlyPlayed = async (song: Song) => {
     if (!session?.user?.id || !song?.id) return;
     const songExists = songs.some((s) => s.id === song.id);
@@ -803,7 +833,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) mutatePlayHistory();
     } catch (error) {
-      if (error instanceof TypeError && (error as Error).message.includes("fetch")) {
+      if (
+        error instanceof TypeError &&
+        (error as Error).message.includes("fetch")
+      ) {
         console.error("Network error saving play history:", error);
       }
     }
@@ -885,8 +918,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           : upNextRef.current.length > 0;
 
       const shouldRadio =
-        options?.enableRadio ??
-        (!hasUpNext && options?.source !== "playlist");
+        options?.enableRadio ?? (!hasUpNext && options?.source !== "playlist");
 
       if (shouldRadio) {
         enableSmartRadio(song, true);
@@ -1080,14 +1112,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       persistUserUpNext(rest);
       syncLegacyQueue(rest);
       playSongInternal(nextItem.song, { skipAuth: true });
+      if (
+        radioMode &&
+        (nextItem.source === "radio" || nextItem.source === "autoplay")
+      ) {
+        setRadioSeedSongId(nextItem.song.id);
+        markSongSeen(nextItem.song.id);
+      }
       maybeRefillRadio(rest);
       return;
     }
 
     if (repeatMode === "all" && history.length > 0) {
-      const replay = [...history].reverse().map((h) =>
-        createQueueItem(h.song, h.source),
-      );
+      const replay = [...history]
+        .reverse()
+        .map((h) => createQueueItem(h.song, h.source));
       setHistory([]);
       applyUpNext(replay);
       playSongInternal(replay[0].song, { skipAuth: true });
@@ -1176,10 +1215,74 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [syncLegacyQueue],
   );
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (!requireAuthForUserAction()) return;
-    setIsPlaying(!isPlaying);
-  };
+    setIsPlaying((prev) => !prev);
+  }, [requireAuthForUserAction, setIsPlaying]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+
+      const target = e.target;
+      const inInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (inInput || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Handle spacebar reliably
+      if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        if (currentSongRef.current) togglePlay();
+        return;
+      }
+
+      // Use e.code (physical key) so shortcuts work with any keyboard layout / IME
+      switch (e.code) {
+        case "ArrowRight":
+          if (audioRef.current && currentSongRef.current) {
+            e.preventDefault();
+            setCurrentTime(
+              Math.min(
+                currentSongRef.current.duration,
+                audioRef.current.currentTime + 5,
+              ),
+            );
+          }
+          break;
+        case "ArrowLeft":
+          if (audioRef.current) {
+            e.preventDefault();
+            setCurrentTime(Math.max(0, audioRef.current.currentTime - 5));
+          }
+          break;
+        case "KeyM":
+          if (e.repeat) return;
+          e.preventDefault();
+          setIsMuted((v) => !v);
+          break;
+        case "KeyQ":
+          if (e.repeat) return;
+          e.preventDefault();
+          setShowQueue((v) => !v);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [
+    togglePlay,
+    currentSongRef,
+    audioRef,
+    setCurrentTime,
+    setIsMuted,
+    setShowQueue,
+  ]);
 
   const getRecentlyPlayed = (): Song[] => {
     return session?.user?.id ? recentlyPlayedSongs : [];
