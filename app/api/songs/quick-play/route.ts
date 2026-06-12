@@ -26,7 +26,11 @@ export async function GET(request: Request) {
       CACHE_TTL.LIST,
     );
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${CACHE_TTL.LIST}, stale-while-revalidate=${CACHE_TTL.LIST * 2}`,
+      },
+    });
   } catch (error) {
     console.error("Error fetching quick play songs:", error);
     return NextResponse.json(

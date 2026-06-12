@@ -1,27 +1,23 @@
-"use client";
+import { notFound } from "next/navigation";
+import { SWRProvider } from "@/components/swr-provider";
+import { getPlaylistPageData } from "@/lib/page-data";
+import { PlaylistPageClient } from "./playlist-page-client";
 
-import { use } from "react";
-import { PlaylistView } from "@/components/views/playlist-view";
-import { usePlayer } from "@/components/player-context";
-import { AdBanner } from "@/components/ad-banner";
-
-export default function PlaylistPage({
+export default async function PlaylistPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = use(params);
-  const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
+  const { slug } = await params;
+  const playlist = await getPlaylistPageData(slug);
+
+  if (!playlist) {
+    notFound();
+  }
 
   return (
-    <div className="min-h-full pb-32">
-      <PlaylistView
-        playlistSlug={slug}
-        onPlaySong={playSong}
-        currentSong={currentSong}
-        isPlaying={isPlaying}
-      />
-      {!isPremium && <AdBanner />}
-    </div>
+    <SWRProvider fallback={{ [`/api/playlists/${slug}`]: playlist }}>
+      <PlaylistPageClient slug={slug} />
+    </SWRProvider>
   );
 }

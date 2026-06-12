@@ -1,27 +1,23 @@
-"use client";
+import { notFound } from "next/navigation";
+import { SWRProvider } from "@/components/swr-provider";
+import { getAlbumPageData } from "@/lib/page-data";
+import { AlbumPageClient } from "./album-page-client";
 
-import { use } from "react";
-import { AlbumView } from "@/components/views/album-view";
-import { usePlayer } from "@/components/player-context";
-import { AdBanner } from "@/components/ad-banner";
-
-export default function AlbumPage({
+export default async function AlbumPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = use(params);
-  const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
+  const { slug } = await params;
+  const album = await getAlbumPageData(slug);
+
+  if (!album) {
+    notFound();
+  }
 
   return (
-    <div className="min-h-full pb-32">
-      <AlbumView
-        albumSlug={slug}
-        onPlaySong={playSong}
-        currentSong={currentSong}
-        isPlaying={isPlaying}
-      />
-      {!isPremium && <AdBanner />}
-    </div>
+    <SWRProvider fallback={{ [`/api/albums/${slug}`]: album }}>
+      <AlbumPageClient slug={slug} />
+    </SWRProvider>
   );
 }

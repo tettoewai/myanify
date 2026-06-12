@@ -9,7 +9,6 @@ import { findSongBySlugOrId } from "@/lib/entity-resolver";
 import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
 import {
-  SEO_REVALIDATE_SECONDS,
   buildEntityMetadata,
   isSchemaMarkup,
   notFoundMetadata,
@@ -17,7 +16,7 @@ import {
 import { resolveSongCoverUrl } from "@/lib/utils";
 import { getPublishedSongSlugs, safeStaticParams } from "@/lib/seo-static";
 
-export const revalidate = SEO_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 function formatDuration(seconds: number): string {
@@ -73,7 +72,13 @@ export async function generateMetadata({
     return buildEntityMetadata(song.seo, {
       title,
       description,
-      keywords: [song.title, artistNames, "Myanmar music", "streaming", "Myanify"],
+      keywords: [
+        song.title,
+        artistNames,
+        "Myanmar music",
+        "streaming",
+        "Myanify",
+      ],
       imageUrl,
       entityType: "song",
       slug: song.slug,

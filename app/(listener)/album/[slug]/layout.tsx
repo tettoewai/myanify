@@ -9,14 +9,13 @@ import { findAlbumBySlugOrId } from "@/lib/entity-resolver";
 import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
 import {
-  SEO_REVALIDATE_SECONDS,
   buildEntityMetadata,
   isSchemaMarkup,
   notFoundMetadata,
 } from "@/lib/seo";
 import { getAlbumSlugs, safeStaticParams } from "@/lib/seo-static";
 
-export const revalidate = SEO_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {

@@ -1,27 +1,23 @@
-"use client";
+import { notFound } from "next/navigation";
+import { SWRProvider } from "@/components/swr-provider";
+import { getArtistPageData } from "@/lib/page-data";
+import { ArtistPageClient } from "./artist-page-client";
 
-import { use } from "react";
-import { ArtistView } from "@/components/views/artist-view";
-import { usePlayer } from "@/components/player-context";
-import { AdBanner } from "@/components/ad-banner";
-
-export default function ArtistPage({
+export default async function ArtistPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = use(params);
-  const { playSong, currentSong, isPlaying, isPremium } = usePlayer();
+  const { slug } = await params;
+  const artist = await getArtistPageData(slug);
+
+  if (!artist) {
+    notFound();
+  }
 
   return (
-    <div className="min-h-full pb-32">
-      <ArtistView
-        artistSlug={slug}
-        onPlaySong={playSong}
-        currentSong={currentSong}
-        isPlaying={isPlaying}
-      />
-      {!isPremium && <AdBanner />}
-    </div>
+    <SWRProvider fallback={{ [`/api/artists/${slug}`]: artist }}>
+      <ArtistPageClient slug={slug} />
+    </SWRProvider>
   );
 }

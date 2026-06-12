@@ -1,29 +1,25 @@
-"use client";
+import { notFound } from "next/navigation";
+import { SWRProvider } from "@/components/swr-provider";
+import { getSongPageData } from "@/lib/page-data";
+import { SongPageClient } from "./song-page-client";
 
-import { use } from "react";
-import { SongView } from "@/components/views/song-view";
-import { usePlayer } from "@/components/player-context";
-import { AdBanner } from "@/components/ad-banner";
-import { useSongPlayerFromUrl } from "@/hooks/use-song-player-from-url";
-
-export default function SongPage({
+export default async function SongPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = use(params);
-  const { currentSong, isPlaying, isPremium } = usePlayer();
+  const { slug } = await params;
+  const song = await getSongPageData(slug);
 
-  useSongPlayerFromUrl(slug);
+  if (!song) {
+    notFound();
+  }
 
+  // The song SWR hook fetches with ?include=lyrics, so we key the fallback
+  // on that exact URL to hydrate the SWR cache correctly.
   return (
-    <div className="min-h-full pb-32">
-      <SongView
-        songSlug={slug}
-        currentSongId={currentSong?.id ?? null}
-        isPlaying={isPlaying}
-      />
-      {!isPremium && <AdBanner />}
-    </div>
+    <SWRProvider fallback={{ [`/api/songs/${slug}?include=lyrics`]: song }}>
+      <SongPageClient slug={slug} />
+    </SWRProvider>
   );
 }

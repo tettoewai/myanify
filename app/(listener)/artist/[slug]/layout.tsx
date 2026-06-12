@@ -9,14 +9,13 @@ import { findArtistBySlugOrId } from "@/lib/entity-resolver";
 import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
 import {
-  SEO_REVALIDATE_SECONDS,
   buildEntityMetadata,
   isSchemaMarkup,
   notFoundMetadata,
 } from "@/lib/seo";
 import { getArtistSlugs, safeStaticParams } from "@/lib/seo-static";
 
-export const revalidate = SEO_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
@@ -52,7 +51,13 @@ export async function generateMetadata({
     return buildEntityMetadata(artist.seo, {
       title,
       description,
-      keywords: [artist.name, "Myanmar music", "Myanmar artist", "streaming", "Myanify"],
+      keywords: [
+        artist.name,
+        "Myanmar music",
+        "Myanmar artist",
+        "streaming",
+        "Myanify",
+      ],
       imageUrl: artist.imageUrl,
       entityType: "artist",
       slug: artist.slug,

@@ -85,7 +85,11 @@ export async function GET(
       CACHE_TTL.DETAIL,
     );
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${CACHE_TTL.DETAIL}, stale-while-revalidate=${CACHE_TTL.DETAIL * 2}`,
+      },
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "ARTIST_NOT_FOUND") {
       return NextResponse.json({ error: "Artist not found" }, { status: 404 });

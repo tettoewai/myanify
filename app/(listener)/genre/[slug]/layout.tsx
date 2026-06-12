@@ -5,14 +5,13 @@ import { StructuredData } from "@/components/structured-data";
 import { findGenreBySlugOrId } from "@/lib/entity-resolver";
 import { entityPath } from "@/lib/routes";
 import {
-  SEO_REVALIDATE_SECONDS,
   buildEntityMetadata,
   isSchemaMarkup,
   notFoundMetadata,
 } from "@/lib/seo";
 import { getGenreSlugs, safeStaticParams } from "@/lib/seo-static";
 
-export const revalidate = SEO_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
@@ -87,9 +86,7 @@ export default async function GenreLayout({
 
   let structuredData = null;
   if (isSchemaMarkup(result.entity.seo?.schemaMarkup)) {
-    structuredData = (
-      <StructuredData data={result.entity.seo.schemaMarkup} />
-    );
+    structuredData = <StructuredData data={result.entity.seo.schemaMarkup} />;
   }
 
   return (

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/db";
 import type { Prisma } from "@prisma/client";
 
@@ -42,7 +43,9 @@ type PlaylistWithSeo = Prisma.PlaylistGetPayload<{
   include: typeof seoInclude;
 }>;
 
-export function findArtistBySlugOrId(
+// Wrapped with React cache() so generateMetadata and the layout function share
+// the same DB result within a single server render, avoiding double queries.
+export const findArtistBySlugOrId = cache(function findArtistBySlugOrId(
   param: string,
 ): Promise<ResolveResult<ArtistWithSeo>> {
   return resolveBySlugOrId(
@@ -50,9 +53,9 @@ export function findArtistBySlugOrId(
     (slug) => prisma.artist.findUnique({ where: { slug }, include: seoInclude }),
     (id) => prisma.artist.findUnique({ where: { id }, include: seoInclude }),
   );
-}
+});
 
-export function findAlbumBySlugOrId(
+export const findAlbumBySlugOrId = cache(function findAlbumBySlugOrId(
   param: string,
 ): Promise<ResolveResult<AlbumWithSeo>> {
   return resolveBySlugOrId(
@@ -60,9 +63,9 @@ export function findAlbumBySlugOrId(
     (slug) => prisma.album.findUnique({ where: { slug }, include: seoInclude }),
     (id) => prisma.album.findUnique({ where: { id }, include: seoInclude }),
   );
-}
+});
 
-export function findGenreBySlugOrId(
+export const findGenreBySlugOrId = cache(function findGenreBySlugOrId(
   param: string,
 ): Promise<ResolveResult<GenreWithSeo>> {
   return resolveBySlugOrId(
@@ -70,9 +73,9 @@ export function findGenreBySlugOrId(
     (slug) => prisma.genre.findUnique({ where: { slug }, include: seoInclude }),
     (id) => prisma.genre.findUnique({ where: { id }, include: seoInclude }),
   );
-}
+});
 
-export function findSongBySlugOrId(
+export const findSongBySlugOrId = cache(function findSongBySlugOrId(
   param: string,
   options?: { publishedOnly?: boolean },
 ): Promise<ResolveResult<SongWithSeo>> {
@@ -91,9 +94,9 @@ export function findSongBySlugOrId(
         include: seoInclude,
       }),
   );
-}
+});
 
-export function findPlaylistBySlugOrId(
+export const findPlaylistBySlugOrId = cache(function findPlaylistBySlugOrId(
   param: string,
 ): Promise<ResolveResult<PlaylistWithSeo>> {
   return resolveBySlugOrId(
@@ -102,4 +105,4 @@ export function findPlaylistBySlugOrId(
       prisma.playlist.findUnique({ where: { slug }, include: seoInclude }),
     (id) => prisma.playlist.findUnique({ where: { id }, include: seoInclude }),
   );
-}
+});
