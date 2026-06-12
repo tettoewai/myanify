@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { usePlayer } from "@/components/player-context";
-import { useSong } from "@/lib/swr";
 import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
 
 function isMobileViewport() {
@@ -14,11 +13,8 @@ function isMobileViewport() {
 
 export function useHomePlayerFromUrl() {
   const { isHome, params } = useHomePlayerUrl();
-  const { songSlug, playerOpen } = params;
-  const { song: urlSong } = useSong(isHome && songSlug ? songSlug : null);
+  const { playerOpen } = params;
   const {
-    playSong,
-    currentSong,
     showNowPlaying,
     showFullscreenLyrics,
     setShowNowPlaying,
@@ -26,7 +22,6 @@ export function useHomePlayerFromUrl() {
     requestCurrentSongLyrics,
   } = usePlayer();
 
-  const appliedSongRef = useRef<string | null>(null);
   const appliedPlayerRef = useRef<boolean | null>(null);
   const showNowPlayingRef = useRef(showNowPlaying);
   const showFullscreenLyricsRef = useRef(showFullscreenLyrics);
@@ -35,7 +30,6 @@ export function useHomePlayerFromUrl() {
 
   useEffect(() => {
     if (!isHome) {
-      appliedSongRef.current = null;
       appliedPlayerRef.current = null;
       return;
     }
@@ -62,21 +56,4 @@ export function useHomePlayerFromUrl() {
     setShowFullscreenLyrics,
     setShowNowPlaying,
   ]);
-
-  useEffect(() => {
-    if (!isHome || !songSlug || !urlSong) return;
-    if (appliedSongRef.current === songSlug) return;
-    if (currentSong?.slug === songSlug) {
-      appliedSongRef.current = songSlug;
-      return;
-    }
-
-    playSong(urlSong);
-    appliedSongRef.current = songSlug;
-  }, [isHome, songSlug, urlSong, currentSong?.slug, playSong]);
-
-  useEffect(() => {
-    if (!isHome || songSlug) return;
-    appliedSongRef.current = null;
-  }, [isHome, songSlug]);
 }

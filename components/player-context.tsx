@@ -194,7 +194,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       limit: MAX_RECENTLY_PLAYED,
       enabled: !!session?.user?.id,
     });
-
   const { data: profile } = useSWR(
     session?.user ? "/api/user/profile" : null,
     swrFetcher,
@@ -603,7 +602,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!currentSong || !preloadRef.current || upNext.length === 0) return;
-    const remaining = currentSong.duration - currentTime;
+
+    const trackDuration =
+      audioRef.current?.duration &&
+      Number.isFinite(audioRef.current.duration) &&
+      audioRef.current.duration > 0
+        ? audioRef.current.duration
+        : currentSong.duration;
+    const remaining = trackDuration - currentTime;
     if (remaining > PRELOAD_SECONDS_BEFORE_END) return;
 
     const next = upNext[0];
@@ -707,8 +713,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const saveToRecentlyPlayed = async (song: Song) => {
     if (!session?.user?.id || !song?.id) return;
-    const songExists = songs.some((s) => s.id === song.id);
-    if (!songExists) return;
     try {
       const response = await fetch("/api/play-history", {
         method: "POST",
@@ -756,6 +760,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  //playSongInternal is the main function that plays a song/album/playlist
   const playSongInternal = useCallback(
     (song: Song, options?: PlaySongOptions) => {
       if (!options?.skipAuth && !requireAuthForUserAction()) return;
@@ -766,6 +771,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       if (currentSong?.id !== song.id) {
+        if (crossfadeRafRef.current) {
+          cancelAnimationFrame(crossfadeRafRef.current);
+          crossfadeRafRef.current = null;
+        }
+        if (audioRef.current) {
+          audioRef.current.volume = isMuted ? 0 : volume / 100;
+        }
         loadedSongIdRef.current = null;
         restorePositionRef.current = null;
         setCurrentTime(0);
@@ -803,6 +815,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [
       currentSong?.id,
       isPremium,
+      isMuted,
+      volume,
       markSongSeen,
       upNext.length,
       applyUpNext,

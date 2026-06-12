@@ -18,8 +18,14 @@ export function useNavigation() {
       router.push("/premium");
     } else if (view === "see-all" && slug && isSeeAllSection(slug)) {
       router.push(seeAllPath(slug));
-    } else if (slug && ["genre", "artist", "playlist", "album", "song"].includes(view)) {
+    } else if (
+      slug &&
+      ["genre", "artist", "playlist", "album", "song"].includes(view)
+    ) {
       router.push(entityPath(view as RoutableEntity, slug));
+    } else {
+      // Optional: Handle invalid navigation cases
+      console.warn(`Invalid navigation: view="${view}", slug="${slug}"`);
     }
   };
 

@@ -1,31 +1,32 @@
 "use client";
 
-import Image from "next/image";
-import { Play, Pause, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
+import { AlbumTypeBadge } from "@/components/album-type-badge";
+import { HomePageSkeleton } from "@/components/loading-skeletons";
+import { usePlayer } from "@/components/player-context";
+import { SongContextMenu } from "@/components/song-context-menu";
 import { Button } from "@/components/ui/button";
-import type { Song } from "@/lib/types";
 import { useNavigation } from "@/lib/navigation";
 import {
-  useQuickPlaySongs,
-  useArtists,
-  usePlaylists,
-  useGenres,
   useAlbums,
+  useArtists,
+  useGenres,
   usePlayHistory,
+  usePlaylists,
+  useQuickPlaySongs,
 } from "@/lib/swr";
-import { AlbumTypeBadge } from "@/components/album-type-badge";
-import type { Album } from "@/lib/types";
+import type { Album, Song } from "@/lib/types";
 import { cn, getSongCoverUrl, isPlaceholderCoverUrl } from "@/lib/utils";
-import { useRef, useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { usePlayer } from "@/components/player-context";
 import {
-  AddToPlaylistDialog,
-  AddToPlaylistDropdown,
-} from "@/components/add-to-playlist-dialog";
-import { HomePageSkeleton } from "@/components/loading-skeletons";
-import { SongContextMenu } from "@/components/song-context-menu";
-import { ListMusic } from "lucide-react";
+  ChevronLeft,
+  ChevronRight,
+  ListMusic,
+  Pause,
+  Play,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 interface HomeViewProps {
   onPlaySong: (song: Song) => void;
@@ -40,7 +41,7 @@ export function HomeView({
 }: HomeViewProps) {
   const { navigate } = useNavigation();
   const { data: session } = useSession();
-  const { isSongQueued } = usePlayer();
+  const { isSongQueued, playFromContext } = usePlayer();
 
   // Refs for scrollable containers
   const genresScrollRef = useRef<HTMLDivElement>(null);
@@ -600,10 +601,18 @@ export function HomeView({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {recentlyPlayed.map((song) => (
               <SongContextMenu key={song.id} song={song}>
-                <div className="group text-left relative w-full min-w-0">
+                <div
+                  className={cn(
+                    "group text-left relative w-full min-w-0",
+                    currentSong?.id === song.id &&
+                      "ring-1 ring-primary/30 rounded-xl",
+                  )}
+                >
                   <button
-                    onClick={() => onPlaySong(song)}
-                    className="w-full min-w-0"
+                    onClick={() =>
+                      playFromContext(song, recentlyPlayed, "playlist")
+                    }
+                    className="w-full min-w-0 cursor-pointer"
                   >
                     <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
                       <Image
@@ -627,7 +636,12 @@ export function HomeView({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-medium text-sm truncate">
+                      <h3
+                        className={cn(
+                          "font-medium text-sm truncate",
+                          currentSong?.id === song.id && "text-primary",
+                        )}
+                      >
                         {song.title}
                       </h3>
                       <p className="text-xs text-muted-foreground truncate">

@@ -1,38 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
-import { useRouter, useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  Upload,
-  Image as ImageIcon,
-  Loader2,
-  Music,
-} from "lucide-react";
-import { toast } from "sonner";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import { AlbumTypeBadge } from "@/components/album-type-badge";
+import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
-import { useAlbum } from "@/lib/swr";
-import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
-import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
-import { SlugInput } from "@/components/admin/slug-input";
-import {
-  clientSlugify,
-  emptySeoFormValues,
-  seoFormFromApi,
-  seoFormToApi,
-  type SeoFormValues,
-} from "@/lib/seo-form";
-import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -40,9 +21,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlbumTypeBadge } from "@/components/album-type-badge";
-import { ALBUM_TYPES, ALBUM_TYPE_LABELS, isAlbumType, type AlbumType } from "@/lib/album-type";
-
+import {
+  ALBUM_TYPES,
+  ALBUM_TYPE_LABELS,
+  isAlbumType,
+  type AlbumType,
+} from "@/lib/album-type";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
+import { useAlbum } from "@/lib/swr";
+import { ArrowLeft, Image as ImageIcon, Loader2, Music } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface Album {
   id: string;
@@ -305,9 +303,7 @@ export default function EditAlbumPage() {
                 onGenerate={() =>
                   setFormData({
                     ...formData,
-                    slug: clientSlugify(
-                      formData.englishName || formData.name,
-                    ),
+                    slug: clientSlugify(formData.englishName || formData.name),
                   })
                 }
               />
@@ -403,9 +399,11 @@ export default function EditAlbumPage() {
                     <div className="flex-1">
                       <p className="font-medium">{song.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {(song as any).artists?.map((sa: any) => sa.artist?.name).join(", ") ||
-                         (song as any).artist?.name ||
-                         "Unknown Artist"}
+                        {(song as any).artists
+                          ?.map((sa: any) => sa.artist?.name)
+                          .join(", ") ||
+                          (song as any).artist?.name ||
+                          "Unknown Artist"}
                         {song.genre && ` • ${song.genre.name}`}
                       </p>
                     </div>

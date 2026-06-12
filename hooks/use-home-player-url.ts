@@ -25,18 +25,9 @@ export function useHomePlayerUrl() {
     [pathname, router],
   );
 
-  const setSongInUrl = useCallback(
-    (slug: string | null) => {
-      if (pathname !== "/home") return;
-      writeHomePlayerParams(router, searchParamsRef.current, { song: slug });
-    },
-    [pathname, router],
-  );
-
   return {
     isHome,
     params,
     setPlayerInUrl,
-    setSongInUrl,
   };
 }

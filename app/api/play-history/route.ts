@@ -60,7 +60,6 @@ export async function GET(request: Request) {
             ...song,
             artist: artistNames,
             playedAt: entry.playedAt,
-            duration: entry.duration,
           },
           request,
         ),

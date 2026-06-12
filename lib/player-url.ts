@@ -1,7 +1,6 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 export const HOME_PLAYER_QUERY_KEY = "player";
-export const HOME_SONG_QUERY_KEY = "song";
 
 export function isHomePlayerOpen(value: string | null): boolean {
   return value === "1" || value === "true" || value === "open";
@@ -9,7 +8,6 @@ export function isHomePlayerOpen(value: string | null): boolean {
 
 export function readHomePlayerParams(searchParams: URLSearchParams) {
   return {
-    songSlug: searchParams.get(HOME_SONG_QUERY_KEY),
     playerOpen: isHomePlayerOpen(searchParams.get(HOME_PLAYER_QUERY_KEY)),
   };
 }
@@ -17,17 +15,9 @@ export function readHomePlayerParams(searchParams: URLSearchParams) {
 export function writeHomePlayerParams(
   router: AppRouterInstance,
   searchParams: URLSearchParams,
-  patch: { song?: string | null; player?: boolean | null },
+  patch: { player?: boolean | null },
 ) {
   const params = new URLSearchParams(searchParams.toString());
-
-  if (patch.song !== undefined) {
-    if (patch.song) {
-      params.set(HOME_SONG_QUERY_KEY, patch.song);
-    } else {
-      params.delete(HOME_SONG_QUERY_KEY);
-    }
-  }
 
   if (patch.player !== undefined) {
     if (patch.player) {
