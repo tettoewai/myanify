@@ -1,100 +1,102 @@
-import type { AlbumType } from "./album-type"
+import type { AlbumType } from "./album-type";
 
 export interface Album {
-  id: string
-  slug: string
-  name: string
-  coverUrl: string | null
-  type: AlbumType
-  description: string | null
-  releaseDate: string | null
-  createdAt?: string
-  updatedAt?: string
-  songs?: Song[]
+  id: string;
+  slug: string;
+  name: string;
+  coverUrl: string | null;
+  type: AlbumType;
+  description: string | null;
+  releaseDate: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  songs?: Song[];
 }
 
-export type QueueItemSource = "user-queue" | "playlist" | "radio" | "autoplay"
+export type QueueItemSource = "user-queue" | "playlist" | "radio" | "autoplay";
 
 export interface QueueItem {
-  qid: string
-  song: Song
-  source: QueueItemSource
+  qid: string;
+  song: Song;
+  source: QueueItemSource;
 }
 
 export interface Song {
-  id: string
-  slug: string
-  title: string
-  artist: string // Comma-separated artist names for display
-  artists?: string[] // Array of artist names (optional, for when full list is needed)
-  artistIds?: string[]
-  artistSlugs?: string[]
-  albumId?: string | null
-  albumSlug?: string | null
-  album: string
-  albumType?: AlbumType | null
-  duration: number
-  coverUrl: string
-  albumCoverUrl?: string | null // Album cover URL for fallback
-  artistImageUrl?: string | null // First artist image for fallback
-  audioUrl: string
-  playbackUrl: string
-  genre: string
-  lyrics?: LyricLine[]
-  isPremium: boolean
-  isPublished?: boolean
+  id: string;
+  slug: string;
+  title: string;
+  artist: string; // Comma-separated artist names for display
+  artists?: string[]; // Array of artist names (optional, for when full list is needed)
+  artistIds?: string[];
+  artistSlugs?: string[];
+  albumId?: string | null;
+  albumSlug?: string | null;
+  album: string;
+  albumType?: AlbumType | null;
+  duration: number;
+  coverUrl: string;
+  albumCoverUrl?: string | null; // Album cover URL for fallback
+  artistImageUrl?: string | null; // First artist image for fallback
+  audioUrl: string;
+  playbackUrl: string;
+  genre: string;
+  lyrics?: LyricLine[];
+  isPremium: boolean;
+  isPublished?: boolean;
+  playCount?: number;
+  createdAt?: string;
 }
 
 export interface LyricLine {
-  time: number
-  text: string
+  time: number;
+  text: string;
 }
 
 export interface Artist {
-  id: string
-  slug: string
-  name: string
-  imageUrl: string
-  bio: string
-  monthlyListeners: number
-  genres: string[]
+  id: string;
+  slug: string;
+  name: string;
+  imageUrl: string;
+  bio: string;
+  monthlyListeners: number;
+  genres: string[];
 }
 
 export interface Playlist {
-  id: string
-  slug: string
-  name: string
-  description: string
-  coverUrl: string
-  songs: Song[]
-  createdBy: string
-  isPublic: boolean
-  createdAt: Date
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  coverUrl: string;
+  songs: Song[];
+  createdBy: string;
+  isPublic: boolean;
+  createdAt: Date;
 }
 
 export interface Genre {
-  id: string
-  slug: string
-  name: string
-  imageUrl: string
-  description: string
+  id: string;
+  slug: string;
+  name: string;
+  imageUrl: string;
+  description: string;
 }
 
 export interface User {
-  id: string
-  name: string
-  email: string
-  avatarUrl: string
-  isPremium: boolean
-  playlists: Playlist[]
-  likedSongs: string[]
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string;
+  isPremium: boolean;
+  playlists: Playlist[];
+  likedSongs: string[];
 }
 
 export interface Ad {
-  id: string
-  title: string
-  description: string
-  imageUrl: string
-  linkUrl: string
-  sponsor: string
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  sponsor: string;
 }

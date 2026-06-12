@@ -1,6 +1,6 @@
 /**
  * Web Offline Storage Manager
- * 
+ *
  * Handles offline downloads for VIP users on web using IndexedDB.
  * Stores encrypted audio files for offline playback.
  */
@@ -62,6 +62,7 @@ async function openDB(): Promise<IDBDatabase> {
 // Offline storage manager
 export class WebOfflineStorage {
   private db: IDBDatabase | null = null;
+  private activeBlobUrl: string | null = null;
 
   async initialize(): Promise<void> {
     if (!this.db) {
@@ -96,12 +97,15 @@ export class WebOfflineStorage {
 
   async getDeviceId(): Promise<string> {
     let deviceId = localStorage.getItem("myanify_device_id");
-    
+
     if (!deviceId) {
-      deviceId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      deviceId = Array.from(bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
       localStorage.setItem("myanify_device_id", deviceId);
     }
-    
+
     return deviceId;
   }
 
@@ -158,7 +162,8 @@ export class WebOfflineStorage {
   async downloadAudio(
     songId: string,
     audioUrl: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    signal?: AbortSignal,
   ): Promise<ArrayBuffer> {
     // Create download record
     const download: OfflineDownload = {
@@ -173,14 +178,14 @@ export class WebOfflineStorage {
     await this.saveDownload(download);
 
     try {
-      const response = await fetch(audioUrl);
+      const response = await fetch(audioUrl, { signal });
       if (!response.ok) {
         throw new Error(`Failed to fetch audio: ${response.statusText}`);
       }
 
       const contentLength = parseInt(
         response.headers.get("content-length") || "0",
-        10
+        10,
       );
 
       const reader = response.body?.getReader();
@@ -190,6 +195,7 @@ export class WebOfflineStorage {
 
       const chunks: Uint8Array[] = [];
       let receivedLength = 0;
+      let lastSavedProgress = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -204,7 +210,10 @@ export class WebOfflineStorage {
           : 0;
 
         download.progress = progress;
-        await this.saveDownload(download);
+        if (progress - lastSavedProgress >= 5 || progress === 100) {
+          await this.saveDownload(download);
+          lastSavedProgress = progress;
+        }
 
         if (onProgress) {
           onProgress(progress);
@@ -250,9 +259,16 @@ export class WebOfflineStorage {
       return null;
     }
 
-    // Create blob URL from stored audio data
+    // Revoke previous blob URL before creating a new one
+    if (this.activeBlobUrl) {
+      URL.revokeObjectURL(this.activeBlobUrl);
+      this.activeBlobUrl = null;
+    }
+
     const blob = new Blob([download.audioData], { type: "audio/mpeg" });
-    return URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    this.activeBlobUrl = url;
+    return url;
   }
 
   // Clean up expired downloads
@@ -272,7 +288,7 @@ export class WebOfflineStorage {
     const downloads = await this.getAllDownloads();
     return downloads.reduce(
       (total, download) => total + (download.fileSize || 0),
-      0
+      0,
     );
   }
 }

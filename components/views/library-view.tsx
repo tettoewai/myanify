@@ -2,7 +2,16 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { ListMusic, Heart, Clock, Plus, Users, LogIn, History } from "lucide-react";
+import {
+  ListMusic,
+  Heart,
+  Clock,
+  Plus,
+  Users,
+  LogIn,
+  History,
+  Music,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +19,12 @@ import type { Song } from "@/lib/types";
 import { getSongCoverUrl } from "@/lib/utils";
 import { useNavigation } from "@/lib/navigation";
 import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
-import { usePlaylists, useLikedSongs, usePlayHistory, useLikedArtists } from "@/lib/swr";
+import {
+  usePlaylists,
+  useLikedSongs,
+  usePlayHistory,
+  useLikedArtists,
+} from "@/lib/swr";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { SongContextMenu } from "@/components/song-context-menu";
 import { usePlayer } from "@/components/player-context";
@@ -28,18 +42,23 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
   // Use SWR hooks for data fetching
   const { playlists } = usePlaylists({
     userId: session?.user?.id,
-    isPublic: true
+    isPublic: true,
   });
-  
+
   // Fetch liked songs from database
   const { songs: likedSongs } = useLikedSongs({ enabled: !!session?.user?.id });
-  
+
   // Fetch liked artists from database
-  const { artists: likedArtists } = useLikedArtists({ enabled: !!session?.user?.id });
-  
+  const { artists: likedArtists } = useLikedArtists({
+    enabled: !!session?.user?.id,
+  });
+
   // Fetch recent play history from database
-  const { songs: recentSongsRaw } = usePlayHistory({ limit: 50, enabled: !!session?.user?.id });
-  
+  const { songs: recentSongsRaw } = usePlayHistory({
+    limit: 50,
+    enabled: !!session?.user?.id,
+  });
+
   // Deduplicate recent songs (keep only the first occurrence - most recent play)
   const recentSongs = useMemo(() => {
     const seenIds = new Set<string>();
@@ -49,6 +68,59 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
       return true;
     });
   }, [recentSongsRaw]);
+
+  // Check if library is completely empty (user is signed in but has no content)
+  const hasAnyContent =
+    playlists.length > 0 ||
+    likedSongs.length > 0 ||
+    likedArtists.length > 0 ||
+    recentSongs.length > 0;
+  const isSignedIn = !!session?.user?.id;
+  const showEmptyLibraryState = isSignedIn && !hasAnyContent;
+
+  if (showEmptyLibraryState) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <div className="flex flex-col items-center justify-center gap-6 text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <ListMusic className="w-10 h-10 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              Build Your Library
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Your library is empty. Explore music, like songs, and create
+              playlists to get started!
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 w-full">
+            <Button
+              className="rounded-full bg-primary hover:bg-primary/90 w-full"
+              onClick={() => navigate("home")}
+            >
+              <Music className="w-4 h-4 mr-2" />
+              Explore Music
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full w-full"
+              onClick={() => {
+                setActiveTab("playlists");
+                // Scroll to tabs
+                document
+                  .querySelector('[role="tablist"]')
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Playlist
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -92,39 +164,63 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
         </TabsList>
 
         <TabsContent value="playlists" className="mt-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {/* Create Playlist Card */}
-            <CreatePlaylistDialog
-              trigger={
-                <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground cursor-pointer">
-                  <Plus className="w-12 h-12" />
-                  <span className="font-medium">Create Playlist</span>
-                </button>
-              }
-            />
-
-            {playlists.map((playlist) => (
-              <button
-                key={playlist.id}
-                onClick={() => navigate("playlist", playlist.slug)}
-                className="group text-left cursor-pointer"
-              >
-                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
-                  <Image
-                    src={playlist.coverUrl || "/placeholder.svg"}
-                    alt={playlist.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    unoptimized
-                  />
-                </div>
-                <h3 className="font-semibold truncate">{playlist.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {playlist.songs.length} songs
+          {playlists.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <ListMusic className="w-7 h-7 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground mb-1">
+                  No playlists yet
                 </p>
-              </button>
-            ))}
-          </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create your first playlist to organize your music.
+                </p>
+              </div>
+              <CreatePlaylistDialog
+                trigger={
+                  <Button className="rounded-full bg-primary hover:bg-primary/90">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Playlist
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {/* Create Playlist Card */}
+              <CreatePlaylistDialog
+                trigger={
+                  <button className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-card/50 transition-all flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground cursor-pointer">
+                    <Plus className="w-12 h-12" />
+                    <span className="font-medium">Create Playlist</span>
+                  </button>
+                }
+              />
+
+              {playlists.map((playlist) => (
+                <button
+                  key={playlist.id}
+                  onClick={() => navigate("playlist", playlist.slug)}
+                  className="group text-left cursor-pointer"
+                >
+                  <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-lg">
+                    <Image
+                      src={playlist.coverUrl || "/placeholder.svg"}
+                      alt={playlist.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  </div>
+                  <h3 className="font-semibold truncate">{playlist.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {playlist.songs.length} songs
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="liked" className="mt-6">
@@ -134,10 +230,19 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                 <LogIn className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-foreground mb-1">Sign in to see your liked songs</p>
-                <p className="text-sm text-muted-foreground">Your favorites will appear here once you're signed in.</p>
+                <p className="font-semibold text-foreground mb-1">
+                  Sign in to see your liked songs
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Your favorites will appear here once you're signed in.
+                </p>
               </div>
-              <Button className="rounded-full bg-primary hover:bg-primary/90" onClick={() => navigate("home")}>Sign in</Button>
+              <Button
+                className="rounded-full bg-primary hover:bg-primary/90"
+                onClick={() => navigate("home")}
+              >
+                Sign in
+              </Button>
             </div>
           ) : (
             <>
@@ -149,58 +254,61 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Playlist</p>
                   <h2 className="text-3xl font-bold mb-2">Liked Songs</h2>
-                  <p className="text-muted-foreground">{likedSongs.length} songs</p>
+                  <p className="text-muted-foreground">
+                    {likedSongs.length} songs
+                  </p>
                 </div>
               </div>
 
               {likedSongs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
                   <Heart className="w-10 h-10 text-muted-foreground/40" />
-                  <p className="text-muted-foreground">No liked songs yet — tap the heart on any song to save it here.</p>
+                  <p className="text-muted-foreground">
+                    No liked songs yet — tap the heart on any song to save it
+                    here.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {likedSongs.map((song, index) => (
                     <SongContextMenu key={song.id} song={song}>
-                    <div
-                      className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
-                    >
-                      <button
-                        onClick={() =>
-                          playFromContext(song, likedSongs, "playlist")
-                        }
-                        className="flex items-center gap-4 flex-1 min-w-0"
-                      >
-                        <span className="w-6 text-center text-sm text-muted-foreground">
-                          {index + 1}
-                        </span>
-                        <Image
-                          src={getSongCoverUrl(song)}
-                          alt={song.title}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-md object-cover"
-                          unoptimized
-                        />
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="font-medium truncate">{song.title}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {song.artist}
-                          </p>
+                      <div className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer">
+                        <button
+                          onClick={() =>
+                            playFromContext(song, likedSongs, "playlist")
+                          }
+                          className="flex items-center gap-4 flex-1 min-w-0"
+                        >
+                          <span className="w-6 text-center text-sm text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <Image
+                            src={getSongCoverUrl(song)}
+                            alt={song.title}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-md object-cover"
+                            unoptimized
+                          />
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-medium truncate">{song.title}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {song.artist}
+                            </p>
+                          </div>
+                          <Heart className="w-4 h-4 text-primary fill-primary" />
+                          <span className="text-sm text-muted-foreground">
+                            {Math.floor(song.duration / 60)}:
+                            {(song.duration % 60).toString().padStart(2, "0")}
+                          </span>
+                        </button>
+                        {isSongQueued(song.id) && (
+                          <ListMusic className="w-4 h-4 text-primary shrink-0" />
+                        )}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <AddToPlaylistDialog songId={song.id} />
                         </div>
-                        <Heart className="w-4 h-4 text-primary fill-primary" />
-                        <span className="text-sm text-muted-foreground">
-                          {Math.floor(song.duration / 60)}:
-                          {(song.duration % 60).toString().padStart(2, "0")}
-                        </span>
-                      </button>
-                      {isSongQueued(song.id) && (
-                        <ListMusic className="w-4 h-4 text-primary shrink-0" />
-                      )}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <AddToPlaylistDialog songId={song.id} />
                       </div>
-                    </div>
                     </SongContextMenu>
                   ))}
                 </div>
@@ -216,10 +324,19 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                 <LogIn className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-foreground mb-1">Sign in to see your liked artists</p>
-                <p className="text-sm text-muted-foreground">Follow artists to find them here easily.</p>
+                <p className="font-semibold text-foreground mb-1">
+                  Sign in to see your liked artists
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Follow artists to find them here easily.
+                </p>
               </div>
-              <Button className="rounded-full bg-primary hover:bg-primary/90" onClick={() => navigate("home")}>Sign in</Button>
+              <Button
+                className="rounded-full bg-primary hover:bg-primary/90"
+                onClick={() => navigate("home")}
+              >
+                Sign in
+              </Button>
             </div>
           ) : (
             <>
@@ -229,16 +346,23 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                   <Users className="w-16 h-16 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Collection</p>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Collection
+                  </p>
                   <h2 className="text-3xl font-bold mb-2">Liked Artists</h2>
-                  <p className="text-muted-foreground">{likedArtists.length} artists</p>
+                  <p className="text-muted-foreground">
+                    {likedArtists.length} artists
+                  </p>
                 </div>
               </div>
 
               {likedArtists.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
                   <Users className="w-10 h-10 text-muted-foreground/40" />
-                  <p className="text-muted-foreground">No liked artists yet — tap the heart on an artist page to follow them.</p>
+                  <p className="text-muted-foreground">
+                    No liked artists yet — tap the heart on an artist page to
+                    follow them.
+                  </p>
                 </div>
               ) : (
                 /* Liked Artists Grid */
@@ -260,7 +384,8 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                       </div>
                       <h3 className="font-semibold truncate">{artist.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {artist.monthlyListeners?.toLocaleString()} monthly listeners
+                        {artist.monthlyListeners?.toLocaleString()} monthly
+                        listeners
                       </p>
                     </button>
                   ))}
@@ -277,48 +402,69 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                 <LogIn className="w-7 h-7 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-foreground mb-1">Sign in to see your play history</p>
-                <p className="text-sm text-muted-foreground">Songs you listen to will appear here.</p>
+                <p className="font-semibold text-foreground mb-1">
+                  Sign in to see your play history
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Songs you listen to will appear here.
+                </p>
               </div>
-              <Button className="rounded-full bg-primary hover:bg-primary/90" onClick={() => navigate("home")}>Sign in</Button>
+              <Button
+                className="rounded-full bg-primary hover:bg-primary/90"
+                onClick={() => navigate("home")}
+              >
+                Sign in
+              </Button>
             </div>
           ) : recentSongs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <History className="w-10 h-10 text-muted-foreground/40" />
-              <p className="font-semibold text-foreground">No recent plays yet</p>
-              <p className="text-sm text-muted-foreground">Start listening to music and it will show up here.</p>
-              <Button variant="outline" className="rounded-full mt-2" onClick={() => navigate("home")}>Browse music</Button>
+              <p className="font-semibold text-foreground">
+                No recent plays yet
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Start listening to music and it will show up here.
+              </p>
+              <Button
+                variant="outline"
+                className="rounded-full mt-2"
+                onClick={() => navigate("home")}
+              >
+                Browse music
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
               {recentSongs.map((song, index) => (
                 <SongContextMenu key={song.id} song={song}>
-                <button
-                  onClick={() => playFromContext(song, recentSongs, "playlist")}
-                  className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
-                >
-                  <span className="w-6 text-center text-sm text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <Image
-                    src={getSongCoverUrl(song)}
-                    alt={song.title}
-                    width={48}
-                    height={48}
-                    className="w-12 h-12 rounded-md object-cover"
-                    unoptimized
-                  />
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="font-medium truncate">{song.title}</p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {song.artist}
-                    </p>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {Math.floor(song.duration / 60)}:
-                    {(song.duration % 60).toString().padStart(2, "0")}
-                  </span>
-                </button>
+                  <button
+                    onClick={() =>
+                      playFromContext(song, recentSongs, "playlist")
+                    }
+                    className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-card transition-colors group cursor-pointer"
+                  >
+                    <span className="w-6 text-center text-sm text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <Image
+                      src={getSongCoverUrl(song)}
+                      alt={song.title}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 rounded-md object-cover"
+                      unoptimized
+                    />
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="font-medium truncate">{song.title}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {song.artist}
+                      </p>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {Math.floor(song.duration / 60)}:
+                      {(song.duration % 60).toString().padStart(2, "0")}
+                    </span>
+                  </button>
                 </SongContextMenu>
               ))}
             </div>

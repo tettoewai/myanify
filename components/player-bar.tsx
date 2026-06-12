@@ -333,6 +333,8 @@ export function PlayerBar({
                   step={1}
                   onValueChange={handleSeek}
                   className="flex-1 [&_[role=slider]]:bg-primary [&_[role=slider]]:border-0 [&_.bg-primary]:bg-primary"
+                  aria-label="Song progress"
+                  aria-valuetext={`${formatTime(currentTime)} of ${formatTime(currentSong.duration)}`}
                 />
                 <span className="text-xs text-muted-foreground w-10 font-mono">
                   {formatTime(currentSong.duration)}
@@ -419,6 +421,8 @@ export function PlayerBar({
                     setIsMuted(false);
                   }}
                   className="flex-1 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 cursor-pointer"
+                  aria-label="Volume"
+                  aria-valuetext={`${isMuted ? 0 : volume}%`}
                 />
               </div>
               <Tooltip>

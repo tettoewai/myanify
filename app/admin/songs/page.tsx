@@ -21,35 +21,9 @@ import { useSongs } from "@/lib/swr";
 import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
-
+import { Song } from "@/lib/types";
 
 type FilterStatus = "all" | "published" | "draft";
-
-interface Song {
-  id: string;
-  title: string;
-  duration: number;
-  audioUrl: string;
-  coverUrl: string | null;
-  isPremium: boolean;
-  isPublished: boolean;
-  playCount: number;
-  albumId: string | null;
-  artist: {
-    id: string;
-    name: string;
-  };
-  genre: {
-    id: string;
-    name: string;
-  } | null;
-  album: {
-    id: string;
-    name: string;
-    coverUrl: string | null;
-  } | null;
-  createdAt: string;
-}
 
 export default function SongsPage() {
   const [page, setPage] = useState(1);
@@ -66,8 +40,8 @@ export default function SongsPage() {
     filterStatus === "all"
       ? undefined
       : filterStatus === "published"
-      ? true
-      : false;
+        ? true
+        : false;
 
   const {
     songs,
@@ -79,7 +53,6 @@ export default function SongsPage() {
     search: searchQuery || undefined,
     page,
     limit: ADMIN_PAGE_SIZE,
-    admin: true,
   });
 
   const togglePublish = async (songId: string, currentStatus: boolean) => {
@@ -91,7 +64,9 @@ export default function SongsPage() {
       });
 
       if (response.ok) {
-        toast.success(`Song ${!currentStatus ? "published" : "unpublished"} successfully`);
+        toast.success(
+          `Song ${!currentStatus ? "published" : "unpublished"} successfully`,
+        );
         mutateSongs();
         mutate(`/api/songs?isPublished=${!currentStatus}`);
         mutate(`/api/songs?isPublished=${currentStatus}`);
@@ -222,11 +197,7 @@ export default function SongsPage() {
                   >
                     <td className="p-4">
                       <Image
-                        src={
-                          song.album?.coverUrl ||
-                          song.coverUrl ||
-                          "/placeholder.svg"
-                        }
+                        src={song.album || song.coverUrl || "/placeholder.svg"}
                         alt={song.title}
                         width={48}
                         height={48}
@@ -243,12 +214,14 @@ export default function SongsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-muted-foreground">
-                      {(song as any).artists?.map((sa: any) => sa.artist?.name || sa.artist?.name).join(", ") ||
-                       (song as any).artist?.name ||
-                       "Unknown Artist"}
+                      {(song as any).artists
+                        ?.map((sa: any) => sa.artist?.name || sa.artist?.name)
+                        .join(", ") ||
+                        (song as any).artist?.name ||
+                        "Unknown Artist"}
                     </td>
                     <td className="p-4 text-muted-foreground">
-                      {song.genre?.name || "—"}
+                      {song.genre || "—"}
                     </td>
                     <td className="p-4 text-muted-foreground">
                       {formatDuration(song.duration)}
@@ -273,7 +246,7 @@ export default function SongsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            togglePublish(song.id, song.isPublished)
+                            togglePublish(song.id, song.isPublished ?? false)
                           }
                           title={song.isPublished ? "Unpublish" : "Publish"}
                         >

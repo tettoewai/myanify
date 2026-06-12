@@ -18,7 +18,7 @@ import {
 
 const fetcher = swrFetcher;
 
-// Custom hooks for data fetching
+// Catalog data fetching (listener view - always transformed, lazy revalidation)
 export function useSongs(options?: {
   genreId?: string;
   artistId?: string;
@@ -27,8 +27,9 @@ export function useSongs(options?: {
   search?: string;
   page?: number;
   limit?: number;
-  admin?: boolean; // If true, return raw data without transformation
+  enabled?: boolean;
 }) {
+  const enabled = options?.enabled !== false;
   const params = new URLSearchParams();
   if (options?.genreId) params.set("genreId", options.genreId);
   if (options?.artistId) params.set("artistId", options.artistId);
@@ -39,36 +40,79 @@ export function useSongs(options?: {
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
 
-  const key = params.toString()
-    ? `/api/songs?${params.toString()}`
-    : "/api/songs";
+  const key = enabled
+    ? params.toString()
+      ? `/api/songs?${params.toString()}`
+      : "/api/songs"
+    : null;
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR(key, fetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-  });
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
+    key,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60_000, // Catalog data: avoid duplicate requests for 60s
+    },
+  );
 
   const pagination: PaginationMeta | undefined = data?.pagination;
-
-  // For admin pages, return raw data without transformation
-  if (options?.admin) {
-    const songs = data?.data || data || [];
-    return {
-      songs: Array.isArray(songs) ? songs : [],
-      pagination,
-      isLoading,
-      isValidating,
-      isError: error,
-      mutate,
-    };
-  }
-
-  // For public pages, transform the data
   const songs: Song[] =
     data?.data?.map(transformSong) || data?.map(transformSong) || [];
 
   return {
     songs,
+    pagination,
+    isLoading,
+    isValidating,
+    isError: error,
+    mutate,
+  };
+}
+
+// Admin data fetching (raw/untransformed data for admin tooling)
+export function useAdminSongs(options?: {
+  genreId?: string;
+  artistId?: string;
+  albumId?: string;
+  isPublished?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const enabled = options?.enabled !== false;
+  const params = new URLSearchParams();
+  if (options?.genreId) params.set("genreId", options.genreId);
+  if (options?.artistId) params.set("artistId", options.artistId);
+  if (options?.albumId) params.set("albumId", options.albumId);
+  if (options?.isPublished !== undefined)
+    params.set("isPublished", String(options.isPublished));
+  if (options?.search) params.set("search", options.search);
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+
+  const key = enabled
+    ? params.toString()
+      ? `/api/songs?${params.toString()}`
+      : "/api/songs"
+    : null;
+
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
+    key,
+    fetcher,
+    {
+      revalidateOnFocus: true, // Admin: keep fresh
+      revalidateOnReconnect: true,
+      dedupingInterval: 10_000,
+    },
+  );
+
+  const pagination: PaginationMeta | undefined = data?.pagination;
+  const songs = data?.data || data || [];
+
+  return {
+    songs: Array.isArray(songs) ? songs : [],
     pagination,
     isLoading,
     isValidating,
@@ -115,10 +159,15 @@ export function useArtists(options?: {
     ? `/api/artists?${params.toString()}`
     : "/api/artists";
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR(key, fetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-  });
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
+    key,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60_000,
+    },
+  );
 
   const artists: Artist[] =
     data?.data?.map(transformArtist) || data?.map(transformArtist) || [];
@@ -152,6 +201,7 @@ export function useSearch(
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
+      dedupingInterval: 30_000,
     },
   );
 
@@ -243,7 +293,7 @@ export function usePaymentMethod(id: string | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   return {
@@ -367,9 +417,9 @@ export async function fetchSongLyrics(
 }
 
 export function useSongWithLyrics(song: Song | null, enabled = true) {
-  const [resolvedLyrics, setResolvedLyrics] = useState<
-    LyricLine[] | undefined
-  >(song?.lyrics);
+  const [resolvedLyrics, setResolvedLyrics] = useState<LyricLine[] | undefined>(
+    song?.lyrics,
+  );
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
 
   useEffect(() => {
@@ -418,16 +468,16 @@ export function useArtist(slug: string | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   const artist = data
     ? {
-      ...transformArtist(data),
-      songs: (data.songs || []).map((item: any) =>
-        transformSong(item.song || item)
-      ),
-    }
+        ...transformArtist(data),
+        songs: (data.songs || []).map((item: any) =>
+          transformSong(item.song || item),
+        ),
+      }
     : null;
 
   return {
@@ -445,14 +495,14 @@ export function useGenre(slug: string | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   const genre = data
     ? {
-      ...transformGenre(data),
-      songs: (data.songs || []).map(transformSong),
-    }
+        ...transformGenre(data),
+        songs: (data.songs || []).map(transformSong),
+      }
     : null;
 
   return {
@@ -470,7 +520,7 @@ export function usePlaylist(slug: string | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   return {
@@ -521,7 +571,7 @@ export function useAlbum(slug: string | null) {
     fetcher,
     {
       revalidateOnFocus: false,
-    }
+    },
   );
 
   const album = useMemo(
@@ -583,7 +633,7 @@ export function useAdminStats() {
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-    }
+    },
   );
 
   return {
@@ -610,8 +660,9 @@ export function usePlayHistory(options?: {
       : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true, // User data: refresh when returning to tab
     revalidateOnReconnect: true,
+    dedupingInterval: 5_000,
   });
 
   const songs: Song[] =
@@ -630,8 +681,9 @@ export function useLikedSongs(options?: { enabled?: boolean }) {
   const key = options?.enabled !== false ? "/api/liked-songs" : null;
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true, // User data: refresh when returning to tab
     revalidateOnReconnect: true,
+    dedupingInterval: 5_000,
   });
 
   const songs: Song[] =
@@ -660,7 +712,7 @@ function normalizeLikedSongsCache(data: LikedSongsCache): Song[] {
 
 function buildLikedSongsCache(
   songs: Song[],
-  previous: LikedSongsCache
+  previous: LikedSongsCache,
 ): { data: Song[] } {
   if (previous && !Array.isArray(previous) && Array.isArray(previous.data)) {
     return { data: songs };
@@ -671,7 +723,7 @@ function buildLikedSongsCache(
 function applyLikeToggleToCache(
   current: LikedSongsCache,
   song: Song,
-  liked: boolean
+  liked: boolean,
 ): { data: Song[] } {
   const songs = normalizeLikedSongsCache(current);
   const next = liked
@@ -709,7 +761,7 @@ export function useToggleLikeSong(options?: { enabled?: boolean }) {
             rollbackOnError: true,
             populateCache: true,
             revalidate: false,
-          }
+          },
         );
       } catch (error) {
         console.error("Error toggling like:", error);
@@ -717,14 +769,16 @@ export function useToggleLikeSong(options?: { enabled?: boolean }) {
           notifyRateLimitError(error.retryAfterSeconds);
         } else {
           toast.error(
-            wasLiked ? "Couldn't remove from liked songs" : "Couldn't save song",
+            wasLiked
+              ? "Couldn't remove from liked songs"
+              : "Couldn't save song",
           );
         }
       } finally {
         setTogglingId(null);
       }
     },
-    [likedSongIds, mutate, togglingId]
+    [likedSongIds, mutate, togglingId],
   );
 
   return {
@@ -760,7 +814,9 @@ export function useLikedArtists(options?: { enabled?: boolean }) {
 }
 
 // Helper functions for liking/unliking songs
-async function handleLikeMutationResponse(response: Response): Promise<boolean> {
+async function handleLikeMutationResponse(
+  response: Response,
+): Promise<boolean> {
   if (response.ok) {
     return true;
   }
@@ -866,7 +922,9 @@ export function useAdminUsers(options?: {
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
 
-  const key = params.toString() ? `/api/admin/users?${params.toString()}` : "/api/admin/users";
+  const key = params.toString()
+    ? `/api/admin/users?${params.toString()}`
+    : "/api/admin/users";
 
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
@@ -889,7 +947,8 @@ export function useSubscriptionRequests(options?: {
   limit?: number;
 }) {
   const params = new URLSearchParams();
-  if (options?.status && options.status !== "all") params.set("status", options.status);
+  if (options?.status && options.status !== "all")
+    params.set("status", options.status);
   if (options?.page) params.set("page", options.page.toString());
   if (options?.limit) params.set("limit", options.limit.toString());
 
@@ -913,7 +972,7 @@ export function useSubscriptionRequests(options?: {
 // Helper function for tracking ad events
 export async function trackAdEvent(
   adId: string,
-  type: "click" | "impression"
+  type: "click" | "impression",
 ): Promise<boolean> {
   try {
     const response = await fetch(`/api/ads/${adId}/track`, {

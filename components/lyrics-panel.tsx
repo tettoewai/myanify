@@ -51,7 +51,24 @@ export function LyricsPanel({
     resetKey: song.id,
   });
 
-  const [size, setSize] = useState<LyricSize>("md");
+  const [size, setSize] = useState<LyricSize>(() => {
+    if (typeof window === "undefined") return "md";
+    try {
+      const stored = localStorage.getItem("myanify_lyric_size");
+      return (stored as LyricSize) ?? "md";
+    } catch {
+      return "md";
+    }
+  });
+
+  const handleSizeChange = (newSize: LyricSize) => {
+    setSize(newSize);
+    try {
+      localStorage.setItem("myanify_lyric_size", newSize);
+    } catch {
+      // silent fail
+    }
+  };
 
   return (
     <aside
@@ -80,7 +97,7 @@ export function LyricsPanel({
           <div className="flex items-center gap-2">
             <LyricSizeToggle
               size={size}
-              onSizeChange={setSize}
+              onSizeChange={handleSizeChange}
               variant="panel"
             />
             <Button

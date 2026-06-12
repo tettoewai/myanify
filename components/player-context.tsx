@@ -1,5 +1,28 @@
 "use client";
 
+import { useLyricsLoader } from "@/hooks/use-lyrics-loader";
+import { useMediaSession } from "@/hooks/use-media-session";
+import { useQueue } from "@/hooks/use-queue";
+import { useRadioFetch } from "@/hooks/use-radio-fetch";
+import {
+  notifyRateLimitError,
+  parseApiErrorBody,
+  swrFetcher,
+} from "@/lib/api-client";
+import {
+  createQueueItem,
+  createQueueItems,
+  pickAutoplaySongs,
+  RADIO_REFETCH_THRESHOLD,
+  reorderQueueItems,
+  restoreUserUpNext,
+  UP_NEXT_STORAGE_KEY,
+  type PersistedQueueEntry,
+} from "@/lib/queue";
+import { requireLoginRedirect } from "@/lib/require-login";
+import { usePlayHistory, useSongs } from "@/lib/swr";
+import type { LyricLine, QueueItem, QueueItemSource, Song } from "@/lib/types";
+import { useSession } from "next-auth/react";
 import {
   createContext,
   useCallback,
@@ -11,33 +34,8 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import type { QueueItem, QueueItemSource, Song, LyricLine } from "@/lib/types";
-import { requireLoginRedirect } from "@/lib/require-login";
-import { useMediaSession } from "@/hooks/use-media-session";
-import {
-  notifyRateLimitError,
-  parseApiErrorBody,
-  swrFetcher,
-} from "@/lib/api-client";
-import { useSongs, usePlayHistory, fetchSongLyrics } from "@/lib/swr";
-import { transformSong } from "@/lib/data-transform";
-import {
-  createQueueItem,
-  createQueueItems,
-  MAX_PLAY_HISTORY,
-  RADIO_BATCH_SIZE,
-  RADIO_REFETCH_THRESHOLD,
-  pickAutoplaySongs,
-  reorderQueueItems,
-  restoreUserUpNext,
-  serializeUserUpNext,
-  shuffleUpNext,
-  UP_NEXT_STORAGE_KEY,
-  type PersistedQueueEntry,
-} from "@/lib/queue";
+import useSWR from "swr";
 
 export interface PlaySongOptions {
   source?: QueueItemSource;
@@ -115,25 +113,33 @@ const CROSSFADE_DURATION_MS = 2000;
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { data: session, status: sessionStatus } = useSession();
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
-
-  const [currentSongLyrics, setCurrentSongLyrics] = useState<
-    LyricLine[] | undefined
-  >(() => {
-    // lyricsCacheRef isn't populated yet on first mount, so this is
-    // mainly useful after the ref is already tracking. The effect
-    // still handles async fetching — this just eliminates the flicker
-    // on re-renders where the cache already has the answer.
-    return undefined;
-  });
-
-  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
-  const lyricsCacheRef = useRef<Map<string, LyricLine[]>>(new Map());
+  const {
+    lyrics: currentSongLyrics,
+    isLoading: isLoadingLyrics,
+    request: requestCurrentSongLyrics,
+  } = useLyricsLoader(currentSong ?? undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [queue, setQueue] = useState<Song[]>([]);
-  const [upNext, setUpNext] = useState<QueueItem[]>([]);
-  const upNextRef = useRef<QueueItem[]>([]);
-  const [history, setHistory] = useState<QueueItem[]>([]);
+  const {
+    upNext,
+    history,
+    applyUpNext,
+    append: appendToQueue,
+    appendOne: appendOneToQueue,
+    prependOne: prependOneToQueue,
+    remove: removeFromQueueByQid,
+    reorder: reorderQueue,
+    clear: clearQueueInternal,
+    pushToHistory,
+    removeFromHistory,
+    clearHistory,
+    getActiveUpNext,
+    advanceQueue,
+    toggleShuffle: toggleQueueShuffle,
+    baselineRef: upNextBaselineRef,
+    shuffleOrderRef,
+  } = useQueue([]);
   const [isPremium, setIsPremium] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showFullscreenLyrics, setShowFullscreenLyrics] = useState(false);
@@ -149,7 +155,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const [radioMode, setRadioMode] = useState(false);
   const [radioSeedSongId, setRadioSeedSongId] = useState<string | null>(null);
-  const [isFetchingRadio, setIsFetchingRadio] = useState(false);
+  const { isFetching: isFetchingRadio, fetchSimilarSongs: radioFetchSimilar } =
+    useRadioFetch();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadRef = useRef<HTMLAudioElement | null>(null);
@@ -161,13 +168,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const isChangingSongRef = useRef(false);
   const seenSongIdsRef = useRef<Set<string>>(new Set());
   const radioRetryAtRef = useRef(0);
-  const shuffleOrderRef = useRef<QueueItem[] | null>(null);
-  const upNextBaselineRef = useRef<QueueItem[]>([]);
-  const hasRestoredUpNextRef = useRef(false);
-  const preloadedQidRef = useRef<string | null>(null);
+  const upNextRef = useRef<QueueItem[]>([]);
   const userDisabledRadioRef = useRef(false);
   const loadedSongIdRef = useRef<string | null>(null);
   const crossfadeRafRef = useRef<number | null>(null);
+  const preloadedQidRef = useRef<string | null>(null);
+  const hasRestoredUpNextRef = useRef(false);
 
   useEffect(() => {
     upNextRef.current = upNext;
@@ -177,7 +183,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("myanify_volume", String(volume));
   }, [volume]);
 
-  const { songs } = useSongs({ isPublished: true });
+  const { songs } = useSongs({ isPublished: true, enabled: radioMode });
   const songsById = useMemo(
     () => new Map(songs.map((s) => [s.id, s])),
     [songs],
@@ -195,93 +201,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     { revalidateOnFocus: false, revalidateOnReconnect: true },
   );
 
-  useEffect(() => {
-    setLyricsRequested(false);
-
-    if (!currentSong) {
-      setCurrentSongLyrics(undefined);
-      setIsLoadingLyrics(false);
-      return;
-    }
-
-    if (currentSong.lyrics !== undefined) {
-      lyricsCacheRef.current.set(currentSong.id, currentSong.lyrics);
-      setCurrentSongLyrics(currentSong.lyrics);
-      setIsLoadingLyrics(false);
-      return;
-    }
-
-    const cached = lyricsCacheRef.current.get(currentSong.id);
-    if (cached !== undefined) {
-      setCurrentSongLyrics(cached);
-      setIsLoadingLyrics(false);
-      return;
-    }
-
-    setCurrentSongLyrics(undefined);
-    setIsLoadingLyrics(false);
-  }, [currentSong?.id, currentSong?.lyrics]);
-
-  const requestCurrentSongLyrics = useCallback(() => {
-    setLyricsRequested(true);
-  }, []);
-
-  useEffect(() => {
-    if (
-      !currentSong ||
-      (!showLyrics && !showFullscreenLyrics && !lyricsRequested)
-    ) {
-      return;
-    }
-    const cached = lyricsCacheRef.current.get(currentSong.id);
-    if (cached !== undefined) {
-      setCurrentSongLyrics(cached);
-      setIsLoadingLyrics(false);
-      return;
-    }
-    if (currentSongLyrics !== undefined) return;
-
-    let cancelled = false;
-    setIsLoadingLyrics(true);
-
-    fetchSongLyrics(currentSong.slug)
-      .then((lyrics) => {
-        if (cancelled) return;
-        lyricsCacheRef.current.set(currentSong.id, lyrics);
-        setCurrentSongLyrics(lyrics);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        lyricsCacheRef.current.set(currentSong.id, []);
-        setCurrentSongLyrics([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingLyrics(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    currentSong?.id,
-    currentSong?.slug,
-    currentSongLyrics,
-    showLyrics,
-    showFullscreenLyrics,
-    lyricsRequested,
-  ]);
-
-  const persistUserUpNext = useCallback((items: QueueItem[]) => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(
-        UP_NEXT_STORAGE_KEY,
-        JSON.stringify(serializeUserUpNext(items)),
-      );
-    } catch (error) {
-      console.error("Error saving up next:", error);
-    }
-  }, []);
+  // requestCurrentSongLyrics comes from the lyrics loader hook above
 
   const markSongSeen = useCallback((songId: string) => {
     seenSongIdsRef.current.add(songId);
@@ -301,81 +221,48 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setQueue(songList);
   }, []);
 
-  const applyUpNext = useCallback(
+  const syncLegacyQueueForUpNext = useCallback(
     (items: QueueItem[]) => {
-      setUpNext(items);
-      upNextBaselineRef.current = items;
-      if (!isShuffled) shuffleOrderRef.current = null;
-      persistUserUpNext(items);
+      applyUpNext(items);
       syncLegacyQueue(items);
     },
-    [isShuffled, persistUserUpNext, syncLegacyQueue],
+    [applyUpNext, syncLegacyQueue],
   );
 
   const appendRadioSongs = useCallback(
     (newSongs: Song[], source: QueueItemSource, append: boolean) => {
       if (newSongs.length === 0) return;
-      setUpNext((prev) => {
-        const radioItems = createQueueItems(newSongs, source);
-        for (const s of newSongs) markSongSeen(s.id);
-        const merged = append ? [...prev, ...radioItems] : radioItems;
-        upNextBaselineRef.current = merged;
-        syncLegacyQueue(merged);
-        return merged;
-      });
+      const radioItems = createQueueItems(newSongs, source);
+      for (const s of newSongs) markSongSeen(s.id);
+      if (append) {
+        appendToQueue(newSongs, source);
+      } else {
+        applyUpNext(radioItems);
+        syncLegacyQueue(radioItems);
+      }
     },
-    [markSongSeen, syncLegacyQueue],
+    [markSongSeen, appendToQueue, applyUpNext, syncLegacyQueue],
   );
 
   const fetchSimilarSongs = useCallback(
     async (seedId: string, append = true): Promise<Song[]> => {
       if (Date.now() < radioRetryAtRef.current) return [];
-      setIsFetchingRadio(true);
-      let source: QueueItemSource = "radio";
       try {
-        const exclude = Array.from(seenSongIdsRef.current).join(",");
-        const res = await fetch(
-          `/api/songs/similar?seedSongId=${encodeURIComponent(seedId)}&excludeIds=${encodeURIComponent(exclude)}&limit=${RADIO_BATCH_SIZE}`,
+        const { songs: newSongs, source } = await radioFetchSimilar(
+          seedId,
+          seenSongIdsRef.current,
+          recentlyPlayedSongs,
+          songs,
         );
-        if (!res.ok) {
-          if (res.status === 429) {
-            const { retryAfterSeconds } = await parseApiErrorBody(res);
-            notifyRateLimitError(retryAfterSeconds);
-          }
-          throw new Error("Similar songs fetch failed");
-        }
-        const json = await res.json();
-        const raw = json.data || [];
-        let newSongs: Song[] = raw.map(transformSong);
-        if (newSongs.length === 0) {
-          source = "autoplay";
-          newSongs = pickAutoplaySongs(
-            songs,
-            recentlyPlayedSongs,
-            seenSongIdsRef.current,
-            seedId,
-            RADIO_BATCH_SIZE,
-          );
-        }
         appendRadioSongs(newSongs, source, append);
         return newSongs;
       } catch (error) {
         console.error("Radio fetch error:", error);
         radioRetryAtRef.current = Date.now() + 30_000;
-        const fallback = pickAutoplaySongs(
-          songs,
-          recentlyPlayedSongs,
-          seenSongIdsRef.current,
-          seedId,
-          RADIO_BATCH_SIZE,
-        );
-        appendRadioSongs(fallback, "autoplay", true);
-        return fallback;
-      } finally {
-        setIsFetchingRadio(false);
+        return [];
       }
     },
-    [appendRadioSongs, songs, recentlyPlayedSongs],
+    [appendRadioSongs, radioFetchSimilar, songs, recentlyPlayedSongs],
   );
 
   const maybeRefillRadio = useCallback(
@@ -416,18 +303,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       userDisabledRadioRef.current = true;
       setRadioMode(false);
-      setUpNext((prev) => {
-        const next = prev.filter(
-          (i) => i.source !== "radio" && i.source !== "autoplay",
-        );
-        if (next.length === prev.length) return prev;
-        upNextBaselineRef.current = next;
-        persistUserUpNext(next);
-        syncLegacyQueue(next);
-        return next;
-      });
+      const newUpNext = upNext.filter(
+        (i) => i.source !== "radio" && i.source !== "autoplay",
+      );
+      if (newUpNext.length < upNext.length) {
+        applyUpNext(newUpNext);
+        syncLegacyQueue(newUpNext);
+      }
     },
-    [enableSmartRadio, persistUserUpNext, syncLegacyQueue],
+    [upNext, enableSmartRadio, applyUpNext, syncLegacyQueue],
   );
 
   const ensureSmartRadioForEmptyQueue = useCallback(() => {
@@ -872,16 +756,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  const pushToHistory = useCallback((song: Song, source: QueueItemSource) => {
-    setHistory((prev) => {
-      const item = createQueueItem(song, source);
-      const next = [...prev, item];
-      return next.length > MAX_PLAY_HISTORY
-        ? next.slice(-MAX_PLAY_HISTORY)
-        : next;
-    });
-  }, []);
-
   const playSongInternal = useCallback(
     (song: Song, options?: PlaySongOptions) => {
       if (!options?.skipAuth && !requireAuthForUserAction()) return;
@@ -964,71 +838,57 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const addToQueue = useCallback(
     (song: Song) => {
       if (!requireAuthForUserAction()) return;
-      setUpNext((prev) => {
-        const next = [...prev, createQueueItem(song, "user-queue")];
-        upNextBaselineRef.current = next;
-        persistUserUpNext(next);
-        syncLegacyQueue(next);
-        return next;
-      });
+      appendOneToQueue(song, "user-queue");
+      const next = [...upNext, createQueueItem(song, "user-queue")];
+      syncLegacyQueue(next);
       toast.success("Added to queue");
     },
-    [persistUserUpNext, syncLegacyQueue],
+    [appendOneToQueue, upNext, syncLegacyQueue],
   );
 
   const playNextInQueue = useCallback(
     (song: Song) => {
       if (!requireAuthForUserAction()) return;
-      setUpNext((prev) => {
-        const next = [createQueueItem(song, "user-queue"), ...prev];
-        upNextBaselineRef.current = next;
-        persistUserUpNext(next);
-        syncLegacyQueue(next);
-        return next;
-      });
+      prependOneToQueue(song, "user-queue");
+      const next = [createQueueItem(song, "user-queue"), ...upNext];
+      syncLegacyQueue(next);
       toast.success("Playing next");
     },
-    [persistUserUpNext, syncLegacyQueue],
+    [prependOneToQueue, upNext, syncLegacyQueue],
   );
 
   const removeFromQueue = useCallback(
     (qid: string) => {
-      setUpNext((prev) => {
-        const next = prev.filter((i) => i.qid !== qid);
-        upNextBaselineRef.current = next;
-        persistUserUpNext(next);
-        syncLegacyQueue(next);
-        return next;
-      });
+      removeFromQueueByQid(qid);
+      const next = upNext.filter((i) => i.qid !== qid);
+      syncLegacyQueue(next);
     },
-    [persistUserUpNext, syncLegacyQueue],
+    [removeFromQueueByQid, upNext, syncLegacyQueue],
   );
 
   const reorderUpNext = useCallback(
     (fromIndex: number, toIndex: number) => {
-      setUpNext((prev) => {
-        const next = reorderQueueItems(prev, fromIndex, toIndex);
-        upNextBaselineRef.current = next;
-        persistUserUpNext(next);
-        syncLegacyQueue(next);
-        return next;
-      });
+      reorderQueue(fromIndex, toIndex);
+      const next = reorderQueueItems(upNext, fromIndex, toIndex);
+      syncLegacyQueue(next);
     },
-    [persistUserUpNext, syncLegacyQueue],
+    [reorderQueue, upNext, syncLegacyQueue],
   );
 
   const clearQueue = useCallback(() => {
-    applyUpNext([]);
+    clearQueueInternal();
+    setQueue([]);
     toast.success("Queue cleared");
-  }, [applyUpNext]);
+  }, [clearQueueInternal]);
 
   const startRadio = useCallback(
     (seedSong: Song) => {
       if (!requireAuthForUserAction()) return;
-      applyUpNext([]);
+      clearQueueInternal();
+      setQueue([]);
       playSongInternal(seedSong, { enableRadio: true, skipAuth: true });
     },
-    [applyUpNext, playSongInternal],
+    [clearQueueInternal, playSongInternal],
   );
 
   const playNextFromSmartRadio = useCallback(() => {
@@ -1079,12 +939,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [currentSong?.id, upNext],
   );
 
-  const getActiveUpNext = useCallback((): QueueItem[] => {
-    if (isShuffled && shuffleOrderRef.current) {
-      return shuffleOrderRef.current;
-    }
-    return upNext;
-  }, [isShuffled, upNext]);
+  // Helper to wrap getActiveUpNext with isShuffled parameter
+  const getActiveUpNextWrapper = useCallback((): QueueItem[] => {
+    return getActiveUpNext(isShuffled);
+  }, [getActiveUpNext, isShuffled]);
 
   const advanceToNext = useCallback(() => {
     if (!currentSong) return;
@@ -1100,16 +958,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const sourceForHistory: QueueItemSource = radioMode ? "radio" : "playlist";
     pushToHistory(currentSong, sourceForHistory);
 
-    const active = getActiveUpNext();
+    const active = getActiveUpNextWrapper();
 
     if (active.length > 0) {
       const [nextItem, ...rest] = active;
-      if (isShuffled && shuffleOrderRef.current) {
-        shuffleOrderRef.current = rest;
-      }
-      setUpNext(rest);
-      upNextBaselineRef.current = rest;
-      persistUserUpNext(rest);
+      advanceQueue();
       syncLegacyQueue(rest);
       playSongInternal(nextItem.song, { skipAuth: true });
       if (
@@ -1127,8 +980,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const replay = [...history]
         .reverse()
         .map((h) => createQueueItem(h.song, h.source));
-      setHistory([]);
+      clearHistory();
       applyUpNext(replay);
+      syncLegacyQueue(replay);
       playSongInternal(replay[0].song, { skipAuth: true });
       return;
     }
@@ -1151,16 +1005,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     radioMode,
     radioSeedSongId,
     pushToHistory,
-    getActiveUpNext,
+    getActiveUpNextWrapper,
     isShuffled,
     history,
     playSongInternal,
     maybeRefillRadio,
-    persistUserUpNext,
-    syncLegacyQueue,
     applyUpNext,
+    syncLegacyQueue,
     enableSmartRadio,
     playNextFromSmartRadio,
+    advanceQueue,
+    clearHistory,
   ]);
 
   const nextSong = useCallback(() => {
@@ -1179,21 +1034,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const last = history[history.length - 1];
     if (!last) return;
 
-    setHistory((prev) => prev.slice(0, -1));
+    removeFromHistory(history.length - 1);
     const backItem = createQueueItem(currentSong, "playlist");
-    setUpNext((prev) => {
-      const next = [backItem, ...prev];
-      upNextBaselineRef.current = next;
-      persistUserUpNext(next);
-      syncLegacyQueue(next);
-      return next;
-    });
+    prependOneToQueue(currentSong, "playlist");
+    const next = [backItem, ...upNext];
+    syncLegacyQueue(next);
     playSongInternal(last.song, { skipAuth: true });
   }, [
     currentSong,
     history,
     playSongInternal,
-    persistUserUpNext,
+    prependOneToQueue,
+    removeFromHistory,
+    upNext,
     syncLegacyQueue,
   ]);
 
@@ -1204,15 +1057,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const handleSetIsShuffled = useCallback(
     (shuffled: boolean) => {
       setIsShuffled(shuffled);
-      if (shuffled) {
-        shuffleOrderRef.current = shuffleUpNext(upNextBaselineRef.current);
-      } else {
-        shuffleOrderRef.current = null;
-        setUpNext(upNextBaselineRef.current);
+      toggleQueueShuffle(shuffled);
+      if (!shuffled) {
+        applyUpNext(upNextBaselineRef.current);
         syncLegacyQueue(upNextBaselineRef.current);
       }
     },
-    [syncLegacyQueue],
+    [toggleQueueShuffle, applyUpNext, syncLegacyQueue],
   );
 
   const togglePlay = useCallback(() => {

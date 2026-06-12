@@ -99,7 +99,25 @@ export function FullscreenLyrics({
     resetKey: song.id,
   });
 
-  const [size, setSize] = useState<LyricSize>("md");
+  const [size, setSize] = useState<LyricSize>(() => {
+    if (typeof window === "undefined") return "md";
+    try {
+      const stored = localStorage.getItem("myanify_lyric_size");
+      return (stored as LyricSize) ?? "md";
+    } catch {
+      return "md";
+    }
+  });
+
+  const handleSizeChange = (newSize: LyricSize) => {
+    setSize(newSize);
+    try {
+      localStorage.setItem("myanify_lyric_size", newSize);
+    } catch {
+      // silent fail
+    }
+  };
+
   const [seekValue, setSeekValue] = useState<number | null>(null);
   const displayTime = seekValue ?? currentTime;
 
@@ -135,7 +153,7 @@ export function FullscreenLyrics({
           />
         </div>
 
-        <LyricSizeToggle size={size} onSizeChange={setSize} />
+        <LyricSizeToggle size={size} onSizeChange={handleSizeChange} />
       </div>
 
       {/* Lyrics area */}
