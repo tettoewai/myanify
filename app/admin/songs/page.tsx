@@ -215,11 +215,7 @@ export default function SongsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-muted-foreground">
-                      {(song as any).artists
-                        ?.map((sa: any) => sa.artist?.name || sa.artist?.name)
-                        .join(", ") ||
-                        (song as any).artist?.name ||
-                        "Unknown Artist"}
+                      {song.artist || "Unknown Artist"}
                     </td>
                     <td className="p-4 text-muted-foreground">
                       {song.genre || "—"}
