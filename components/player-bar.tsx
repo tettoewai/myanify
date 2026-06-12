@@ -15,7 +15,9 @@ import { useToggleLikeSong } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import {
+  ChevronDown,
   Heart,
+  List,
   ListMusic,
   Maximize2,
   Mic2,
@@ -28,12 +30,11 @@ import {
   SkipForward,
   Volume2,
   VolumeX,
-  ChevronUp,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { usePlayer } from "./player-context";
 import { useState } from "react";
+import { usePlayer } from "./player-context";
 
 interface PlayerBarProps {
   currentSong: Song | null;
@@ -80,20 +81,22 @@ export function PlayerBar({
   } = usePlayer();
 
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+  // Local seek state — avoids audio jumping while dragging
+  const [seekValue, setSeekValue] = useState<number | null>(null);
+  const displayTime = seekValue ?? currentTime;
 
   const nextUp = upNext[0]?.song;
+
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
   });
 
   const handleToggleLike = () => {
     if (!currentSong) return;
-
     if (!session?.user?.id) {
       requireLoginRedirect(undefined, "save");
       return;
     }
-
     void toggleLike(currentSong);
   };
 
@@ -105,26 +108,26 @@ export function PlayerBar({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleSeek = (value: number[]) => {
-    onTimeChange(value[0]);
-  };
-
   const cycleRepeat = () => {
     if (repeatMode === "off") setRepeatMode("all");
     else if (repeatMode === "all") setRepeatMode("one");
     else setRepeatMode("off");
   };
 
+  const progress = currentSong ? (currentTime / currentSong.duration) * 100 : 0;
+
   if (!currentSong) return null;
 
   return (
     <TooltipProvider>
-      {/* Desktop Player Bar */}
+      {/* ─────────────────────────── DESKTOP BAR ─────────────────────────── */}
       <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-linear-to-t from-background to-card/95 backdrop-blur-xl border-t border-border/40 z-50 hidden md:block">
+        {/* Rainbow accent line */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
         <div className="max-w-screen-2xl mx-auto px-4 py-3">
           <div className="flex items-center gap-4">
+            {/* ── Left: Song info ── */}
             <div className="flex items-center gap-3 w-72 shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -149,26 +152,27 @@ export function PlayerBar({
                 </TooltipTrigger>
                 <TooltipContent>Open fullscreen lyrics</TooltipContent>
               </Tooltip>
-              <div className="min-w-0">
-                <p className="truncate text-foreground leading-loose">
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground leading-snug">
                   {currentSong.title}
                 </p>
-                <p className="text-xs text-primary/80 truncate leading-loose">
+                <p className="text-xs text-primary/80 truncate leading-snug">
                   {currentSong.artist}
                 </p>
-                {nextUp && (
-                  <p className="text-[10px] text-muted-foreground truncate leading-loose">
+                {nextUp ? (
+                  <p className="text-[10px] text-muted-foreground truncate leading-snug">
                     Up next: {nextUp.title}
                   </p>
-                )}
-                {!nextUp && radioMode && (
-                  <p className="text-[10px] text-muted-foreground truncate leading-loose">
+                ) : radioMode ? (
+                  <p className="text-[10px] text-muted-foreground truncate leading-snug">
                     Similar songs will follow
                   </p>
-                )}
+                ) : null}
               </div>
+
               <Tooltip>
-                <TooltipTrigger asChild>
+                {/* <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -183,7 +187,7 @@ export function PlayerBar({
                       )}
                     />
                   </Button>
-                </TooltipTrigger>
+                </TooltipTrigger> */}
                 <TooltipContent>
                   {!session?.user?.id
                     ? "Sign in to like songs"
@@ -192,6 +196,7 @@ export function PlayerBar({
                       : "Add to favorites"}
                 </TooltipContent>
               </Tooltip>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ShareButton
@@ -207,6 +212,7 @@ export function PlayerBar({
                 </TooltipTrigger>
                 <TooltipContent>Share song</TooltipContent>
               </Tooltip>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="shrink-0">
@@ -218,7 +224,7 @@ export function PlayerBar({
                           size="icon"
                           className="text-muted-foreground hover:text-foreground"
                         >
-                          <ListMusic className="w-4 h-4" />
+                          <List className="w-4 h-4" />
                         </Button>
                       }
                     />
@@ -228,6 +234,7 @@ export function PlayerBar({
               </Tooltip>
             </div>
 
+            {/* ── Center: Transport + Seek ── */}
             <div className="flex-1 flex flex-col items-center gap-2 max-w-xl mx-auto">
               <div className="flex items-center gap-2">
                 <Tooltip>
@@ -248,6 +255,7 @@ export function PlayerBar({
                     {isShuffled ? "Disable shuffle" : "Enable shuffle"}
                   </TooltipContent>
                 </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -261,6 +269,7 @@ export function PlayerBar({
                   </TooltipTrigger>
                   <TooltipContent>Previous song</TooltipContent>
                 </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -279,6 +288,7 @@ export function PlayerBar({
                     {isPlaying ? "Pause" : "Play"}
                   </TooltipContent>
                 </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -292,6 +302,7 @@ export function PlayerBar({
                   </TooltipTrigger>
                   <TooltipContent>Next song</TooltipContent>
                 </Tooltip>
+
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -319,25 +330,31 @@ export function PlayerBar({
                 </Tooltip>
               </div>
 
+              {/* Seek bar */}
               <div className="w-full flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-10 text-right font-mono">
-                  {formatTime(currentTime)}
+                <span className="text-xs text-muted-foreground w-10 text-right font-mono tabular-nums">
+                  {formatTime(displayTime)}
                 </span>
                 <Slider
-                  value={[currentTime]}
+                  value={[displayTime]}
                   max={currentSong.duration}
                   step={1}
-                  onValueChange={handleSeek}
+                  onValueChange={(v) => setSeekValue(v[0])}
+                  onValueCommit={(v) => {
+                    onTimeChange(v[0]);
+                    setSeekValue(null);
+                  }}
                   className="flex-1 [&_[role=slider]]:bg-primary [&_[role=slider]]:border-0 [&_.bg-primary]:bg-primary"
                   aria-label="Song progress"
-                  aria-valuetext={`${formatTime(currentTime)} of ${formatTime(currentSong.duration)}`}
+                  aria-valuetext={`${formatTime(displayTime)} of ${formatTime(currentSong.duration)}`}
                 />
-                <span className="text-xs text-muted-foreground w-10 font-mono">
+                <span className="text-xs text-muted-foreground w-10 font-mono tabular-nums">
                   {formatTime(currentSong.duration)}
                 </span>
               </div>
             </div>
 
+            {/* ── Right: Volume + Extras ── */}
             <div className="flex items-center gap-2 w-72 justify-end shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -369,6 +386,7 @@ export function PlayerBar({
                       : "Show lyrics"}
                 </TooltipContent>
               </Tooltip>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -386,8 +404,10 @@ export function PlayerBar({
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Queue (Q)</TooltipContent>
+                <TooltipContent>Queue</TooltipContent>
               </Tooltip>
+
+              {/* Volume */}
               <div className="flex items-center gap-2 w-32">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -421,6 +441,7 @@ export function PlayerBar({
                   aria-valuetext={`${isMuted ? 0 : volume}%`}
                 />
               </div>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -439,248 +460,247 @@ export function PlayerBar({
         </div>
       </div>
 
-      {/* Mobile Player Bar - Collapsed */}
-      <div className="fixed bottom-0 left-0 right-0 bg-linear-to-t from-background to-card/95 backdrop-blur-xl border-t border-border/40 z-50 md:hidden">
-        {/* Progress bar at top for mobile */}
-        <Slider
-          value={[currentTime]}
-          max={currentSong.duration}
-          step={1}
-          onValueChange={handleSeek}
-          className="absolute -top-2 left-0 right-0 h-1 [&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-primary [&_[role=slider]]:border-0"
-          aria-label="Song progress"
-        />
+      {/* ─────────────────────────── MOBILE BAR ─────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+        {/* ── Expanded full-screen mobile view ── */}
+        {isMobileExpanded && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-amber-950 via-stone-950 to-stone-900 overflow-hidden">
+            {/* Blurred album backdrop */}
+            <div
+              className="absolute inset-0 overflow-hidden pointer-events-none"
+              aria-hidden
+            >
+              <Image
+                src={getSongCoverUrl(currentSong)}
+                alt=""
+                fill
+                sizes="100vw"
+                className="object-cover opacity-20 blur-2xl scale-110"
+                unoptimized
+              />
+              <div className="absolute inset-0 bg-black/50" />
+            </div>
 
-        {!isMobileExpanded ? (
-          // Collapsed mobile view
-          <div className="px-3 py-2">
-            <div className="flex items-center gap-3">
-              {/* Album art */}
-              <button
-                type="button"
-                onClick={() => setIsMobileExpanded(true)}
-                className="relative shrink-0 size-10 overflow-hidden rounded-md shadow-md ring-1 ring-primary/25"
-              >
-                <Image
-                  src={getSongCoverUrl(currentSong)}
-                  alt=""
-                  fill
-                  sizes="40px"
-                  className="object-cover"
-                  unoptimized
-                />
-              </button>
+            {/* Drag handle */}
+            <div className="relative z-10 flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-white/30" />
+            </div>
 
-              {/* Song info */}
-              <div
-                className="flex-1 min-w-0"
-                onClick={() => setIsMobileExpanded(true)}
-              >
-                <p className="truncate text-sm font-medium text-foreground">
-                  {currentSong.title}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {currentSong.artist}
-                </p>
-              </div>
-
-              {/* Like button */}
+            {/* Header */}
+            <div className="relative z-10 flex items-center justify-between px-4 pb-2 pt-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 text-muted-foreground"
-                onClick={handleToggleLike}
-                aria-pressed={songIsLiked}
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+                onClick={() => setIsMobileExpanded(false)}
+                aria-label="Collapse player"
               >
-                <Heart
-                  className={cn(
-                    "w-5 h-5 transition-colors",
-                    songIsLiked && "fill-primary text-primary",
-                  )}
-                />
+                <ChevronDown className="w-6 h-6" />
               </Button>
 
-              {/* Play/Pause */}
+              <div className="text-center">
+                <p className="text-xs uppercase tracking-wider text-primary font-medium">
+                  Now Playing
+                </p>
+                {nextUp ? (
+                  <p className="text-[11px] text-white/50 mt-0.5">
+                    Up next: {nextUp.title}
+                  </p>
+                ) : radioMode ? (
+                  <p className="text-[11px] text-white/50 mt-0.5">
+                    Similar songs will follow
+                  </p>
+                ) : null}
+              </div>
+
               <Button
+                variant="ghost"
                 size="icon"
-                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
-                onClick={onTogglePlay}
+                className={cn(
+                  "text-white/70 hover:text-white hover:bg-white/10 rounded-full relative",
+                  showQueue && "text-primary",
+                )}
+                onClick={() => setShowQueue(!showQueue)}
+                aria-label="Queue"
               >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5" />
-                ) : (
-                  <Play className="w-5 h-5 ml-0.5" />
+                <ListMusic className="w-5 h-5" />
+                {radioMode && (
+                  <Radio className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 text-primary" />
                 )}
               </Button>
             </div>
-          </div>
-        ) : (
-          // Expanded mobile view
-          <div className="px-4 py-3">
-            {/* Header with close button */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ListMusic className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Now Playing
+
+            {/* Album art */}
+            <div className="relative z-10 flex-1 flex items-center justify-center px-10 py-4 min-h-0">
+              <div className="relative w-full max-w-xs aspect-square rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/10">
+                <Image
+                  src={getSongCoverUrl(currentSong)}
+                  alt={currentSong.title}
+                  fill
+                  sizes="(max-width: 768px) 80vw, 320px"
+                  className={cn(
+                    "object-cover transition-all duration-500",
+                    isPlaying && "scale-105",
+                  )}
+                  unoptimized
+                />
+              </div>
+            </div>
+
+            {/* Bottom controls */}
+            <div className="relative z-10 px-6 pb-safe pt-2">
+              {/* Song info + actions */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-xl text-white truncate leading-snug">
+                    {currentSong.title}
+                  </p>
+                  <p className="text-sm text-white/60 truncate leading-snug mt-0.5">
+                    {currentSong.artist}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleLike}
+                    aria-pressed={songIsLiked}
+                    className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+                  >
+                    <Heart
+                      className={cn(
+                        "w-6 h-6 transition-colors",
+                        songIsLiked && "fill-primary text-primary",
+                      )}
+                    />
+                  </Button>
+                  <ShareButton
+                    payload={{
+                      type: "song",
+                      slug: currentSong.slug,
+                      title: currentSong.title,
+                      text: `${currentSong.title} by ${currentSong.artist}`,
+                    }}
+                    className="text-white/70 hover:text-white hover:bg-white/10"
+                    iconClassName="w-5 h-5"
+                  />
+                  <AddToPlaylistDialog
+                    songId={currentSong.id}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white/70 hover:text-white hover:bg-white/10 rounded-full"
+                      >
+                        <List className="w-5 h-5" />
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+              {/* Seek bar */}
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-xs text-white/50 w-10 text-right font-mono tabular-nums">
+                  {formatTime(displayTime)}
+                </span>
+                <Slider
+                  value={[displayTime]}
+                  max={currentSong.duration}
+                  step={1}
+                  onValueChange={(v) => setSeekValue(v[0])}
+                  onValueCommit={(v) => {
+                    onTimeChange(v[0]);
+                    setSeekValue(null);
+                  }}
+                  aria-label="Song progress"
+                />
+                <span className="text-xs text-white/50 w-10 font-mono tabular-nums">
+                  {formatTime(currentSong.duration)}
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground"
-                onClick={() => setIsMobileExpanded(false)}
-              >
-                <ChevronUp className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Large album art */}
-            <div className="flex justify-center mb-4">
-              <div className="relative size-48 overflow-hidden rounded-xl shadow-2xl ring-1 ring-primary/25">
-                <Image
-                  src={getSongCoverUrl(currentSong)}
-                  alt=""
-                  fill
-                  sizes="192px"
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-            </div>
-
-            {/* Song info */}
-            <div className="text-center mb-4">
-              <h2 className="text-lg font-bold text-foreground truncate px-4">
-                {currentSong.title}
-              </h2>
-              <p className="text-sm text-primary/80 truncate px-4">
-                {currentSong.artist}
-              </p>
-              {nextUp && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Up next: {nextUp.title}
-                </p>
-              )}
-              {!nextUp && radioMode && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Similar songs will follow
-                </p>
-              )}
-            </div>
-
-            {/* Progress bar */}
-            <div className="w-full flex items-center gap-2 mb-4">
-              <span className="text-xs text-muted-foreground w-10 text-right font-mono">
-                {formatTime(currentTime)}
-              </span>
-              <Slider
-                value={[currentTime]}
-                max={currentSong.duration}
-                step={1}
-                onValueChange={handleSeek}
-                className="flex-1"
-                aria-label="Song progress"
-              />
-              <span className="text-xs text-muted-foreground w-10 font-mono">
-                {formatTime(currentSong.duration)}
-              </span>
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "text-muted-foreground",
-                  isShuffled && "text-primary",
-                )}
-                onClick={() => setIsShuffled(!isShuffled)}
-              >
-                <Shuffle className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onPrev}
-                className="text-muted-foreground"
-              >
-                <SkipBack className="w-6 h-6" />
-              </Button>
-              <Button
-                size="icon"
-                className="w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/25"
-                onClick={onTogglePlay}
-              >
-                {isPlaying ? (
-                  <Pause className="w-7 h-7" />
-                ) : (
-                  <Play className="w-7 h-7 ml-0.5" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onNext}
-                className="text-muted-foreground"
-              >
-                <SkipForward className="w-6 h-6" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "text-muted-foreground relative",
-                  repeatMode !== "off" && "text-primary",
-                )}
-                onClick={cycleRepeat}
-              >
-                <Repeat className="w-5 h-5" />
-                {repeatMode === "one" && (
-                  <span className="absolute text-[8px] font-bold">1</span>
-                )}
-              </Button>
-            </div>
-
-            {/* Additional controls */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1">
+              {/* Transport controls */}
+              <div className="flex items-center justify-between mb-5">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={handleToggleLike}
-                  className="text-muted-foreground"
-                  aria-pressed={songIsLiked}
+                  onClick={() => setIsShuffled(!isShuffled)}
+                  className={cn(
+                    "text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+                    isShuffled && "text-primary",
+                  )}
                 >
-                  <Heart
-                    className={cn(
-                      "w-5 h-5 transition-colors",
-                      songIsLiked && "fill-primary text-primary",
-                    )}
-                  />
+                  <Shuffle className="w-5 h-5" />
                 </Button>
-                <ShareButton
-                  payload={{
-                    type: "song",
-                    slug: currentSong.slug,
-                    title: currentSong.title,
-                    text: `${currentSong.title} by ${currentSong.artist}`,
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onPrev}
+                  className="text-white/80 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
+                >
+                  <SkipBack className="w-6 h-6" />
+                </Button>
+
+                <Button
+                  size="icon"
+                  onClick={onTogglePlay}
+                  className="w-16 h-16 rounded-full bg-white hover:bg-white/90 text-stone-900 shadow-xl shadow-white/20"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-7 h-7" />
+                  ) : (
+                    <Play className="w-7 h-7 ml-1" />
+                  )}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onNext}
+                  className="text-white/80 hover:text-white hover:bg-white/10 rounded-full w-12 h-12"
+                >
+                  <SkipForward className="w-6 h-6" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={cycleRepeat}
+                  className={cn(
+                    "relative text-white/50 hover:text-white hover:bg-white/10 rounded-full w-10 h-10",
+                    repeatMode !== "off" && "text-primary",
+                  )}
+                >
+                  <Repeat className="w-5 h-5" />
+                  {repeatMode === "one" && (
+                    <span className="absolute text-[8px] font-bold">1</span>
+                  )}
+                </Button>
+              </div>
+              Volume + extras row
+              <div className="flex items-center gap-3 pb-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="text-white/50 hover:text-white hover:bg-white/10 rounded-full shrink-0"
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-4 h-4" />
+                  ) : (
+                    <Volume2 className="w-4 h-4" />
+                  )}
+                </Button>
+                <Slider
+                  value={[isMuted ? 0 : volume]}
+                  max={100}
+                  step={1}
+                  onValueChange={(v) => {
+                    setVolume(v[0]);
+                    setIsMuted(false);
                   }}
-                  className="text-muted-foreground"
-                  iconClassName="w-5 h-5"
-                />
-                <AddToPlaylistDialog
-                  songId={currentSong.id}
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground"
-                    >
-                      <ListMusic className="w-5 h-5" />
-                    </Button>
-                  }
+                  className="flex-1"
+                  aria-label="Volume"
                 />
                 <Button
                   variant="ghost"
@@ -689,53 +709,28 @@ export function PlayerBar({
                     currentSongLyrics !== undefined &&
                     currentSongLyrics.length === 0
                   }
-                  className={cn(
-                    "text-muted-foreground",
-                    showLyrics && "text-primary",
-                  )}
                   onClick={onToggleLyrics}
+                  className={cn(
+                    "text-white/50 hover:text-white hover:bg-white/10 rounded-full shrink-0",
+                    showLyrics && "text-primary",
+                    currentSongLyrics !== undefined &&
+                      currentSongLyrics.length === 0 &&
+                      "opacity-40 cursor-not-allowed",
+                  )}
+                  aria-label={showLyrics ? "Hide lyrics" : "Show lyrics"}
                 >
-                  <Mic2 className="w-5 h-5" />
+                  <Mic2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onOpenFullscreenLyrics}
+                  className="text-white/50 hover:text-white hover:bg-white/10 rounded-full shrink-0"
+                  aria-label="Fullscreen lyrics"
+                >
+                  <Maximize2 className="w-4 h-4" />
                 </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "text-muted-foreground",
-                  showQueue && "text-primary",
-                )}
-                onClick={() => setShowQueue(!showQueue)}
-              >
-                <ListMusic className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Volume control */}
-            <div className="flex items-center gap-2 mt-3 px-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsMuted(!isMuted)}
-                className="text-muted-foreground"
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-4 h-4" />
-                ) : (
-                  <Volume2 className="w-4 h-4" />
-                )}
-              </Button>
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                max={100}
-                step={1}
-                onValueChange={(v) => {
-                  setVolume(v[0]);
-                  setIsMuted(false);
-                }}
-                className="flex-1"
-                aria-label="Volume"
-              />
             </div>
           </div>
         )}
