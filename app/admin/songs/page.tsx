@@ -22,6 +22,7 @@ import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
 import { Song } from "@/lib/types";
+import { getSongCoverUrl } from "@/lib/utils";
 
 type FilterStatus = "all" | "published" | "draft";
 
@@ -197,7 +198,7 @@ export default function SongsPage() {
                   >
                     <td className="p-4">
                       <Image
-                        src={song.album || song.coverUrl || "/placeholder.svg"}
+                        src={getSongCoverUrl(song)}
                         alt={song.title}
                         width={48}
                         height={48}
