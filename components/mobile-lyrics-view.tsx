@@ -70,13 +70,22 @@ export function MobileLyricsView({
     currentSongLyrics,
     isLoadingLyrics,
     requestCurrentSongLyrics,
+    openMobileLyricsTab,
+    setOpenMobileLyricsTab,
   } = usePlayer();
-  const [showLyrics, setShowLyrics] = useState(true);
+  const [showLyrics, setShowLyrics] = useState(openMobileLyricsTab);
   const [showQueueDrawer, setShowQueueDrawer] = useState(false);
 
   useEffect(() => {
+    if (openMobileLyricsTab) {
+      setOpenMobileLyricsTab(false);
+    }
+  }, [openMobileLyricsTab, setOpenMobileLyricsTab]);
+
+  useEffect(() => {
+    if (!showLyrics) return;
     requestCurrentSongLyrics();
-  }, [requestCurrentSongLyrics]);
+  }, [showLyrics, requestCurrentSongLyrics]);
 
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
@@ -93,7 +102,9 @@ export function MobileLyricsView({
     void toggleLike(song);
   };
 
+  const lyricsLoaded = currentSongLyrics !== undefined;
   const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
+  const showLyricsLoading = isLoadingLyrics || !lyricsLoaded;
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -139,7 +150,7 @@ export function MobileLyricsView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose overflow-hidden">
+    <div className="fixed inset-0 z-100 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose overflow-hidden">
       <LyricsAlbumBackdrop song={song} variant="fullscreen" />
 
       {/* Header */}
@@ -198,7 +209,7 @@ export function MobileLyricsView({
             {lyrics.length > 0 && (
               <div className="min-h-[50%] shrink-0" aria-hidden />
             )}
-            {isLoadingLyrics ? (
+            {showLyricsLoading ? (
               <div className="text-center py-20">
                 <p className="text-white/60 text-lg leading-loose">
                   Loading lyrics...

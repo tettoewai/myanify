@@ -7,6 +7,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function isMobileViewport() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches
+  )
+}
+
 export function isPlaceholderCoverUrl(url: string | null | undefined): boolean {
   if (!url) return true
   return (

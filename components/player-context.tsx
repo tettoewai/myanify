@@ -100,6 +100,7 @@ interface PlayerContextType {
   showFullscreenLyrics: boolean;
   showNowPlaying: boolean;
   showQueue: boolean;
+  openMobileLyricsTab: boolean;
 
   // ── Entitlements ──
   isPremium: boolean;
@@ -145,6 +146,7 @@ interface PlayerContextType {
   setShowLyrics: (show: boolean) => void;
   setShowFullscreenLyrics: (show: boolean) => void;
   setShowNowPlaying: (show: boolean) => void;
+  setOpenMobileLyricsTab: (open: boolean) => void;
   setShowQueue: (show: boolean) => void;
   requestCurrentSongLyrics: () => void;
 
@@ -226,6 +228,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showFullscreenLyrics, setShowFullscreenLyrics] = useState(false);
   const [showNowPlaying, setShowNowPlaying] = useState(false);
+  const [openMobileLyricsTab, setOpenMobileLyricsTab] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
 
   // ── Entitlements ──
@@ -1396,6 +1399,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       showFullscreenLyrics,
       showNowPlaying,
       showQueue,
+      openMobileLyricsTab,
       volume,
       isMuted,
       isShuffled,
@@ -1438,6 +1442,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setShowLyrics,
       setShowFullscreenLyrics,
       setShowNowPlaying,
+      setOpenMobileLyricsTab,
       setShowQueue,
       requestCurrentSongLyrics,
 
@@ -1464,6 +1469,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       showFullscreenLyrics,
       showNowPlaying,
       showQueue,
+      openMobileLyricsTab,
       volume,
       isMuted,
       isShuffled,

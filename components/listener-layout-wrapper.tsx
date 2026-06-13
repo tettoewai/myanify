@@ -10,6 +10,7 @@ import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { Sidebar } from "@/components/sidebar";
 import { UpNextDrawer } from "@/components/up-next-drawer";
 import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
+import { isMobileViewport } from "@/lib/utils";
 import { Suspense, useEffect, useRef } from "react";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
@@ -27,17 +28,14 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     setShowFullscreenLyrics,
     showNowPlaying,
     setShowNowPlaying,
+    setOpenMobileLyricsTab,
+    requestCurrentSongLyrics,
     isPremium,
   } = usePlayer();
   const { isHome, setPlayerInUrl } = useHomePlayerUrl();
   const hasPushedHistoryState = useRef(false);
 
-  useEffect(() => {
-    if (isHome || !showNowPlaying) return;
-    setShowNowPlaying(false);
-  }, [isHome, showNowPlaying, setShowNowPlaying]);
-
-  // Handle back button when fullscreen lyrics is open (non-home routes)
+  // Handle back button when fullscreen player is open (non-home routes)
   useEffect(() => {
     const handlePopState = () => {
       if (isHome) return;
@@ -51,6 +49,16 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
           window.location.href,
         );
       }
+
+      if (showNowPlaying) {
+        setShowNowPlaying(false);
+        hasPushedHistoryState.current = false;
+        window.history.pushState(
+          { nowPlaying: false },
+          "",
+          window.location.href,
+        );
+      }
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -58,31 +66,64 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [showFullscreenLyrics, setShowFullscreenLyrics, isHome]);
+  }, [
+    showFullscreenLyrics,
+    showNowPlaying,
+    setShowFullscreenLyrics,
+    setShowNowPlaying,
+    isHome,
+  ]);
 
-  // Push history state when opening fullscreen lyrics (non-home routes)
+  // Push history state when opening fullscreen player (non-home routes)
   useEffect(() => {
     if (isHome) return;
 
-    if (showFullscreenLyrics && !hasPushedHistoryState.current) {
+    const playerOpen = showFullscreenLyrics || showNowPlaying;
+    if (playerOpen && !hasPushedHistoryState.current) {
       hasPushedHistoryState.current = true;
       window.history.pushState(
-        { lyricsFullscreen: true },
+        {
+          lyricsFullscreen: showFullscreenLyrics,
+          nowPlaying: showNowPlaying,
+        },
         "",
         window.location.href,
       );
     }
-  }, [showFullscreenLyrics, isHome]);
+  }, [showFullscreenLyrics, showNowPlaying, isHome]);
 
   const handleOpenFullscreenLyrics = () => {
-    setShowFullscreenLyrics(true);
+    requestCurrentSongLyrics();
+    if (isMobileViewport()) {
+      setOpenMobileLyricsTab(true);
+      setShowNowPlaying(true);
+    } else {
+      setShowFullscreenLyrics(true);
+    }
     if (isHome) {
       setPlayerInUrl(true);
     }
   };
 
+  const handleToggleLyrics = () => {
+    const nextShowLyrics = !showLyrics;
+    if (nextShowLyrics) {
+      requestCurrentSongLyrics();
+    }
+    setShowLyrics(nextShowLyrics);
+  };
+
+  useEffect(() => {
+    if (!showLyrics || !currentSong) return;
+    requestCurrentSongLyrics();
+  }, [showLyrics, currentSong?.id, requestCurrentSongLyrics]);
+
   const handleCloseFullscreenLyrics = () => {
-    setShowFullscreenLyrics(false);
+    if (isMobileViewport()) {
+      setShowNowPlaying(false);
+    } else {
+      setShowFullscreenLyrics(false);
+    }
     if (isHome) {
       setPlayerInUrl(false);
     }
@@ -92,7 +133,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="h-screen flex bg-background overflow-hidden [--desktop-player-bar-height:6rem]">
-      <Sidebar isPremium={isPremium} />
+      <Sidebar />
       <main className="flex-1 overflow-y-auto w-full md:w-auto pb-32 md:pb-0">
         {children}
       </main>
@@ -108,7 +149,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
             onPrev={prevSong}
             onTimeChange={setCurrentTime}
             showLyrics={showLyrics}
-            onToggleLyrics={() => setShowLyrics(!showLyrics)}
+            onToggleLyrics={handleToggleLyrics}
             isPremium={isPremium}
             onOpenFullscreenLyrics={handleOpenFullscreenLyrics}
           />

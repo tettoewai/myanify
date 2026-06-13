@@ -16,7 +16,7 @@ import {
   SkipBack,
   SkipForward,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePlayer } from "@/components/player-context";
 import { requireLoginRedirect } from "@/lib/require-login";
 import { useToggleLikeSong } from "@/lib/swr";
@@ -64,7 +64,12 @@ export function FullscreenLyrics({
     setRepeatMode,
     currentSongLyrics,
     isLoadingLyrics,
+    requestCurrentSongLyrics,
   } = usePlayer();
+
+  useEffect(() => {
+    requestCurrentSongLyrics();
+  }, [requestCurrentSongLyrics, song.id]);
 
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,
@@ -83,7 +88,9 @@ export function FullscreenLyrics({
 
   // Lead a bit so lines flip slightly before the beat to feel on-time
 
+  const lyricsLoaded = currentSongLyrics !== undefined;
   const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
+  const showLyricsLoading = isLoadingLyrics || !lyricsLoaded;
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -128,7 +135,7 @@ export function FullscreenLyrics({
   };
 
   return (
-    <div className="fixed inset-0 z-100 bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 flex flex-col leading-loose overflow-hidden">
+    <div className="fixed inset-0 z-100 hidden md:flex flex-col bg-linear-to-br from-amber-950 via-stone-950 to-stone-900 leading-loose overflow-hidden">
       <LyricsAlbumBackdrop song={song} variant="fullscreen" />
 
       {/* Header */}
@@ -168,7 +175,7 @@ export function FullscreenLyrics({
           <div className="min-h-[50%] shrink-0" aria-hidden />
         )}
         <div className="max-w-3xl mx-auto">
-          {isLoadingLyrics ? (
+          {showLyricsLoading ? (
             <div className="text-center py-20">
               <p className="text-white/60 text-xl leading-loose">
                 Loading lyrics...

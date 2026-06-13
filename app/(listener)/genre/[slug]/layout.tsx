@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { prisma } from "@/db";
-import { StructuredData } from "@/components/structured-data";
+import {
+  MusicGenreStructuredData,
+  StructuredData,
+} from "@/components/structured-data";
 import { findGenreBySlugOrId } from "@/lib/entity-resolver";
 import { entityPath } from "@/lib/routes";
+import { getSiteUrl } from "@/lib/site-url";
 import {
   buildEntityMetadata,
   isSchemaMarkup,
@@ -74,6 +78,7 @@ export default async function GenreLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug: param } = await params;
+  const siteUrl = getSiteUrl();
 
   const result = await findGenreBySlugOrId(param);
   if (!result) {
@@ -85,8 +90,28 @@ export default async function GenreLayout({
   }
 
   let structuredData = null;
-  if (isSchemaMarkup(result.entity.seo?.schemaMarkup)) {
-    structuredData = <StructuredData data={result.entity.seo.schemaMarkup} />;
+  try {
+    const genre = result.entity;
+    const songCount = await prisma.song.count({
+      where: { genreId: genre.id, isPublished: true },
+    });
+    const url = `${siteUrl}${entityPath("genre", genre.slug)}`;
+
+    if (isSchemaMarkup(genre.seo?.schemaMarkup)) {
+      structuredData = <StructuredData data={genre.seo.schemaMarkup} />;
+    } else {
+      structuredData = (
+        <MusicGenreStructuredData
+          name={genre.name}
+          description={genre.description || undefined}
+          image={genre.imageUrl || undefined}
+          url={url}
+          songCount={songCount}
+        />
+      );
+    }
+  } catch (error) {
+    console.error("Error generating structured data for genre:", error);
   }
 
   return (

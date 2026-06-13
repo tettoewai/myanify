@@ -3,13 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePlayer } from "@/components/player-context";
 import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
-
-function isMobileViewport() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 767px)").matches
-  );
-}
+import { isMobileViewport } from "@/lib/utils";
 
 export function useHomePlayerFromUrl() {
   const { isHome, params } = useHomePlayerUrl();
@@ -19,7 +13,6 @@ export function useHomePlayerFromUrl() {
     showFullscreenLyrics,
     setShowNowPlaying,
     setShowFullscreenLyrics,
-    requestCurrentSongLyrics,
   } = usePlayer();
 
   const appliedPlayerRef = useRef<boolean | null>(null);
@@ -38,7 +31,6 @@ export function useHomePlayerFromUrl() {
     appliedPlayerRef.current = playerOpen;
 
     if (playerOpen) {
-      requestCurrentSongLyrics();
       if (isMobileViewport()) {
         if (!showNowPlayingRef.current) setShowNowPlaying(true);
       } else if (!showFullscreenLyricsRef.current) {
@@ -52,7 +44,6 @@ export function useHomePlayerFromUrl() {
   }, [
     isHome,
     playerOpen,
-    requestCurrentSongLyrics,
     setShowFullscreenLyrics,
     setShowNowPlaying,
   ]);

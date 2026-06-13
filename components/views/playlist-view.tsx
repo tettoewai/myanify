@@ -1,6 +1,7 @@
 "use client";
 
 import { AlbumMetadata } from "@/components/album-metadata";
+import { CollapsibleDescription } from "@/components/collapsible-description";
 import { PlaylistPageSkeleton } from "@/components/loading-skeletons";
 import { usePlayer } from "@/components/player-context";
 import { ShareButton } from "@/components/share-button";
@@ -241,7 +242,10 @@ export function PlaylistView({
           <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3 text-balance">
             {playlist.name}
           </h1>
-          <p className="text-muted-foreground mb-3">{playlist.description}</p>
+          <CollapsibleDescription
+            description={playlist.description}
+            className="mb-3"
+          />
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">
               {playlist.createdBy}

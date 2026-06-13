@@ -75,7 +75,7 @@ function LoginForm() {
       // The auth.config will handle the redirect after OAuth callback
       await signIn("google", {
         callbackUrl: "/auth/callback",
-        redirect: true
+        redirect: true,
       });
     } catch (error) {
       toast.error("An error occurred with Google sign-in. Please try again.");
@@ -167,9 +167,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Suspense
-        fallback={<LoginPageSkeleton />}
-      >
+      <Suspense fallback={<LoginPageSkeleton />}>
         <LoginForm />
       </Suspense>
     </div>

@@ -160,6 +160,34 @@ export function MusicPlaylistStructuredData({
   return <StructuredData data={data} />;
 }
 
+interface MusicGenreProps {
+  name: string;
+  description?: string;
+  image?: string;
+  url: string;
+  songCount?: number;
+}
+
+export function MusicGenreStructuredData({
+  name,
+  description,
+  image,
+  url,
+  songCount,
+}: MusicGenreProps) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "MusicGenre",
+    name,
+    ...(description && { description }),
+    ...(image && { image }),
+    ...(songCount && { numberOfTracks: songCount }),
+    url,
+  };
+
+  return <StructuredData data={data} />;
+}
+
 interface WebsiteProps {
   name: string;
   url: string;

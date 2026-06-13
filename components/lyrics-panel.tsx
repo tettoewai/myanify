@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { X, Music2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,15 @@ export function LyricsPanel({
   onClose,
   className,
 }: LyricsPanelProps) {
-  const { audioRef, currentSongLyrics, isLoadingLyrics } = usePlayer();
+  const { audioRef, currentSongLyrics, isLoadingLyrics, requestCurrentSongLyrics } =
+    usePlayer();
+
+  useEffect(() => {
+    requestCurrentSongLyrics();
+  }, [requestCurrentSongLyrics, song.id]);
+  const lyricsLoaded = currentSongLyrics !== undefined;
   const lyrics = useMemo(() => currentSongLyrics ?? [], [currentSongLyrics]);
+  const showLyricsLoading = isLoadingLyrics || !lyricsLoaded;
 
   const { currentLyricIndex, seekToken } = useSyncedLyrics(
     lyrics,
@@ -145,7 +152,7 @@ export function LyricsPanel({
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-secondary/30 scrollbar-track-transparent"
         >
           <div className="py-8 px-6">
-            {isLoadingLyrics ? (
+            {showLyricsLoading ? (
               <div className="text-center py-20">
                 <p className="text-muted-foreground font-medium leading-loose">
                   Loading lyrics...

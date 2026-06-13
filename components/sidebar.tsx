@@ -1,32 +1,26 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
-import {
-  Home,
-  Search,
-  Library,
-  Crown,
-  Music2,
-  Plus,
-  Settings,
-  LayoutDashboard,
-} from "lucide-react";
+import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlaylists } from "@/lib/swr";
 import { cn } from "@/lib/utils";
-import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
+import {
+  Home,
+  LayoutDashboard,
+  Library,
+  Music2,
+  Plus,
+  Search,
+  Settings,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-interface SidebarProps {
-  isPremium: boolean;
-}
-
-export function Sidebar({ isPremium }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: session } = useSession();
   const { playlists } = usePlaylists({
     userId: session?.user?.id,
@@ -70,7 +64,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
               "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
               isActive(item.path)
                 ? "bg-primary/80 text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
           >
             <item.icon className="w-5 h-5" />
@@ -80,7 +74,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
       </nav>
 
       {/* Premium Upgrade */}
-      {!isPremium && (
+      {/* {!isPremium && (
         <div className="mx-4 p-4 rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20">
           <div className="flex items-center gap-2 mb-2">
             <Crown className="w-5 h-5 text-primary" />
@@ -97,7 +91,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
             Upgrade Now
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* Playlists */}
       <div className="flex-1 flex flex-col mt-4 border-t border-border">
@@ -128,7 +122,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
                   "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
                   pathname === `/playlist/${playlist.slug}`
                     ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                 )}
               >
                 <Image
@@ -159,7 +153,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
             "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
             pathname === "/settings"
               ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent",
           )}
         >
           <Settings className="w-5 h-5" />
@@ -172,7 +166,7 @@ export function Sidebar({ isPremium }: SidebarProps) {
               "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
               pathname.startsWith("/admin")
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
           >
             <LayoutDashboard className="w-5 h-5" />

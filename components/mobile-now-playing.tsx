@@ -32,7 +32,7 @@ export function MobileNowPlaying({
   onTimeChange,
 }: MobileNowPlayingProps) {
   const { data: session } = useSession();
-  const { showNowPlaying, setShowNowPlaying } = usePlayer();
+  const { showNowPlaying, setShowNowPlaying, setOpenMobileLyricsTab } = usePlayer();
   const { isHome, setPlayerInUrl } = useHomePlayerUrl();
   
   // Fetch liked songs from database
@@ -55,6 +55,7 @@ export function MobileNowPlaying({
   const progress = (currentTime / song.duration) * 100;
 
   const openFullView = () => {
+    setOpenMobileLyricsTab(false);
     setShowNowPlaying(true);
     if (isHome) {
       setPlayerInUrl(true);
