@@ -6,55 +6,52 @@ import { prisma } from "@/db";
 export const authConfig = {
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnAdmin = nextUrl.pathname.startsWith("/admin");
-      const isOnLogin = nextUrl.pathname.startsWith("/login");
-      const isRoot = nextUrl.pathname === "/";
+    async signIn({ user, account }) {
+      // For credentials login, check if email is verified
+      if (account?.provider === "credentials" && user.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+        });
 
-      if (isLoggedIn && (isRoot || isOnLogin)) {
-        return Response.redirect(new URL("/home", nextUrl));
-      }
-
-      if (isOnLogin) {
+        // If user doesn't exist or email not verified, prevent sign in
+        if (!dbUser?.emailVerified) {
+          return false;
+        }
         return true;
       }
 
-      // Admin only — listener app pages are public for SEO
-      if (isOnAdmin) {
-        if (isLoggedIn && auth.user?.role === UserRole.ADMIN) {
-          return true;
-        }
-        if (isLoggedIn) {
-          return Response.redirect(new URL("/home", nextUrl));
-        }
-        return false;
-      }
-
-      return true;
-    },
-    async signIn({ user, account, profile }) {
+      // For Google OAuth, auto-verify the email
       if (account?.provider === "google") {
         try {
-          // Check if user exists
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email! },
           });
 
           if (!existingUser) {
-            // Create new user for Google OAuth
+            // Create new user with email already verified
             await prisma.user.create({
               data: {
                 email: user.email!,
                 name: user.name,
                 avatarUrl: user.image,
-                role: UserRole.LISTENER, // Default to LISTENER for Google sign-ins
+                role: UserRole.LISTENER,
+                emailVerified: new Date(),
               },
             });
           } else {
-            // Update existing user with Google info if not set
+            // If user exists but not verified, auto-verify them
+            if (!existingUser.emailVerified) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  emailVerified: new Date(),
+                },
+              });
+            }
+            // Update name/avatar if needed
             if (!existingUser.name && user.name) {
               await prisma.user.update({
                 where: { id: existingUser.id },
@@ -72,9 +69,36 @@ export const authConfig = {
       }
       return true;
     },
+
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isOnAdmin = nextUrl.pathname.startsWith("/admin");
+      const isOnLogin = nextUrl.pathname.startsWith("/login");
+      const isRoot = nextUrl.pathname === "/";
+
+      if (isLoggedIn && (isRoot || isOnLogin)) {
+        return Response.redirect(new URL("/home", nextUrl));
+      }
+
+      if (isOnLogin) {
+        return true;
+      }
+
+      if (isOnAdmin) {
+        if (isLoggedIn && auth.user?.role === UserRole.ADMIN) {
+          return true;
+        }
+        if (isLoggedIn) {
+          return Response.redirect(new URL("/home", nextUrl));
+        }
+        return false;
+      }
+
+      return true;
+    },
+
     async jwt({ token, user, account }) {
       if (user) {
-        // Prefer the database user id when available (for OAuth flows)
         if (user.email) {
           try {
             const dbUser = await prisma.user.findUnique({
@@ -85,24 +109,27 @@ export const authConfig = {
               token.role = dbUser.role;
               token.email = dbUser.email;
               token.isPremium = dbUser.isPremium;
+              token.emailVerified = dbUser.emailVerified;
             } else {
               token.id = user.id!;
               token.role = user.role;
               token.email = user.email!;
               token.isPremium = (user as any).isPremium ?? false;
+              token.emailVerified = (user as any).emailVerified ?? null;
             }
           } catch (err) {
-            // Fallback to values from `user` if DB lookup fails
             token.id = user.id!;
             token.role = user.role;
             token.email = user.email!;
             token.isPremium = (user as any).isPremium ?? false;
+            token.emailVerified = (user as any).emailVerified ?? null;
           }
         } else {
           token.id = user.id!;
           token.role = user.role;
           token.email = user.email!;
           token.isPremium = (user as any).isPremium ?? false;
+          token.emailVerified = (user as any).emailVerified ?? null;
         }
       }
       if (account) {
@@ -111,6 +138,7 @@ export const authConfig = {
       }
       return token;
     },
+
     session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
@@ -119,9 +147,10 @@ export const authConfig = {
         if (typeof (token as any).isPremium === "boolean") {
           (session.user as any).isPremium = (token as any).isPremium;
         }
+        (session.user as any).emailVerified = (token as any).emailVerified;
       }
       return session;
     },
   },
-  providers: [googleProvider, credentialsProvider], // Add providers with an array, so we can add more later
+  providers: [googleProvider, credentialsProvider],
 } satisfies NextAuthConfig;

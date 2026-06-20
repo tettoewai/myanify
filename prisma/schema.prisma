@@ -17,23 +17,33 @@ model User {
   passwordHash String? // For authentication
   avatarUrl    String?
   role         UserRole @default(LISTENER)
-  isPremium    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  // Email verification
+  emailVerified           DateTime?
+  verificationToken       String?
+  verificationTokenExpiry DateTime?
+
+  // Password reset
+  resetToken       String?   @db.Text
+  resetTokenExpiry DateTime?
+
+  isPremium Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  playlists       Playlist[]
-  likedSongs      LikedSong[]
-  likedArtists    LikedArtist[]
-  playHistory     PlayHistory[]
-  subscriptions   PremiumSubscription[]
-  uploads         Upload[]
-  accounts        Account[]
-  sessions        Session[]
-  paymentRequests PaymentRequest[]
+  playlists        Playlist[]
+  likedSongs       LikedSong[]
+  likedArtists     LikedArtist[]
+  playHistory      PlayHistory[]
+  subscriptions    PremiumSubscription[]
+  uploads          Upload[]
+  accounts         Account[]
+  sessions         Session[]
+  paymentRequests  PaymentRequest[]
   offlineDownloads OfflineDownload[]
-  deviceLicenses  DeviceLicense[]
-  paymentMethods  PaymentMethod[]
+  deviceLicenses   DeviceLicense[]
+  paymentMethods   PaymentMethod[]
 
   @@index([email])
   @@index([role])
@@ -70,21 +80,21 @@ model SeoMetadata {
 
 // Artist model
 model Artist {
-  id               String       @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String
   englishName      String?
-  slug             String       @unique
+  slug             String   @unique
   aliases          String[]
   imageUrl         String?
-  bio              String?      @db.Text
-  englishBio       String?      @db.Text
+  bio              String?  @db.Text
+  englishBio       String?  @db.Text
   country          String?
-  monthlyListeners Int          @default(0)
-  seoId            String?      @unique
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  monthlyListeners Int      @default(0)
+  seoId            String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  seo          SeoMetadata? @relation(fields: [seoId], references: [id])
+  seo          SeoMetadata?  @relation(fields: [seoId], references: [id])
   songs        SongArtist[]
   artistGenres ArtistGenre[]
   likedBy      LikedArtist[]
@@ -107,7 +117,7 @@ model Genre {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  seo          SeoMetadata? @relation(fields: [seoId], references: [id])
+  seo          SeoMetadata?  @relation(fields: [seoId], references: [id])
   songs        Song[]
   artistGenres ArtistGenre[]
 
@@ -176,24 +186,24 @@ model SongArtist {
 
 // Song model - main music track
 model Song {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   title              String
   englishTitle       String?
-  slug               String   @unique
+  slug               String    @unique
   alternativeTitles  String[]
-  description        String?  @db.Text
-  englishDescription String?  @db.Text
+  description        String?   @db.Text
+  englishDescription String?   @db.Text
   duration           Int // Duration in seconds (stored as seconds for precision, but minutes is the standard unit in UI)
   audioUrl           String // URL to audio file
   coverUrl           String? // Album cover image URL
-  language           String?  @default("my")
+  language           String?   @default("my")
   releaseDate        DateTime?
-  isPremium          Boolean  @default(false)
-  isPublished        Boolean  @default(false) // Admin can publish/unpublish
-  playCount          Int      @default(0)
-  seoId              String?  @unique
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  isPremium          Boolean   @default(false)
+  isPublished        Boolean   @default(false) // Admin can publish/unpublish
+  playCount          Int       @default(0)
+  seoId              String?   @unique
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Foreign keys
   albumId String?
@@ -331,9 +341,9 @@ model Plan {
   name        String
   description String?  @db.Text
   price       Float
-  duration    Int      // Duration in days
+  duration    Int // Duration in days
   type        PlanType @default(MONTHLY)
-  features    Json?    // Array of feature strings
+  features    Json? // Array of feature strings
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -461,26 +471,26 @@ model VerificationToken {
 
 // PaymentRequest model - for manual payment verification
 model PaymentRequest {
-  id                String             @id @default(cuid())
-  userId            String
-  paymentMethodId   String?
-  planType          PlanType           // MONTHLY or YEARLY
-  amount            Float
-  referenceNumber   String             @unique // Unique payment reference for m-banking
-  status            PaymentStatus      @default(PENDING)
-  transactionId     String? // User-provided transaction ID
-  proofImageUrl     String? // Optional screenshot of payment
-  notes             String?  @db.Text // Admin notes
-  verifiedBy        String? // Admin user ID who verified
-  verifiedAt        DateTime?
-  rejectedReason    String?  @db.Text
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id              String        @id @default(cuid())
+  userId          String
+  paymentMethodId String?
+  planType        PlanType // MONTHLY or YEARLY
+  amount          Float
+  referenceNumber String        @unique // Unique payment reference for m-banking
+  status          PaymentStatus @default(PENDING)
+  transactionId   String? // User-provided transaction ID
+  proofImageUrl   String? // Optional screenshot of payment
+  notes           String?       @db.Text // Admin notes
+  verifiedBy      String? // Admin user ID who verified
+  verifiedAt      DateTime?
+  rejectedReason  String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   planId String?
   plan   Plan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
 
   @@index([userId])
@@ -500,18 +510,18 @@ enum PaymentStatus {
 
 // OfflineDownload model - tracks downloaded songs for VIP users
 model OfflineDownload {
-  id                String   @id @default(cuid())
+  id                String         @id @default(cuid())
   userId            String
   songId            String
   encryptedFilePath String? // Server-side encrypted file path (if stored on server)
   downloadStatus    DownloadStatus @default(PENDING)
-  progress          Int      @default(0) // 0-100
-  downloadedAt      DateTime @default(now())
+  progress          Int            @default(0) // 0-100
+  downloadedAt      DateTime       @default(now())
   expiresAt         DateTime? // When the download expires (if subscription ends)
   fileSize          Int? // Size in bytes
   checksum          String? // File checksum for integrity verification
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
@@ -534,17 +544,17 @@ enum DownloadStatus {
 
 // DeviceLicense model - tracks device registrations for DRM
 model DeviceLicense {
-  id              String    @id @default(cuid())
+  id              String     @id @default(cuid())
   userId          String
-  deviceId        String    // Unique device identifier (generated client-side)
+  deviceId        String // Unique device identifier (generated client-side)
   deviceName      String? // User-friendly device name
   deviceType      DeviceType // MOBILE or WEB
-  licenseKey      String    @unique // Encrypted license key
-  isValid         Boolean   @default(true)
-  lastValidatedAt DateTime  @default(now())
+  licenseKey      String     @unique // Encrypted license key
+  isValid         Boolean    @default(true)
+  lastValidatedAt DateTime   @default(now())
   expiresAt       DateTime? // License expiration (if any)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -562,20 +572,20 @@ enum DeviceType {
 
 // PaymentMethod model - payment methods for VIP subscriptions (managed by admin)
 model PaymentMethod {
-  id              String    @id @default(cuid())
-  name            String    // e.g., "KBZ Bank", "AYA Bank", "Wave Money"
-  type            PaymentMethodType // BANK, MOBILE_MONEY, etc.
-  accountName     String? // Account holder name
-  accountNumber   String? // Bank account number or phone number
-  qrCodeUrl       String? // QR code image URL
-  instructions    String?  @db.Text // Payment instructions for users
-  isActive        Boolean   @default(true)
-  displayOrder    Int       @default(0) // Order for display
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  createdById     String    // Admin who created this
+  id            String            @id @default(cuid())
+  name          String // e.g., "KBZ Bank", "AYA Bank", "Wave Money"
+  type          PaymentMethodType // BANK, MOBILE_MONEY, etc.
+  accountName   String? // Account holder name
+  accountNumber String? // Bank account number or phone number
+  qrCodeUrl     String? // QR code image URL
+  instructions  String?           @db.Text // Payment instructions for users
+  isActive      Boolean           @default(true)
+  displayOrder  Int               @default(0) // Order for display
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  createdById   String // Admin who created this
 
-  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy       User             @relation(fields: [createdById], references: [id], onDelete: Cascade)
   paymentRequests PaymentRequest[]
 
   @@index([isActive])

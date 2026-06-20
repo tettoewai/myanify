@@ -657,7 +657,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ── Premium upgrade banner (non-premium only) ── */}
-      {!profile?.isPremium && (
+      {/* {!profile?.isPremium && (
         <div className="rounded-xl bg-linear-to-r from-primary/20 via-primary/10 to-card border border-primary/20 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15">
             <Crown className="h-6 w-6 text-primary" />
@@ -679,7 +679,7 @@ export default function SettingsPage() {
             </Link>
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* ── Danger zone ── */}
       <Card className="border-destructive/20 shadow-sm">

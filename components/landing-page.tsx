@@ -335,7 +335,7 @@ export function LandingPageContent() {
               <Music className="w-6 h-6 text-primary" />
               <span className="text-xl font-bold">Myanify</span>
             </div>
-            <div className="flex gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap justify-center md:justify-end gap-6 text-sm text-muted-foreground">
               <Link
                 href="/home"
                 className="hover:text-foreground transition"
@@ -353,6 +353,18 @@ export function LandingPageContent() {
                 className="hover:text-foreground transition"
               >
                 Get Started
+              </Link>
+              <Link
+                href="/terms"
+                className="hover:text-foreground transition"
+              >
+                Terms of Service
+              </Link>
+              <Link
+                href="/privacy"
+                className="hover:text-foreground transition"
+              >
+                Privacy Policy
               </Link>
             </div>
           </div>
