@@ -45,6 +45,19 @@ async function fetchHomeData(request: Request) {
     prisma.album.findMany({
       include: {
         _count: { select: { songs: true } },
+        songs: {
+          include: {
+            artists: {
+              include: {
+                artist: {
+                  select: { imageUrl: true },
+                },
+              },
+            },
+          },
+          take: 1,
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 8,
@@ -92,12 +105,20 @@ async function fetchHomeData(request: Request) {
   const formattedTrending = formatSongsResponse(trendingSongs, request);
   const formattedNewReleases = formatSongsResponse(newReleaseSongs, request);
 
+  const enrichedAlbums = albums.map((album) => {
+    const firstArtistImage = album.songs?.[0]?.artists
+      ?.map((sa: any) => sa.artist?.imageUrl)
+      .find(Boolean);
+    const { songs: _songs, ...rest } = album;
+    return { ...rest, artistImageUrl: firstArtistImage ?? null };
+  });
+
   return {
     featuredSong: formattedTrending[0] ?? null,
     trendingSongs: formattedTrending,
     newReleases: formattedNewReleases,
     popularArtists: enrichedArtists,
-    featuredAlbums: albums,
+    featuredAlbums: enrichedAlbums,
     featuredPlaylists,
     genres,
   };

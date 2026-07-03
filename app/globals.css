@@ -195,24 +195,23 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Fix overflow issues - only html should control overflow */
   html {
     width: 100%;
-    height: 100vh;
-    max-width: 100vw;
+    min-height: 100vh;
     overflow-x: hidden;
-    overflow-y: scroll;
+    overflow-y: auto;
   }
 
   body {
     width: 100%;
-    height: 100vh;
-    max-width: 100vw;
+    min-height: 100vh;
     overflow-x: hidden;
-    overflow-y: scroll;
+    overflow-y: visible; /* Let html handle scrolling */
     @apply bg-background text-foreground;
   }
 
-  /* Hide scrollbars globally */
+  /* Hide scrollbars globally but maintain scrollability */
   * {
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
@@ -223,8 +222,14 @@
   }
 }
 
-/* Custom scrollbar for lyrics */
+/* Custom scrollbar for lyrics - override the global hide */
+.lyrics-scroll {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: auto; /* IE and Edge */
+}
+
 .lyrics-scroll::-webkit-scrollbar {
+  display: block !important;
   width: 4px;
 }
 

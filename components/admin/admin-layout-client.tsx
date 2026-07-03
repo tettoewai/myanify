@@ -13,9 +13,9 @@ export function AdminLayoutClient({
   const { data: session } = useSession();
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div className="fixed inset-0 flex bg-background overflow-hidden">
       <AdminSidebar />
-      <main className="flex-1 overflow-y-auto flex flex-col">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 min-w-0">
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border px-6 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Myanify Admin</h1>
           {session?.user?.role === "ADMIN" && (
@@ -29,7 +29,7 @@ export function AdminLayoutClient({
             </div>
           )}
         </div>
-        <div className="p-6 flex-1">{children}</div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 min-w-0">{children}</div>
       </main>
     </div>
   );

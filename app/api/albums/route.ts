@@ -46,6 +46,19 @@ export async function GET(request: Request) {
             _count: {
               select: { songs: true },
             },
+            songs: {
+              include: {
+                artists: {
+                  include: {
+                    artist: {
+                      select: { imageUrl: true },
+                    },
+                  },
+                },
+              },
+              take: 1,
+              orderBy: { createdAt: "asc" },
+            },
           },
           ...(search
             ? {}
@@ -71,8 +84,16 @@ export async function GET(request: Request) {
           );
         }
 
+        const enrichedAlbums = albums.map((album: any) => {
+          const firstArtistImage = album.songs?.[0]?.artists
+            ?.map((sa: any) => sa.artist?.imageUrl)
+            .find(Boolean);
+          const { songs: _songs, ...rest } = album;
+          return { ...rest, artistImageUrl: firstArtistImage ?? null };
+        });
+
         return {
-          data: albums,
+          data: enrichedAlbums,
           pagination: {
             page,
             limit,

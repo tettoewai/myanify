@@ -56,6 +56,7 @@ export interface Artist {
   id: string;
   slug: string;
   name: string;
+  englishName?: string | null;
   imageUrl: string;
   bio: string;
   monthlyListeners: number;

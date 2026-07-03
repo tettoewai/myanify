@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
+import { useArtists, useGenres, useAlbums, useSong } from "@/lib/swr";
+import { formatAlbumWithType, type AlbumType } from "@/lib/album-type";
+import { uploadAudioFile } from "@/lib/audio-upload-client";
+import { formatMaxAudioSize } from "@/lib/audio-upload-config";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Upload,
+  Music,
+  Image as ImageIcon,
+  Loader2,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,72 +27,233 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
+import { SlugInput } from "@/components/admin/slug-input";
+import {
+  clientSlugify,
+  emptySeoFormValues,
+  seoFormFromApi,
+  seoFormToApi,
+  type SeoFormValues,
+} from "@/lib/seo-form";
 import Link from "next/link";
 
-
-interface Ad {
+interface Artist {
   id: string;
-  title: string;
-  description: string | null;
-  imageUrl: string | null;
-  linkUrl: string;
-  sponsor: string;
-  isActive: boolean;
-  startDate: string;
-  endDate: string | null;
+  name: string;
 }
 
-export default function EditAdPage() {
+interface Genre {
+  id: string;
+  name: string;
+}
+
+interface Album {
+  id: string;
+  name: string;
+}
+
+interface Song {
+  id: string;
+  title: string;
+  duration: number;
+  audioUrl: string;
+  coverUrl: string | null;
+  artistId: string;
+  genreId: string | null;
+  albumId: string | null;
+  isPremium: boolean;
+  isPublished: boolean;
+}
+
+export default function EditSongPage() {
   const router = useRouter();
   const params = useParams();
-  const adId = params.id as string;
+  const songId = params.id as string;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [ad, setAd] = useState<Ad | null>(null);
+  const [uploadingLyrics, setUploadingLyrics] = useState(false);
+  // Use fetched data directly instead of storing in state to avoid infinite loops
   const [formData, setFormData] = useState({
     title: "",
+    englishTitle: "",
+    slug: "",
     description: "",
-    linkUrl: "",
-    sponsor: "",
-    isActive: true,
-    startDate: "",
-    endDate: "",
+    englishDescription: "",
+    alternativeTitles: "",
+    language: "my",
+    releaseDate: "",
+    duration: 0,
+    artistIds: [] as string[],
+    genreId: "",
+    albumId: "",
+    isPremium: false,
+    isPublished: false,
   });
-  const [imageUrl, setImageUrl] = useState("");
+  const [seoData, setSeoData] = useState<SeoFormValues>(emptySeoFormValues());
+  const [audioUrl, setAudioUrl] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
+  const [lyricsData, setLyricsData] = useState<any[]>([]);
+  const [audioFileName, setAudioFileName] = useState("");
   const [imageFileName, setImageFileName] = useState("");
+  const [lyricsFileName, setLyricsFileName] = useState("");
+  const initializedSongIdRef = useRef<string | null>(null);
 
+  const { song, isLoading: songLoading } = useSong(songId, true, {
+    includeLyrics: true,
+  }); // Use admin mode to get raw data
+  const { artists: fetchedArtists } = useArtists();
+  const { genres: fetchedGenres } = useGenres();
+  const { albums: fetchedAlbums } = useAlbums();
+
+  // Reset when songId changes
   useEffect(() => {
-    fetchAd();
-  }, [adId]);
+    initializedSongIdRef.current = null;
+    setLoading(true);
+    // Reset form data
+    setFormData({
+      title: "",
+      englishTitle: "",
+      slug: "",
+      description: "",
+      englishDescription: "",
+      alternativeTitles: "",
+      language: "my",
+      releaseDate: "",
+      duration: 0,
+      artistIds: [],
+      genreId: "",
+      albumId: "",
+      isPremium: false,
+      isPublished: false,
+    });
+    setSeoData(emptySeoFormValues());
+    setAudioUrl("");
+    setCoverUrl("");
+    setLyricsData([]);
+  }, [songId]);
 
-  const fetchAd = async () => {
-    try {
-      const response = await fetch(`/api/ads/${adId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch ad");
+  // Use useMemo to determine if we should initialize (only recomputes when deps change)
+  const shouldInitialize = useMemo(() => {
+    // Don't initialize if already done
+    if (initializedSongIdRef.current === songId) {
+      return false;
+    }
+    // Don't initialize if still loading
+    if (songLoading) {
+      return false;
+    }
+    // Initialize if we have valid song data
+    return !!(song && song.id === songId);
+  }, [songId, songLoading, song?.id]);
+
+  // Single effect that only runs when shouldInitialize changes
+  useEffect(() => {
+    if (!shouldInitialize) {
+      // Handle error case separately
+      if (!songLoading && !song && initializedSongIdRef.current !== songId) {
+        toast.error("Failed to load song");
+        router.push("/admin/songs");
       }
-      const data = await response.json();
-      setAd(data);
+      return;
+    }
+
+    // Mark as initialized FIRST to prevent re-runs
+    initializedSongIdRef.current = songId;
+
+    // Then update all state (song is guaranteed to exist here due to shouldInitialize check)
+    if (song && song.id === songId) {
+      // Extract artist IDs from the song's artists array
+      const artistIds =
+        (song as any).artists?.map((sa: any) => sa.artistId || sa.artist?.id) ||
+        ((song as any).artistId ? [(song as any).artistId] : []);
+
       setFormData({
-        title: data.title,
-        description: data.description || "",
-        linkUrl: data.linkUrl,
-        sponsor: data.sponsor,
-        isActive: data.isActive,
-        startDate: new Date(data.startDate).toISOString().split("T")[0],
-        endDate: data.endDate
-          ? new Date(data.endDate).toISOString().split("T")[0]
+        title: song.title,
+        englishTitle: (song as any).englishTitle || "",
+        slug: (song as any).slug || "",
+        description: (song as any).description || "",
+        englishDescription: (song as any).englishDescription || "",
+        alternativeTitles: ((song as any).alternativeTitles || []).join(", "),
+        language: (song as any).language || "my",
+        releaseDate: (song as any).releaseDate
+          ? new Date((song as any).releaseDate).toISOString().split("T")[0]
           : "",
+        duration: song.duration,
+        artistIds: artistIds,
+        genreId: song.genreId || "",
+        albumId: song.albumId || "",
+        isPremium: song.isPremium,
+        isPublished: song.isPublished,
       });
-      setImageUrl(data.imageUrl || "");
-    } catch (error) {
-      console.error("Error fetching ad:", error);
-      toast.error("Failed to load ad");
-      router.push("/admin/ads");
-    } finally {
+      setSeoData(seoFormFromApi((song as any).seo));
+      setAudioUrl(song.audioUrl);
+      setCoverUrl(song.coverUrl || "");
+      setLyricsData((song as any).lyrics || []);
       setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldInitialize]); // Only depend on the computed flag
+
+  // Use fetched data directly - no need to store in state
+  const artists = fetchedArtists || [];
+  const genres = fetchedGenres || [];
+  const albums = fetchedAlbums || [];
+
+  const getAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+
+      audio.addEventListener("loadedmetadata", () => {
+        URL.revokeObjectURL(url);
+        resolve(Math.round(audio.duration));
+      });
+
+      audio.addEventListener("error", (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load audio metadata"));
+      });
+
+      audio.src = url;
+    });
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAudio(true);
+    setAudioFileName(file.name);
+
+    try {
+      const duration = await getAudioDuration(file);
+      setFormData((prev) => ({ ...prev, duration }));
+
+      const result = await uploadAudioFile(file);
+      setAudioUrl(result.url);
+      toast.success(
+        `Audio uploaded (${Math.round(result.fileSize / 1024)} KB compressed MP3)`,
+      );
+    } catch (error) {
+      console.error("Error uploading audio:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload audio file",
+      );
+    } finally {
+      setUploadingAudio(false);
+      e.target.value = "";
     }
   };
 
@@ -106,8 +279,8 @@ export default function EditAdPage() {
       }
 
       const data = await response.json();
-      setImageUrl(data.url);
-      toast.success("Image uploaded successfully");
+      setCoverUrl(data.url);
+      toast.success("Cover image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
       toast.error("Failed to upload image file");
@@ -116,125 +289,290 @@ export default function EditAdPage() {
     }
   };
 
+  const handleLyricsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLyrics(true);
+    setLyricsFileName(file.name);
+
+    try {
+      // Read file content
+      const text = await file.text();
+
+      // Parse lyrics
+      const { parseLRC, parsePlainText } = await import("@/lib/lyric-parser");
+      const parsedLyrics = file.name.endsWith(".lrc")
+        ? parseLRC(text)
+        : parsePlainText(text, formData.duration || 180);
+
+      if (parsedLyrics.length === 0) {
+        throw new Error("No lyrics found in file");
+      }
+
+      setLyricsData(parsedLyrics);
+      toast.success(
+        `Lyrics uploaded successfully (${parsedLyrics.length} lines)`,
+      );
+    } catch (error) {
+      console.error("Error uploading lyrics:", error);
+      toast.error("Failed to upload lyrics file");
+      setLyricsData([]);
+      setLyricsFileName("");
+    } finally {
+      setUploadingLyrics(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || !formData.linkUrl || !formData.sponsor) {
-      toast.error("Please fill in all required fields");
+    if (!audioUrl) {
+      toast.error("Please upload an audio file");
+      return;
+    }
+
+    if (!formData.title || formData.artistIds.length === 0) {
+      toast.error(
+        "Please fill in all required fields and select at least one artist",
+      );
+      return;
+    }
+
+    if (!formData.duration || formData.duration <= 0) {
+      toast.error("Please upload an audio file to get the duration");
       return;
     }
 
     setSaving(true);
 
     try {
-      const response = await fetch(`/api/ads/${adId}`, {
+      const response = await fetch(`/api/songs/${songId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...formData,
-          imageUrl: imageUrl || null,
+          artistIds: formData.artistIds,
+          duration: formData.duration,
+          audioUrl,
+          coverUrl: coverUrl || null,
+          genreId: formData.genreId || null,
+          albumId: formData.albumId || null,
+          englishTitle: formData.englishTitle || null,
+          slug: formData.slug || null,
           description: formData.description || null,
-          endDate: formData.endDate || null,
+          englishDescription: formData.englishDescription || null,
+          alternativeTitles: formData.alternativeTitles,
+          language: formData.language || "my",
+          releaseDate: formData.releaseDate || null,
+          seo: seoFormToApi(seoData),
+          lyrics: lyricsData.length > 0 ? lyricsData : undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update ad");
+        throw new Error("Failed to update song");
       }
 
-      toast.success("Ad updated successfully");
-      router.push("/admin/ads");
+      toast.success("Song updated successfully");
+      router.push("/admin/songs");
     } catch (error) {
-      console.error("Error updating ad:", error);
-      alert("Failed to update ad");
+      console.error("Error updating song:", error);
+      toast.error("Failed to update song");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <AdminFormPageSkeleton />;
+  if (loading || songLoading) {
+    return <AdminFormPageSkeleton fields={8} />;
   }
 
-  if (!ad) {
-    return null;
+  if (!song) {
+    return <div className="text-center py-12">Song not found</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/admin/ads">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-3xl font-bold text-foreground">Edit Ad</h2>
-          <p className="text-muted-foreground mt-1">
-            Update advertisement information
-          </p>
+    <div className="w-full max-w-full overflow-hidden">
+      <div className="space-y-6 px-4 md:px-6">
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/admin/songs">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Edit Song</h2>
+            <p className="text-muted-foreground mt-1">
+              Update song details and upload new files
+            </p>
+          </div>
         </div>
-      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Image Upload */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Ad Image
-              </CardTitle>
-              <CardDescription>
-                Upload the advertisement image (JPG, PNG, WEBP)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="image">Ad Image</Label>
-                <div className="mt-2">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="cursor-pointer"
-                  />
-                </div>
-                {uploadingImage && (
-                  <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading...
-                  </div>
-                )}
-                {imageUrl && !uploadingImage && (
-                  <div className="mt-4">
-                    <p className="text-sm text-green-600 dark:text-green-400 mb-2">
-                      {imageFileName ? `✓ Image uploaded: ${imageFileName}` : "Current image"}
-                    </p>
-                    <img
-                      src={imageUrl}
-                      alt="Ad preview"
-                      className="w-full aspect-video rounded-md object-cover border border-border"
+        <form onSubmit={handleSubmit} className="space-y-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+            {/* Audio Upload */}
+            <Card className="w-full min-w-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Music className="w-5 h-5 flex-shrink-0" />
+                  Audio File
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Upload a new audio file or keep the existing one. Files are
+                  compressed to 128kbps MP3. Max {formatMaxAudioSize()}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="w-full">
+                  <Label htmlFor="audio">Audio File *</Label>
+                  <div className="mt-2 w-full">
+                    <Input
+                      id="audio"
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioUpload}
+                      disabled={uploadingAudio}
+                      className="cursor-pointer w-full"
                     />
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {uploadingAudio && (
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      Uploading...
+                    </div>
+                  )}
+                  {audioUrl && !uploadingAudio && (
+                    <p className="mt-2 text-sm text-green-600 dark:text-green-400 break-all">
+                      {audioFileName
+                        ? `✓ Audio uploaded: ${audioFileName}`
+                        : "✓ Using existing audio file"}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Ad Details */}
-          <Card>
+            {/* Cover Image Upload */}
+            <Card className="w-full min-w-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <ImageIcon className="w-5 h-5 flex-shrink-0" />
+                  Cover Image
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Upload a new cover image or keep the existing one. If not
+                  provided, the album cover will be used if the song is assigned
+                  to an album.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="w-full">
+                  <Label htmlFor="cover">Cover Image</Label>
+                  <div className="mt-2 w-full">
+                    <Input
+                      id="cover"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="cursor-pointer w-full"
+                    />
+                  </div>
+                  {uploadingImage && (
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      Uploading...
+                    </div>
+                  )}
+                  {(coverUrl || song.coverUrl) && !uploadingImage && (
+                    <div className="mt-4">
+                      <p className="text-sm text-green-600 dark:text-green-400 mb-2 break-all">
+                        {imageFileName
+                          ? `✓ Image uploaded: ${imageFileName}`
+                          : "✓ Using existing cover image"}
+                      </p>
+                      <Image
+                        src={coverUrl || song.coverUrl || "/placeholder.svg"}
+                        alt="Cover preview"
+                        width={128}
+                        height={128}
+                        className="w-32 h-32 rounded-md object-cover border border-border flex-shrink-0"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                  {!coverUrl &&
+                    !song.coverUrl &&
+                    formData.albumId &&
+                    formData.albumId !== "none" && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        No cover image uploaded. The album cover will be used as
+                        fallback.
+                      </p>
+                    )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lyrics Upload */}
+            <Card className="w-full min-w-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <FileText className="w-5 h-5 flex-shrink-0" />
+                  Lyrics File
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Upload lyrics file (LRC or TXT format)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="w-full">
+                  <Label htmlFor="lyrics">Lyrics File</Label>
+                  <div className="mt-2 w-full">
+                    <Input
+                      id="lyrics"
+                      type="file"
+                      accept=".lrc,.txt"
+                      onChange={handleLyricsUpload}
+                      disabled={uploadingLyrics}
+                      className="cursor-pointer w-full"
+                    />
+                  </div>
+                  {uploadingLyrics && (
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      Uploading...
+                    </div>
+                  )}
+                  {lyricsData.length > 0 && !uploadingLyrics && (
+                    <div className="mt-4">
+                      <p className="text-sm text-green-600 dark:text-green-400 mb-2 break-all">
+                        {lyricsFileName
+                          ? `✓ Lyrics uploaded: ${lyricsFileName}`
+                          : "✓ Using existing lyrics"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lyricsData.length} lines
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Song Details */}
+          <Card className="w-full min-w-0">
             <CardHeader>
-              <CardTitle>Ad Details</CardTitle>
-              <CardDescription>Enter the advertisement information</CardDescription>
+              <CardTitle>Song Details</CardTitle>
+              <CardDescription>Update the song information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
+              <div className="w-full">
                 <Label htmlFor="title">Title *</Label>
                 <Input
                   id="title"
@@ -243,11 +581,79 @@ export default function EditAdPage() {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   required
-                  className="mt-2"
+                  className="mt-2 w-full"
                 />
               </div>
 
-              <div>
+              <div className="w-full">
+                <Label htmlFor="englishTitle">English title</Label>
+                <Input
+                  id="englishTitle"
+                  value={formData.englishTitle}
+                  onChange={(e) =>
+                    setFormData({ ...formData, englishTitle: e.target.value })
+                  }
+                  className="mt-2 w-full"
+                />
+              </div>
+
+              <SlugInput
+                value={formData.slug}
+                onChange={(slug) => setFormData({ ...formData, slug })}
+                onGenerate={() =>
+                  setFormData({
+                    ...formData,
+                    slug: clientSlugify(
+                      formData.englishTitle || formData.title,
+                    ),
+                  })
+                }
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor="language">Language</Label>
+                  <Input
+                    id="language"
+                    value={formData.language}
+                    onChange={(e) =>
+                      setFormData({ ...formData, language: e.target.value })
+                    }
+                    className="mt-2 w-full"
+                    placeholder="my"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <Label htmlFor="releaseDate">Release date</Label>
+                  <Input
+                    id="releaseDate"
+                    type="date"
+                    value={formData.releaseDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, releaseDate: e.target.value })
+                    }
+                    className="mt-2 w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="w-full">
+                <Label htmlFor="alternativeTitles">Alternative titles</Label>
+                <Input
+                  id="alternativeTitles"
+                  value={formData.alternativeTitles}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      alternativeTitles: e.target.value,
+                    })
+                  }
+                  className="mt-2 w-full"
+                  placeholder="Comma-separated"
+                />
+              </div>
+
+              <div className="w-full">
                 <Label htmlFor="description">Description</Label>
                 <textarea
                   id="description"
@@ -255,117 +661,164 @@ export default function EditAdPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  rows={4}
+                  rows={3}
                   className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Enter ad description..."
                 />
               </div>
 
-              <div>
-                <Label htmlFor="linkUrl">Link URL *</Label>
-                <Input
-                  id="linkUrl"
-                  type="url"
-                  value={formData.linkUrl}
+              <div className="w-full">
+                <Label htmlFor="englishDescription">English description</Label>
+                <textarea
+                  id="englishDescription"
+                  value={formData.englishDescription}
                   onChange={(e) =>
-                    setFormData({ ...formData, linkUrl: e.target.value })
+                    setFormData({
+                      ...formData,
+                      englishDescription: e.target.value,
+                    })
                   }
-                  required
-                  placeholder="https://example.com"
-                  className="mt-2"
+                  rows={3}
+                  className="mt-2 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="sponsor">Sponsor *</Label>
-                <Input
-                  id="sponsor"
-                  value={formData.sponsor}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sponsor: e.target.value })
-                  }
-                  required
-                  className="mt-2"
-                />
+              <div className="w-full">
+                <Label htmlFor="artists">Artists *</Label>
+                <div className="mt-2 w-full">
+                  <MultiSelect
+                    options={artists.map((artist) => ({
+                      value: artist.id,
+                      label: artist.name,
+                    }))}
+                    value={formData.artistIds}
+                    onChange={(selectedIds) =>
+                      setFormData({ ...formData, artistIds: selectedIds })
+                    }
+                    placeholder="Select artists..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor="genreId">Genre</Label>
+                  <Select
+                    value={formData.genreId || undefined}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, genreId: value || "" })
+                    }
+                  >
+                    <SelectTrigger className="mt-2 w-full" id="genreId">
+                      <SelectValue placeholder="Select a genre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {genres.map((genre) => (
+                        <SelectItem key={genre.id} value={genre.id}>
+                          {genre.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-0">
+                  <Label htmlFor="albumId">Album</Label>
+                  <Select
+                    value={formData.albumId || "none"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        albumId: value === "none" ? "" : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2 w-full" id="albumId">
+                      <SelectValue placeholder="Select an album (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {albums.map(
+                        (album: {
+                          id: string;
+                          name: string;
+                          type?: AlbumType;
+                        }) => (
+                          <SelectItem key={album.id} value={album.id}>
+                            {formatAlbumWithType(album.name, album.type)}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="isPremium"
+                    checked={formData.isPremium}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        isPremium: checked === true,
+                      })
+                    }
+                  />
+                  <Label
+                    htmlFor="isPremium"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Premium Song
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="isPublished"
+                    checked={formData.isPublished}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        isPublished: checked === true,
+                      })
+                    }
+                  />
+                  <Label
+                    htmlFor="isPublished"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Published
+                  </Label>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Additional Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Additional Details</CardTitle>
-            <CardDescription>Set dates and active status</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="startDate">Start Date *</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, startDate: e.target.value })
-                  }
-                  required
-                  className="mt-2"
-                />
-              </div>
+          <SeoFieldsCard values={seoData} onChange={setSeoData} />
 
-              <div>
-                <Label htmlFor="endDate">End Date (Optional)</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, endDate: e.target.value })
-                  }
-                  className="mt-2"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({
-                    ...formData,
-                    isActive: checked === true,
-                  })
-                }
-              />
-              <Label
-                htmlFor="isActive"
-                className="text-sm font-normal cursor-pointer"
-              >
-                Active
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex items-center gap-4">
-          <Button type="submit" disabled={saving || uploadingImage}>
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Changes"
-            )}
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link href="/admin/ads">Cancel</Link>
-          </Button>
-        </div>
-      </form>
+          <div className="flex items-center gap-4 justify-end flex-wrap">
+            <Button
+              type="submit"
+              disabled={
+                saving || uploadingAudio || uploadingImage || uploadingLyrics
+              }
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href="/admin/songs">Cancel</Link>
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
-

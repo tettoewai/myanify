@@ -14,6 +14,7 @@ import {
   usePlayHistory,
   usePlaylists,
   useQuickPlaySongs,
+  useSongs,
 } from "@/lib/swr";
 import type { Album, Song } from "@/lib/types";
 import { cn, getSongCoverUrl, isPlaceholderCoverUrl } from "@/lib/utils";
@@ -93,6 +94,7 @@ export function HomeView({
     limit: 4,
     enabled: !!session?.user?.id,
   });
+  const { songs: newReleases } = useSongs({ limit: 8 });
 
   // Scroll handlers
   const scrollGenres = (direction: "left" | "right") => {
@@ -300,6 +302,80 @@ export function HomeView({
           ))}
         </div>
       </section>
+
+      {/* New Releases */}
+      {newReleases.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground">
+              New Releases
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate("see-all", "new-releases")}
+            >
+              See All <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {newReleases.map((song) => (
+              <SongContextMenu key={song.id} song={song}>
+                <div
+                  className={cn(
+                    "group text-left relative w-full min-w-0",
+                    currentSong?.id === song.id &&
+                      "ring-1 ring-primary/30 rounded-xl",
+                  )}
+                >
+                  <button
+                    onClick={() =>
+                      playFromContext(song, newReleases, "playlist")
+                    }
+                    className="w-full min-w-0 cursor-pointer"
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
+                      <Image
+                        src={getSongCoverUrl(song)}
+                        alt={song.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        {currentSong?.id === song.id && isPlaying ? (
+                          <Pause className="w-10 h-10 text-white" />
+                        ) : (
+                          <Play className="w-10 h-10 text-white" />
+                        )}
+                      </div>
+                      {song.isPremium && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                          Premium
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h3
+                        className={cn(
+                          "font-medium text-sm truncate",
+                          currentSong?.id === song.id && "text-primary",
+                        )}
+                      >
+                        {song.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {song.artist}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </SongContextMenu>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Browse Genres */}
       <section className="relative">

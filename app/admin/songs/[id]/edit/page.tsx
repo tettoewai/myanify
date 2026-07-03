@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { ArtistCombobox } from "@/components/admin/artist-combobox";
 import { SeoFieldsCard } from "@/components/admin/seo-fields-card";
 import { SlugInput } from "@/components/admin/slug-input";
 import {
@@ -46,7 +46,6 @@ import {
   type SeoFormValues,
 } from "@/lib/seo-form";
 import Link from "next/link";
-
 
 interface Artist {
   id: string;
@@ -211,6 +210,8 @@ export default function EditSongPage() {
   const artists = fetchedArtists || [];
   const genres = fetchedGenres || [];
   const albums = fetchedAlbums || [];
+
+  const initialArtists = song ? ((song as any).artists?.map((sa: any) => sa.artist).filter(Boolean) || []) : [];
 
   const getAudioDuration = (file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
@@ -603,9 +604,7 @@ export default function EditSongPage() {
               onGenerate={() =>
                 setFormData({
                   ...formData,
-                  slug: clientSlugify(
-                    formData.englishTitle || formData.title,
-                  ),
+                  slug: clientSlugify(formData.englishTitle || formData.title),
                 })
               }
             />
@@ -685,15 +684,12 @@ export default function EditSongPage() {
             <div>
               <Label htmlFor="artists">Artists *</Label>
               <div className="mt-2">
-                <MultiSelect
-                  options={artists.map((artist) => ({
-                    value: artist.id,
-                    label: artist.name,
-                  }))}
+                <ArtistCombobox
                   value={formData.artistIds}
                   onChange={(selectedIds) =>
                     setFormData({ ...formData, artistIds: selectedIds })
                   }
+                  initialArtists={initialArtists}
                   placeholder="Select artists..."
                 />
               </div>

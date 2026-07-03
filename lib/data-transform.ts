@@ -69,6 +69,7 @@ export function transformArtist(prismaArtist: any): Artist {
     id: prismaArtist.id,
     slug: prismaArtist.slug ?? prismaArtist.id,
     name: prismaArtist.name,
+    englishName: prismaArtist.englishName,
     imageUrl: prismaArtist.imageUrl || FALLBACK_COVER,
     bio: prismaArtist.bio || "",
     monthlyListeners: prismaArtist.monthlyListeners,
