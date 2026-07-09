@@ -189,15 +189,27 @@ export function useSearch(
   },
 ) {
   const trimmedQuery = query?.trim();
-  const params = new URLSearchParams();
-  if (trimmedQuery) params.set("q", trimmedQuery);
-  if (options?.perPage) params.set("per_page", String(options.perPage));
-
-  const key = trimmedQuery ? `/api/search?${params.toString()}` : null;
+  const limit = options?.perPage ?? 20;
+  const key = trimmedQuery ? `search:${trimmedQuery}:${limit}` : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     key,
-    fetcher,
+    async () => {
+      const params = new URLSearchParams({
+        search: trimmedQuery!,
+        limit: String(limit),
+      });
+
+      const [songsRes, artistsRes] = await Promise.all([
+        fetcher(`/api/songs?${params}&isPublished=true`),
+        fetcher(`/api/artists?${params}`),
+      ]);
+
+      return {
+        songs: songsRes.data?.map(transformSong) ?? [],
+        artists: artistsRes.data?.map(transformArtist) ?? [],
+      };
+    },
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
@@ -205,8 +217,8 @@ export function useSearch(
     },
   );
 
-  const songs: Song[] = data?.songs?.map(transformSong) ?? [];
-  const artists: Artist[] = data?.artists?.map(transformArtist) ?? [];
+  const songs: Song[] = data?.songs ?? [];
+  const artists: Artist[] = data?.artists ?? [];
 
   return {
     songs,

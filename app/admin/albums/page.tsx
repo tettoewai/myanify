@@ -24,7 +24,6 @@ import Link from "next/link";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { AlbumType } from "@/lib/album-type";
 
-
 interface Album {
   id: string;
   name: string;
@@ -48,7 +47,12 @@ export default function AlbumsPage() {
     setPage(1);
   }, [searchQuery]);
 
-  const { albums, pagination, isLoading, mutate: mutateAlbums } = useAlbums({
+  const {
+    albums,
+    pagination,
+    isLoading,
+    mutate: mutateAlbums,
+  } = useAlbums({
     search: searchQuery || undefined,
     page,
     limit: ADMIN_GRID_PAGE_SIZE,
