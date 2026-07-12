@@ -3,16 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 
-function getGitHubRepo(): string {
-  const remoteUrl = execSync("git remote get-url origin", {
-    encoding: "utf-8",
-  }).trim();
-  const match = remoteUrl.match(/github\.com[:\/](.+?)(\.git)?$/);
-  if (!match) {
-    throw new Error(`Could not parse GitHub repo from remote: ${remoteUrl}`);
-  }
-  return match[1];
-}
+const RELEASE_REPO = "tettoewai/myanify-releases";
 
 function checkGhCLI() {
   try {
@@ -41,7 +32,7 @@ async function resolveApk(
       throw new Error(`Failed to download APK: HTTP ${response.status}`);
     }
     const buffer = Buffer.from(await response.arrayBuffer());
-    const filename = "myanify-app.apk";
+    const filename = basename(new URL(input).pathname) || "myanify-app.apk";
     const tempPath = join(tmpdir(), filename);
     writeFileSync(tempPath, buffer);
     return { path: tempPath, filename };
@@ -66,7 +57,6 @@ async function main() {
 
   const { path: resolved, filename } = await resolveApk(apkInput);
 
-  // Read version defaults from app.json
   const appJsonPath = join(process.cwd(), "..", "myanify-app", "app.json");
   let defaultVersion: string | undefined;
   let defaultVersionCode: number | undefined;
@@ -89,43 +79,35 @@ async function main() {
   }
 
   const tag = `v${version}`;
-  const repo = getGitHubRepo();
 
   console.log(`Creating GitHub release: ${tag}`);
-  console.log(`  Repo:       ${repo}`);
-  console.log(`  Version:    ${version}`);
+  console.log(`  Repo:        ${RELEASE_REPO}`);
+  console.log(`  Version:     ${version}`);
   console.log(`  VersionCode: ${versionCode}`);
-  console.log(`  APK:        ${resolved}`);
+  console.log(`  APK:         ${resolved}`);
 
-  // Delete existing release/tag if present
   try {
-    const existing = execSync(`gh release view ${tag} --repo ${repo}`, {
+    const existing = execSync(`gh release view ${tag} --repo ${RELEASE_REPO}`, {
       stdio: "pipe",
       encoding: "utf-8",
     });
     if (existing) {
       console.log(`Release ${tag} already exists. Deleting...`);
-      execSync(`gh release delete ${tag} --repo ${repo} --yes`, {
+      execSync(`gh release delete ${tag} --repo ${RELEASE_REPO} --yes`, {
         stdio: "inherit",
-      });
-      execSync(`git tag -d ${tag} 2>/dev/null || true`, { stdio: "pipe" });
-      execSync(`git push origin :refs/tags/${tag} 2>/dev/null || true`, {
-        stdio: "pipe",
       });
     }
   } catch {
     // Release doesn't exist — proceed
   }
 
-  // Create release and upload APK
   execSync(
-    `gh release create ${tag} "${resolved}" --repo "${repo}" --title "${tag}" --notes ""`,
+    `gh release create ${tag} "${resolved}" --repo "${RELEASE_REPO}" --title "${tag}" --notes ""`,
     { stdio: "inherit" },
   );
 
-  const apkUrl = `https://github.com/${repo}/releases/download/${tag}/${filename}`;
+  const apkUrl = `https://github.com/${RELEASE_REPO}/releases/download/${tag}/${filename}`;
 
-  // Update mobile-release.json
   const releaseJsonPath = join(process.cwd(), "mobile-release.json");
   const releaseJson = JSON.parse(readFileSync(releaseJsonPath, "utf-8"));
   releaseJson.version = version;
