@@ -262,7 +262,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const hasRestoredUpNextRef = useRef(false);
 
   // Queue helpers
-  const nextSongRef = useRef<() => void>(() => {});
+  const nextSongRef = useRef<() => void>(() => { });
   const seenSongIdsRef = useRef<Set<string>>(new Set());
   const radioRetryAtRef = useRef(0);
   const userDisabledRadioRef = useRef(false);
@@ -1144,8 +1144,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const trackDuration =
       audioRef.current?.duration &&
-      Number.isFinite(audioRef.current.duration) &&
-      audioRef.current.duration > 0
+        Number.isFinite(audioRef.current.duration) &&
+        audioRef.current.duration > 0
         ? audioRef.current.duration
         : currentSong.duration;
 

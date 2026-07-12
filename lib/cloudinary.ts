@@ -1,12 +1,15 @@
 import { v2 as cloudinary } from "cloudinary";
 import { AUDIO_BITRATE } from "@/lib/audio-upload-config";
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+function ensureCloudinaryConfig() {
+  if (!cloudinary.config().cloud_name) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
+}
 
 const AUDIO_UPLOAD_OPTIONS = {
   folder: "myanify/audio",
@@ -19,6 +22,7 @@ const AUDIO_UPLOAD_OPTIONS = {
 };
 
 function requireCloudinaryConfig() {
+  ensureCloudinaryConfig();
   if (
     !process.env.CLOUDINARY_CLOUD_NAME ||
     !process.env.CLOUDINARY_API_KEY ||
@@ -53,15 +57,27 @@ export async function uploadToCloudinary(
   try {
     requireCloudinaryConfig();
 
+    // For large files, write to temp file and use upload_large which supports chunking
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const os = await import("node:os");
+
+    const tempDir = os.tmpdir();
+    const tempPath = path.join(tempDir, `myanify-upload-${Date.now()}-${fileName}`);
+    await fs.writeFile(tempPath, fileBuffer);
+
     return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
+      cloudinary.uploader.upload_large(
+        tempPath,
         {
           folder: folderPath,
           resource_type: resourceType,
           use_filename: true,
           unique_filename: true,
+          chunk_size: 6000000, // 6MB chunks
         },
         (error: any, result: any) => {
+          fs.unlink(tempPath).catch(() => {}); // cleanup
           if (error) {
             console.error("Error uploading to Cloudinary:", error);
             reject(
@@ -74,8 +90,6 @@ export async function uploadToCloudinary(
           }
         }
       );
-
-      uploadStream.end(fileBuffer);
     });
   } catch (error) {
     console.error("Error uploading to Cloudinary:", error);
