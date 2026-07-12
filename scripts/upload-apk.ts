@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { tmpdir } from "node:os";
 
 function getGitHubRepo(): string {
   const remoteUrl = execSync("git remote get-url origin", {
@@ -23,24 +24,47 @@ function checkGhCLI() {
     execSync("gh auth status", { stdio: "pipe" });
   } catch {
     throw new Error(
-      "Not authenticated with GitHub CLI. Run: gh auth login"
+      "Not authenticated with GitHub CLI. Run: gh auth login",
     );
   }
 }
 
+async function resolveApk(
+  input: string,
+): Promise<{ path: string; filename: string }> {
+  const isUrl = input.startsWith("http://") || input.startsWith("https://");
+
+  if (isUrl) {
+    console.log(`Downloading APK from ${input}...`);
+    const response = await fetch(input);
+    if (!response.ok) {
+      throw new Error(`Failed to download APK: HTTP ${response.status}`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const filename = "myanify-app.apk";
+    const tempPath = join(tmpdir(), filename);
+    writeFileSync(tempPath, buffer);
+    return { path: tempPath, filename };
+  }
+
+  const resolved = input.startsWith("/")
+    ? input
+    : join(process.cwd(), input);
+  return { path: resolved, filename: basename(resolved) };
+}
+
 async function main() {
-  const apkPath = process.argv[2];
-  if (!apkPath) {
-    console.error("Usage: tsx scripts/upload-apk.ts <path-to-apk> [version] [versionCode]");
+  const apkInput = process.argv[2];
+  if (!apkInput) {
+    console.error(
+      "Usage: tsx scripts/upload-apk.ts <path-or-url-to-apk> [version] [versionCode]",
+    );
     process.exit(1);
   }
 
   checkGhCLI();
 
-  const resolved = apkPath.startsWith("/")
-    ? apkPath
-    : join(process.cwd(), apkPath);
-  const filename = basename(resolved);
+  const { path: resolved, filename } = await resolveApk(apkInput);
 
   // Read version defaults from app.json
   const appJsonPath = join(process.cwd(), "..", "myanify-app", "app.json");
@@ -59,7 +83,7 @@ async function main() {
 
   if (!version) {
     console.error(
-      "Could not determine version. Either pass it as an argument or ensure ../myanify-app/app.json exists."
+      "Could not determine version. Either pass it as an argument or ensure ../myanify-app/app.json exists.",
     );
     process.exit(1);
   }
@@ -84,7 +108,6 @@ async function main() {
       execSync(`gh release delete ${tag} --repo ${repo} --yes`, {
         stdio: "inherit",
       });
-      // Also delete the tag locally and remotely
       execSync(`git tag -d ${tag} 2>/dev/null || true`, { stdio: "pipe" });
       execSync(`git push origin :refs/tags/${tag} 2>/dev/null || true`, {
         stdio: "pipe",
@@ -97,7 +120,7 @@ async function main() {
   // Create release and upload APK
   execSync(
     `gh release create ${tag} "${resolved}" --repo "${repo}" --title "${tag}" --notes ""`,
-    { stdio: "inherit" }
+    { stdio: "inherit" },
   );
 
   const apkUrl = `https://github.com/${repo}/releases/download/${tag}/${filename}`;
@@ -110,7 +133,7 @@ async function main() {
   releaseJson.apkUrl = apkUrl;
   writeFileSync(
     releaseJsonPath,
-    JSON.stringify(releaseJson, null, 2) + "\n"
+    JSON.stringify(releaseJson, null, 2) + "\n",
   );
 
   console.log("\nRelease created successfully!");
