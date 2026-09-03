@@ -31,9 +31,9 @@ export const landingMetadata: Metadata = {
       "Discover the rich tapestry of Myanmar music. Stream traditional and modern Myanmar songs with real-time synchronized lyrics.",
     images: [
       {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        url: "/icon.svg",
+        width: 512,
+        height: 512,
         alt: "Myanify - Myanmar Music Streaming",
       },
     ],
@@ -43,38 +43,45 @@ export const landingMetadata: Metadata = {
     title: "Myanify - Stream Myanmar Music with Synchronized Lyrics",
     description:
       "Discover the rich tapestry of Myanmar music with synchronized lyrics.",
-    images: ["/og-image.png"],
+    images: ["/icon.svg"],
   },
   alternates: {
     canonical: "/",
   },
 };
 
-export const landingStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Myanify",
-  applicationCategory: "MusicApplication",
-  operatingSystem: "Web",
-  url: siteUrl,
-  description:
-    "Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music, create playlists, and enjoy synchronized lyrics.",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  featureList: [
-    "Synchronized Lyrics",
-    "Music Streaming",
-    "Playlist Creation",
-    "Artist Discovery",
-    "Genre Browsing",
-    "Search Functionality",
-  ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    ratingCount: "1250",
-  },
-};
+export function getLandingStructuredData(avgRating?: number, reviewCount?: number) {
+  const data: Record<string, any> = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Myanify",
+    applicationCategory: "MusicApplication",
+    operatingSystem: "Web",
+    url: siteUrl,
+    description:
+      "Stream Myanmar songs with integrated lyrics. Discover traditional and modern Myanmar music, create playlists, and enjoy synchronized lyrics.",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    featureList: [
+      "Synchronized Lyrics",
+      "Music Streaming",
+      "Playlist Creation",
+      "Artist Discovery",
+      "Genre Browsing",
+      "Search Functionality",
+    ],
+  };
+
+  if (avgRating && reviewCount) {
+    data.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: avgRating.toFixed(1),
+      ratingCount: reviewCount.toString(),
+    };
+  }
+
+  return data;
+}

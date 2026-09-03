@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   LogOut,
   RefreshCw,
+  Music,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -680,6 +682,26 @@ export default function SettingsPage() {
           </Button>
         </div>
       )} */}
+
+      {/* ── Song Requests ── */}
+      <Link href="/request-song" className="block">
+        <Card className="border-border/60 shadow-sm hover:bg-accent/50 transition-colors cursor-pointer">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Music className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Song Requests</p>
+                <p className="text-xs text-muted-foreground">
+                  Request a song you would like to see on Myanify
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* ── Danger zone ── */}
       <Card className="border-destructive/20 shadow-sm">

@@ -14,6 +14,7 @@ import {
   CreditCard,
   Wallet,
   ClipboardCheck,
+  ListMusic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
@@ -21,6 +22,7 @@ import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
 const navItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/songs", label: "Songs", icon: Music },
+  { path: "/admin/song-requests", label: "Song Requests", icon: ListMusic },
   { path: "/admin/artists", label: "Artists", icon: Users },
   { path: "/admin/albums", label: "Albums", icon: Disc },
   { path: "/admin/genres", label: "Genres", icon: Tag },

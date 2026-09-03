@@ -997,3 +997,52 @@ export async function trackAdEvent(
     return false;
   }
 }
+
+// Hook for fetching user's song requests
+export function useSongRequests() {
+  const { data, error, isLoading, mutate } = useSWR(
+    "/api/song-requests",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    },
+  );
+
+  return {
+    requests: data?.data || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+// Hook for admin: fetching all song requests with filters
+export function useAdminSongRequests(options?: {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.status && options.status !== "all")
+    params.set("status", options.status);
+  if (options?.search) params.set("search", options.search);
+  if (options?.page) params.set("page", options.page.toString());
+  if (options?.limit) params.set("limit", options.limit.toString());
+
+  const key = `/api/song-requests/admin?${params.toString()}`;
+
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
+  return {
+    requests: data?.data || [],
+    pagination: data?.pagination,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}

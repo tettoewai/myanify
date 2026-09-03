@@ -44,6 +44,8 @@ model User {
   offlineDownloads OfflineDownload[]
   deviceLicenses   DeviceLicense[]
   paymentMethods   PaymentMethod[]
+  songRequests     SongRequest[] @relation("SongRequestUser")
+  reviewedRequests SongRequest[] @relation("SongRequestReviewer")
 
   @@index([email])
   @@index([role])
@@ -598,4 +600,31 @@ enum PaymentMethodType {
   MOBILE_MONEY
   E_WALLET
   OTHER
+}
+
+// SongRequest model - for user song requests
+model SongRequest {
+  id         String            @id @default(cuid())
+  userId     String
+  songTitle  String
+  artistName String
+  notes      String?           @db.Text
+  status     SongRequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  user     User  @relation("SongRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("SongRequestReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum SongRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

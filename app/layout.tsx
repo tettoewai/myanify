@@ -96,6 +96,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="dns-prefetch" href="//myanify.vercel.app" />
+        <link rel="preconnect" href="https://myanify.vercel.app" />
+      </head>
       <body className={`font-sans antialiased`}>
         <WebsiteStructuredData
           name="Myanify"

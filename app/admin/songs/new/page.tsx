@@ -40,12 +40,13 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 export default function NewSongPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -73,6 +74,7 @@ export default function NewSongPage() {
   const [audioFileName, setAudioFileName] = useState("");
   const [imageFileName, setImageFileName] = useState("");
   const [lyricsFileName, setLyricsFileName] = useState("");
+  const [songRequestId, setSongRequestId] = useState<string | null>(null);
 
   const { artists: fetchedArtists } = useArtists();
   const { genres: fetchedGenres } = useGenres();
@@ -82,6 +84,20 @@ export default function NewSongPage() {
   const artists = fetchedArtists || [];
   const genres = fetchedGenres || [];
   const albums = fetchedAlbums || [];
+
+  // Pre-fill from song request query params
+  useEffect(() => {
+    const title = searchParams.get("title");
+    const artist = searchParams.get("artist");
+    const requestId = searchParams.get("songRequest");
+    if (title) {
+      setFormData((prev) => ({ ...prev, title }));
+    }
+    if (requestId) {
+      setSongRequestId(requestId);
+    }
+    // Artist pre-fill is handled via the ArtistCombobox below
+  }, [searchParams]);
 
   const getAudioDuration = (file: File): Promise<number> => {
     return new Promise((resolve, reject) => {
@@ -246,6 +262,19 @@ export default function NewSongPage() {
 
       if (!response.ok) {
         throw new Error("Failed to create song");
+      }
+
+      // If this song was created from a song request, mark it as approved
+      if (songRequestId) {
+        try {
+          await fetch(`/api/song-requests/${songRequestId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "APPROVED" }),
+          });
+        } catch (e) {
+          console.error("Failed to mark song request as approved:", e);
+        }
       }
 
       toast.success("Song created successfully");

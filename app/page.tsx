@@ -7,7 +7,7 @@ import { StructuredData } from "@/components/structured-data";
 import { LandingPageSkeleton } from "@/components/loading-skeletons";
 import {
   landingMetadata,
-  landingStructuredData,
+  getLandingStructuredData,
 } from "@/lib/landing-seo";
 
 export const metadata: Metadata = landingMetadata;
@@ -18,9 +18,11 @@ export default async function HomePage() {
     redirect("/home");
   }
 
+  const structuredData = getLandingStructuredData();
+
   return (
     <>
-      <StructuredData data={landingStructuredData} />
+      <StructuredData data={structuredData} />
       <Suspense
         fallback={<LandingPageSkeleton />}
       >
