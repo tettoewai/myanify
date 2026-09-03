@@ -1,9 +1,9 @@
 {
-  "version": "1.0.5",
-  "versionCode": 18,
-  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.5/myanify_1_0_5_18.apk",
-  "notes": "Fix api 403 race, token handling, update flow improvements",
+  "version": "1.0.6",
+  "versionCode": 19,
+  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.6/myanify_1_0_6_19.apk",
+  "notes": "Fix OTA false positive, add production channel for EAS Update",
   "mandatory": false,
-  "sha256": "abf4b0dc76f6c0e49be54fad41d41d4985906435acbb5552f68d962fb352816f",
-  "fileSize": 127932740
+  "sha256": "1241de294dec997e7d76f79f0849bf44eb1f9813f845b918c0e071cf7bb2ac55",
+  "fileSize": 127932692
 }
