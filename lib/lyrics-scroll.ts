@@ -31,7 +31,8 @@ export function scrollLineToAnchor(
   behavior: ScrollBehavior = "smooth",
 ) {
   const lineTop = getLineTopInContainer(line, container);
-  const lineHeight = line.getBoundingClientRect().height;
+  // Use offsetHeight to avoid scale transform inflation (scale-105 inflates getBoundingClientRect)
+  const lineHeight = line.offsetHeight || line.getBoundingClientRect().height;
   const anchorOffset = container.clientHeight * anchorRatio - lineHeight / 2;
   container.scrollTo({
     top: Math.max(0, lineTop - anchorOffset),
@@ -137,30 +138,50 @@ export function useLyricsAutoScroll({
   const scrollActiveLineIntoViewRef = useRef(scrollActiveLineIntoView);
   scrollActiveLineIntoViewRef.current = scrollActiveLineIntoView;
 
+  // Attach scroll listener via callback-friendly effect — retries until container is available
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    let container: HTMLElement | null = null;
+    let handleScroll: (() => void) | null = null;
+    let rafId: number | null = null;
 
-    const handleScroll = () => {
-      if (isAutoScrollingRef.current) return;
-
-      isUserScrollingRef.current = true;
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+    const attach = () => {
+      container = containerRef.current;
+      if (!container) {
+        rafId = requestAnimationFrame(attach);
+        return;
       }
-      scrollTimeoutRef.current = setTimeout(() => {
-        isUserScrollingRef.current = false;
-        lastScrolledIndexRef.current = -1;
-        scrollActiveLineIntoViewRef.current(currentLyricIndexRef.current, {
-          force: true,
-        });
-      }, 1500);
+
+      handleScroll = () => {
+        if (isAutoScrollingRef.current) return;
+
+        isUserScrollingRef.current = true;
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+        // Also clear auto-anchor timer so it doesn't re-anchor while user drags
+        if (autoScrollTimeoutRef.current) {
+          clearTimeout(autoScrollTimeoutRef.current);
+          autoScrollTimeoutRef.current = null;
+        }
+        scrollTimeoutRef.current = setTimeout(() => {
+          isUserScrollingRef.current = false;
+          lastScrolledIndexRef.current = -1;
+          scrollActiveLineIntoViewRef.current(currentLyricIndexRef.current, {
+            force: true,
+          });
+        }, 1500);
+      };
+
+      container.addEventListener("scroll", handleScroll, { passive: true });
     };
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
+    attach();
 
     return () => {
-      container.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (container && handleScroll) {
+        container.removeEventListener("scroll", handleScroll);
+      }
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
@@ -174,11 +195,16 @@ export function useLyricsAutoScroll({
 
     if (trackChanged) {
       trackKeyRef.current = resetKey;
-      skipAutoScrollPassRef.current = true;
+      // Don't skip initial scroll if currentLyricIndex is already known (>0 from restore)
+      // Only skip when index is 0 (will be corrected on next tick)
+      if (currentLyricIndexRef.current === 0) {
+        skipAutoScrollPassRef.current = true;
+      }
     }
 
     const container = containerRef.current;
-    if (container && (trackChanged || lyrics)) {
+    // Only reset on track change, not every lyrics identity change
+    if (container && trackChanged) {
       resetLyricsScrollContainer(container);
     }
 
@@ -197,11 +223,30 @@ export function useLyricsAutoScroll({
     }
   }, [seekToken]);
 
+  // Reset staleness when enabled flips false->true
+  const prevEnabledRef = useRef(enabled);
+  useLayoutEffect(() => {
+    if (enabled && !prevEnabledRef.current) {
+      lastScrolledIndexRef.current = -1;
+    }
+    prevEnabledRef.current = enabled;
+  }, [enabled]);
+
   useLayoutEffect(() => {
     if (!enabled || !containerRef.current) return;
 
     if (skipAutoScrollPassRef.current) {
       skipAutoScrollPassRef.current = false;
+      // If we're beyond top (restored position), still scroll immediately
+      if (currentLyricIndex > 0) {
+        const scrollToActive = () => {
+          if (!containerRef.current || isUserScrollingRef.current) return;
+          scrollActiveLineIntoView(currentLyricIndex, { force: true });
+        };
+        if (activeRef.current) scrollToActive();
+        else scrollRaf.current = requestAnimationFrame(scrollToActive);
+        return;
+      }
       return;
     }
 

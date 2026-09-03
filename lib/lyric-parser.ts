@@ -21,38 +21,45 @@ export function parseLRC(content: string): ParsedLyricLine[] {
   const lyricLines: ParsedLyricLine[] = [];
   let order = 1;
 
+  // Matches [m:ss], [mm:ss], [m:ss.xx], [mm:ss.xxx], [mm:ss:xx] — allows 1-2 digit minutes, 2-3 digit fraction
+  const timeTagRegex = /\[(\d{1,2}):(\d{2})(?:[:.](\d{2,3}))?\]/g;
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // Match LRC format: [mm:ss.xx] or [mm:ss:xx] or [mm:ss]
-    const timeMatch = trimmed.match(/^\[(\d{2}):(\d{2})(?:[:.](\d{2}))?\]/);
-    if (!timeMatch) continue;
+    const tags = [...trimmed.matchAll(timeTagRegex)];
+    if (tags.length === 0) continue;
 
-    const minutes = parseInt(timeMatch[1], 10);
-    const seconds = parseInt(timeMatch[2], 10);
-    const centiseconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+    // Text is everything after the last time tag
+    const lastTag = tags[tags.length - 1];
+    const textStart = (lastTag.index ?? 0) + lastTag[0].length;
+    const rawText = trimmed.slice(textStart).trim();
 
-    // Convert to seconds
-    const timeInSeconds = minutes * 60 + seconds + centiseconds / 100;
+    for (const tag of tags) {
+      const minutes = parseInt(tag[1], 10);
+      const seconds = parseInt(tag[2], 10);
+      const fractionRaw = tag[3] ?? "";
+      let fractionSeconds = 0;
+      if (fractionRaw.length === 2) fractionSeconds = parseInt(fractionRaw, 10) / 100;
+      else if (fractionRaw.length === 3) fractionSeconds = parseInt(fractionRaw, 10) / 1000;
 
-    // Extract text after time tag
-    const textMatch = trimmed.match(/^\[\d{2}:\d{2}(?:[:.]\d{2})?\](.+)$/);
-    if (!textMatch) continue;
+      const timeInSeconds = minutes * 60 + seconds + fractionSeconds;
 
-    const text = textMatch[1].trim();
-
-    if (text) {
+      // Keep instrumental markers (empty text) as timing anchors but mark as empty
+      // Only skip lines with no tags; empty text is valid for instrumental gaps
       lyricLines.push({
         time: timeInSeconds,
-        text,
+        text: rawText,
         order: order++,
       });
     }
   }
 
-  // Sort by time
-  lyricLines.sort((a, b) => a.time - b.time);
+  // Stable sort by time, then original order for duplicates
+  lyricLines.sort((a, b) => a.time - b.time || a.order - b.order);
+  // Re-number order after sort to be sequential
+  lyricLines.forEach((l, i) => (l.order = i + 1));
 
   return lyricLines;
 }
@@ -73,19 +80,21 @@ export function parsePlainText(
 
   if (lineCount === 0) return [];
 
-  // Distribute lyrics evenly across the song duration
+  // Distribute lyrics evenly across the song duration — use compacted index so empty lines don't create gaps
   const timeInterval = estimatedDuration / lineCount;
+  let compactIndex = 0;
 
-  lines.forEach((line, index) => {
+  for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) return;
+    if (!trimmed) continue;
 
     lyricLines.push({
-      time: index * timeInterval,
+      time: compactIndex * timeInterval,
       text: trimmed,
-      order: index + 1,
+      order: compactIndex + 1,
     });
-  });
+    compactIndex++;
+  }
 
   return lyricLines;
 }

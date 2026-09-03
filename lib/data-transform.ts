@@ -50,10 +50,13 @@ export function transformSong(prismaSong: any): Song {
     isPremium: prismaSong.isPremium,
     isPublished: prismaSong.isPublished,
     lyrics:
-      prismaSong.lyrics === undefined
+      prismaSong.lyrics === undefined || prismaSong.lyrics === null
         ? undefined
         : (Array.isArray(prismaSong.lyrics)
-            ? prismaSong.lyrics
+            ? [...prismaSong.lyrics].sort(
+                (a: { time?: number }, b: { time?: number }) =>
+                  (a.time ?? 0) - (b.time ?? 0),
+              )
             : []
           ).map(
             (lyric: { time?: number; text?: string }): LyricLine => ({

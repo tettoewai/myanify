@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
-import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -42,6 +43,7 @@ function parseArgs(argv: string[]) {
   const positional: string[] = [];
   let notes = process.env.RELEASE_NOTES?.trim() || "";
   let mandatory = process.env.RELEASE_MANDATORY === "true";
+  let force = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -54,10 +56,21 @@ function parseArgs(argv: string[]) {
       mandatory = true;
       continue;
     }
+    if (arg === "--force") {
+      force = true;
+      continue;
+    }
     positional.push(arg);
   }
 
-  return { positional, notes, mandatory };
+  return { positional, notes, mandatory, force };
+}
+
+function computeFileHashAndSize(filePath: string): { sha256: string; fileSize: number } {
+  const data = readFileSync(filePath);
+  const sha256 = createHash("sha256").update(data).digest("hex");
+  const { size } = statSync(filePath);
+  return { sha256, fileSize: size };
 }
 
 async function resolveApk(
@@ -85,12 +98,13 @@ async function resolveApk(
 }
 
 async function main() {
-  const { positional, notes, mandatory } = parseArgs(process.argv.slice(2));
+  const { positional, notes, mandatory, force } = parseArgs(process.argv.slice(2));
   const apkInput = positional[0];
   if (!apkInput) {
     console.error(
-      "Usage: tsx scripts/upload-apk.ts <path-or-url-to-apk> [version] [versionCode] [--notes text] [--mandatory]",
+      "Usage: tsx scripts/upload-apk.ts <path-or-url-to-apk> [version] [versionCode] [--notes text] [--mandatory] [--force]",
     );
+    console.error("  --force: overwrite existing GitHub release if tag already exists");
     process.exit(1);
   }
 
@@ -129,29 +143,42 @@ async function main() {
   const uploadPath = join(tmpdir(), filename);
   copyFileSync(resolved, uploadPath);
 
+  const { sha256, fileSize } = computeFileHashAndSize(uploadPath);
+
   console.log(`Creating GitHub release: ${tag}`);
   console.log(`  Repo:        ${RELEASE_REPO}`);
   console.log(`  Version:     ${version}`);
   console.log(`  VersionCode: ${versionCode}`);
   console.log(`  APK:         ${uploadPath}`);
+  console.log(`  SHA256:      ${sha256}`);
+  console.log(`  FileSize:    ${fileSize} bytes`);
   if (notes) {
     console.log(`  Notes:       ${notes}`);
   }
   console.log(`  Mandatory:   ${mandatory}`);
 
+  let existingRelease = false;
   try {
-    const existing = execSync(`gh release view ${tag} --repo ${RELEASE_REPO}`, {
+    execSync(`gh release view ${tag} --repo ${RELEASE_REPO}`, {
       stdio: "pipe",
       encoding: "utf-8",
     });
-    if (existing) {
-      console.log(`Release ${tag} already exists. Deleting...`);
-      execSync(`gh release delete ${tag} --repo ${RELEASE_REPO} --yes`, {
-        stdio: "inherit",
-      });
-    }
+    existingRelease = true;
   } catch {
     // Release doesn't exist — proceed
+  }
+
+  if (existingRelease) {
+    if (!force) {
+      console.error(`\nRelease ${tag} already exists in ${RELEASE_REPO}.`);
+      console.error("Use --force to overwrite, or bump the version.");
+      console.error(`To view: gh release view ${tag} --repo ${RELEASE_REPO}`);
+      process.exit(1);
+    }
+    console.log(`Release ${tag} already exists. Deleting ( --force )...`);
+    execSync(`gh release delete ${tag} --repo ${RELEASE_REPO} --yes`, {
+      stdio: "inherit",
+    });
   }
 
   const releaseNotes = notes || `Myanify Android ${version} (versionCode ${versionCode})`;
@@ -170,6 +197,8 @@ async function main() {
   releaseJson.apkUrl = apkUrl;
   releaseJson.notes = notes;
   releaseJson.mandatory = mandatory;
+  releaseJson.sha256 = sha256;
+  releaseJson.fileSize = fileSize;
   writeFileSync(
     releaseJsonPath,
     JSON.stringify(releaseJson, null, 2) + "\n",
@@ -177,6 +206,8 @@ async function main() {
 
   console.log("\nRelease created successfully!");
   console.log("APK URL:", apkUrl);
+  console.log("SHA256:", sha256);
+  console.log("FileSize:", fileSize);
   console.log("Updated mobile-release.json");
 }
 

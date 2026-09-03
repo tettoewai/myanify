@@ -15,11 +15,25 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Create PostgreSQL connection pool (singleton pattern)
+// Neon serverless sleeps after ~5m idle → first query times out; add keepAlive + timeouts to reduce intermittent 500/403
 const pool =
   globalForPrisma.pool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+    // Pool tuning for serverless
+    max: 10,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
+    keepAlive: true,
   });
+
+// Surface pool errors instead of silent hang
+pool.on("error", (err) => {
+  console.error("[db] Pool error:", err.message);
+});
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.pool = pool;

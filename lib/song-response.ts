@@ -2,8 +2,19 @@ import { withPlaybackUrl } from "./playback-url";
 import { shouldIncludeLyrics } from "./song-query";
 
 export function flattenSongLyrics(song: any) {
-  const lyricsRow = song?.lyrics?.[0];
-  const lines = Array.isArray(lyricsRow?.lines) ? lyricsRow.lines : [];
+  // Prefer the requested language's row; fall back to first available
+  const rows: unknown[] = Array.isArray(song?.lyrics) ? song.lyrics : [];
+  // If song-query already filtered to language:'my', rows is 0 or 1; otherwise pick 'my' or first
+  let targetRow: unknown = rows[0];
+  if (rows.length > 1) {
+    const myRow = rows.find(
+      (r: unknown) => (r as { language?: string })?.language === "my",
+    );
+    if (myRow) targetRow = myRow;
+  }
+  const lines = Array.isArray((targetRow as { lines?: unknown })?.lines)
+    ? (targetRow as { lines: unknown[] }).lines
+    : [];
 
   return {
     ...song,
