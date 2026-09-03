@@ -78,6 +78,7 @@ export function MobileLyricsView({
 
   useEffect(() => {
     if (openMobileLyricsTab) {
+      setShowLyrics(true);
       setOpenMobileLyricsTab(false);
     }
   }, [openMobileLyricsTab, setOpenMobileLyricsTab]);
@@ -85,7 +86,7 @@ export function MobileLyricsView({
   useEffect(() => {
     if (!showLyrics) return;
     requestCurrentSongLyrics();
-  }, [showLyrics, requestCurrentSongLyrics]);
+  }, [showLyrics, song.id, requestCurrentSongLyrics]);
 
   const { isLiked, toggleLike } = useToggleLikeSong({
     enabled: !!session?.user?.id,

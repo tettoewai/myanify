@@ -59,6 +59,17 @@ export async function POST(request: Request) {
       { headers: { "Access-Control-Allow-Origin": "*" } },
     );
   } catch (error) {
+    // Return a clear 403 when the email hasn't been verified yet
+    if (error instanceof Error && error.message === "EMAIL_NOT_VERIFIED") {
+      return NextResponse.json(
+        { error: "EMAIL_NOT_VERIFIED" },
+        {
+          status: 403,
+          headers: { "Access-Control-Allow-Origin": "*" },
+        },
+      );
+    }
+
     console.error("Mobile login error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

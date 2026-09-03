@@ -816,13 +816,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   // Sync external setCurrentTime calls (e.g. progress bar scrubbing) to audio element.
-  // Uses seekingRef to prevent feedback loops from timeupdate events.
+  // Any large delta (>0.3s) is treated as a seek — matches lyrics-sync isSeekEvent threshold
   useEffect(() => {
     if (!audioRef.current || seekingRef.current) return;
     const audioTime = audioRef.current.currentTime;
     const delta = Math.abs(audioTime - currentTime);
-    // Only treat as a user seek if the discrepancy is large enough
-    if (delta >= 1 || currentTime < audioTime - 0.5) {
+    if (delta > 0.3) {
       seekingRef.current = true;
       audioRef.current.currentTime = currentTime;
       if (currentSongRef.current)
@@ -983,7 +982,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     preloadRef.current.preload = "auto";
 
     const onTimeUpdate = () => {
-      setCurrentTime(Math.floor(audio.currentTime));
+      setCurrentTime(audio.currentTime);
     };
 
     const onEnded = () => {
@@ -999,6 +998,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onError = async () => {
       console.error("[Player] Audio playback error");
+      isChangingSongRef.current = false;
       const playbackUrl = currentSongRef.current?.playbackUrl;
       if (playbackUrl) {
         try {
@@ -1108,11 +1108,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       restorePositionRef.current = null;
     };
 
-    const onLoadedMetadata = () => applyRestoredPosition();
+    let canPlayFired = false;
+    const clearChangingFlag = () => {
+      if (!canPlayFired) {
+        canPlayFired = true;
+        isChangingSongRef.current = false;
+      }
+    };
+
+    const onLoadedMetadata = () => {
+      applyRestoredPosition();
+      // Fallback: if canplay never fires, clear after 2s
+      setTimeout(clearChangingFlag, 2000);
+    };
 
     const onCanPlay = () => {
       applyRestoredPosition();
-      isChangingSongRef.current = false;
+      clearChangingFlag();
       if (audioRef.current && isPlayingRef.current) {
         audioRef.current.play().catch((err) => {
           console.error("[Player] play() rejected after load:", err);
@@ -1122,12 +1134,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audioRef.current?.removeEventListener("canplay", onCanPlay);
     };
 
+    const onLoadError = () => {
+      clearChangingFlag();
+    };
+
     audioRef.current.addEventListener("loadedmetadata", onLoadedMetadata);
     audioRef.current.addEventListener("canplay", onCanPlay);
+    audioRef.current.addEventListener("error", onLoadError);
 
     return () => {
       audioRef.current?.removeEventListener("loadedmetadata", onLoadedMetadata);
       audioRef.current?.removeEventListener("canplay", onCanPlay);
+      audioRef.current?.removeEventListener("error", onLoadError);
     };
   }, [
     currentSong?.id,

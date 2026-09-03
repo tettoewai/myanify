@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { Drawer } from "vaul";
@@ -57,8 +57,6 @@ export function MobilePlayer({
     requestCurrentSongLyrics,
   } = usePlayer();
   const [showLyrics, setShowLyrics] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeRef = useRef(currentTime);
 
   // Fetch liked songs from database
   const { isLiked, toggleLike } = useToggleLikeSong({
@@ -75,34 +73,6 @@ export function MobilePlayer({
 
     void toggleLike(currentSong);
   };
-
-  useEffect(() => {
-    timeRef.current = currentTime;
-  }, [currentTime]);
-
-  useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = setInterval(() => {
-        const newTime = timeRef.current + 1;
-        if (newTime >= currentSong.duration) {
-          onNext();
-          onTimeChange(0);
-        } else {
-          onTimeChange(newTime);
-        }
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isPlaying, currentSong, onTimeChange, onNext]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -129,7 +99,10 @@ export function MobilePlayer({
     lyricTimes,
     currentTime + SYNC_LEAD_SECONDS,
   );
-  const currentLyric = lyrics[currentLyricIndex];
+  const currentLyric =
+    currentLyricIndex >= 0 && currentLyricIndex < lyrics.length
+      ? lyrics[currentLyricIndex]
+      : undefined;
 
   return (
     <Drawer.Root open={true} onOpenChange={onClose}>
