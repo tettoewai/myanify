@@ -1,7 +1,9 @@
 {
-  "version": "1.0.4",
-  "versionCode": 17,
-  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.4/myanify_1_0_4_17.apk",
-  "notes": "",
-  "mandatory": false
+  "version": "1.0.5",
+  "versionCode": 18,
+  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.5/myanify_1_0_5_18.apk",
+  "notes": "Fix api 403 race, token handling, update flow improvements",
+  "mandatory": false,
+  "sha256": "abf4b0dc76f6c0e49be54fad41d41d4985906435acbb5552f68d962fb352816f",
+  "fileSize": 127932740
 }
