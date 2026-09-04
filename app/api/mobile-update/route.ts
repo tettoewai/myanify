@@ -18,6 +18,7 @@ type ValidatedManifest = {
   notes: string;
   mandatory: boolean;
   sha256?: string;
+  md5?: string;
   fileSize?: number;
 };
 
@@ -27,10 +28,11 @@ function validateManifest(raw: unknown): ValidatedManifest | null {
   if (typeof m.version !== "string" || !m.version) return null;
   if (typeof m.versionCode !== "number" || !Number.isFinite(m.versionCode)) return null;
   if (typeof m.apkUrl !== "string" || !m.apkUrl) return null;
-  // notes/mandatory/sha256/fileSize are optional but must be correct type if present
+  // notes/mandatory/sha256/md5/fileSize are optional but must be correct type if present
   if (m.notes !== undefined && typeof m.notes !== "string") return null;
   if (m.mandatory !== undefined && typeof m.mandatory !== "boolean") return null;
   if (m.sha256 !== undefined && typeof m.sha256 !== "string") return null;
+  if (m.md5 !== undefined && typeof m.md5 !== "string") return null;
   if (m.fileSize !== undefined && typeof m.fileSize !== "number") return null;
   if (m.apkUrl && !/^https:\/\//.test(m.apkUrl)) return null;
   return {
@@ -40,6 +42,7 @@ function validateManifest(raw: unknown): ValidatedManifest | null {
     notes: (m.notes as string) ?? "",
     mandatory: Boolean(m.mandatory),
     ...(typeof m.sha256 === "string" && m.sha256 ? { sha256: m.sha256 } : {}),
+    ...(typeof m.md5 === "string" && m.md5 ? { md5: m.md5 } : {}),
     ...(typeof m.fileSize === "number" && m.fileSize > 0 ? { fileSize: m.fileSize } : {}),
   };
 }
@@ -61,10 +64,10 @@ export async function GET() {
       );
     }
 
-    // Short max-age ensures mandatory updates propagate quickly; s-maxage allows CDN to cache slightly longer with revalidation
+    // Short max-age ensures mandatory updates propagate quickly
     return NextResponse.json(manifest, {
       headers: {
-        "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=30",
+        "Cache-Control": "public, max-age=30",
       },
     });
   } catch (error) {

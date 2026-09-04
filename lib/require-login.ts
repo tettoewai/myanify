@@ -16,7 +16,7 @@ export function setLoginPromptHandler(handler: LoginPromptHandler | null): void 
   loginPromptHandler = handler;
 }
 
-export function getLoginUrl(callbackPath = "/settings"): string {
+export function getLoginUrl(callbackPath = "/home"): string {
   return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
 }
 

@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 export async function GET(req: Request) {
+  const limited = await enforceRateLimit(req, authLimiter, "validate-reset-token");
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get("token");
@@ -10,14 +19,28 @@ export async function GET(req: Request) {
       return NextResponse.json({ valid: false }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst({
+    const hashedToken = hashResetToken(token);
+
+    let user = await prisma.user.findFirst({
       where: {
-        resetToken: token,
+        resetToken: hashedToken,
         resetTokenExpiry: {
           gt: new Date(),
         },
       },
     });
+
+    // Fallback for pre-hashing plaintext tokens.
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            gt: new Date(),
+          },
+        },
+      });
+    }
 
     if (!user) {
       return NextResponse.json({ valid: false }, { status: 200 });

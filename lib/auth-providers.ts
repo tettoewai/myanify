@@ -8,8 +8,10 @@ export async function authorizeCredentials(credentials: any) {
     return null;
   }
 
+  const normalizedEmail = String(credentials.email).trim().toLowerCase();
+
   const user = await prisma.user.findUnique({
-    where: { email: credentials.email as string },
+    where: { email: normalizedEmail },
   });
 
   if (!user || !user.passwordHash) {

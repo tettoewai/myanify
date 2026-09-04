@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.tlab.myanify",
+        "paths": [
+          "/song/*",
+          "/album/*",
+          "/artist/*",
+          "/genre/*",
+          "/playlist/*"
+        ]
+      }
+    ]
+  }
+}

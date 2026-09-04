@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 export async function POST(req: Request) {
+  const limited = await enforceRateLimit(req, authLimiter, "reset-password");
+  if (limited) return limited;
+
   try {
     const { token, password } = await req.json();
 
@@ -20,14 +29,28 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findFirst({
+    const hashedToken = hashResetToken(String(token));
+
+    let user = await prisma.user.findFirst({
       where: {
-        resetToken: token,
+        resetToken: hashedToken,
         resetTokenExpiry: {
           gt: new Date(),
         },
       },
     });
+
+    // Fallback for tokens issued before hashing was enabled (plaintext in DB).
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          resetToken: String(token),
+          resetTokenExpiry: {
+            gt: new Date(),
+          },
+        },
+      });
+    }
 
     if (!user) {
       return NextResponse.json(

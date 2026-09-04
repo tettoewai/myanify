@@ -134,33 +134,41 @@ export function HomeView({
     if (!genresContainer && !artistsContainer) return;
 
     const handleGenresScroll = () => {
-      if (genresContainer) {
-        checkScrollPosition(genresContainer, setGenresScrollState);
+      const el = genresScrollRef.current;
+      if (el) {
+        checkScrollPosition(el, setGenresScrollState);
       }
     };
 
     const handleArtistsScroll = () => {
-      if (artistsContainer) {
-        checkScrollPosition(artistsContainer, setArtistsScrollState);
+      const el = artistsScrollRef.current;
+      if (el) {
+        checkScrollPosition(el, setArtistsScrollState);
       }
     };
 
+    const initialTimeouts: NodeJS.Timeout[] = [];
+
     if (genresContainer) {
-      genresContainer.addEventListener("scroll", handleGenresScroll);
+      genresContainer.addEventListener("scroll", handleGenresScroll, {
+        passive: true,
+      });
       // Initial check after a delay to ensure DOM is ready
-      setTimeout(() => handleGenresScroll(), 100);
+      initialTimeouts.push(setTimeout(() => handleGenresScroll(), 100));
     }
 
     if (artistsContainer) {
-      artistsContainer.addEventListener("scroll", handleArtistsScroll);
+      artistsContainer.addEventListener("scroll", handleArtistsScroll, {
+        passive: true,
+      });
       // Initial check after a delay to ensure DOM is ready
-      setTimeout(() => handleArtistsScroll(), 100);
+      initialTimeouts.push(setTimeout(() => handleArtistsScroll(), 100));
     }
 
     // Check on resize with debounce
-    let resizeTimeout: NodeJS.Timeout;
+    let resizeTimeout: NodeJS.Timeout | undefined;
     const handleResize = () => {
-      clearTimeout(resizeTimeout);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         handleGenresScroll();
         handleArtistsScroll();
@@ -171,17 +179,24 @@ export function HomeView({
     initializedRef.current = true;
 
     return () => {
-      clearTimeout(resizeTimeout);
-      if (genresContainer) {
-        genresContainer.removeEventListener("scroll", handleGenresScroll);
-      }
-      if (artistsContainer) {
-        artistsContainer.removeEventListener("scroll", handleArtistsScroll);
-      }
+      for (const t of initialTimeouts) clearTimeout(t);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      genresContainer?.removeEventListener("scroll", handleGenresScroll);
+      artistsContainer?.removeEventListener("scroll", handleArtistsScroll);
       window.removeEventListener("resize", handleResize);
       initializedRef.current = false;
     };
   }, [genres.length, artists.length]); // Only depend on lengths, not the arrays themselves
+
+  // Re-check chevron state whenever content size changes (e.g. genres
+  // added/removed) so arrows don't get stuck visible/hidden.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      checkScrollPosition(genresScrollRef.current, setGenresScrollState);
+      checkScrollPosition(artistsScrollRef.current, setArtistsScrollState);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [genres.length, artists.length]);
 
   const loading =
     quickPlayLoading || artistsLoading || playlistsLoading || genresLoading;

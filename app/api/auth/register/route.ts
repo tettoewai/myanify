@@ -3,19 +3,25 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 const VERIFICATION_TOKEN_EXPIRY_HOURS = 24; // Token expires in 24 hours
 
 export async function POST(req: Request) {
-  try {
-    const { email, password } = await req.json();
+  const limited = await enforceRateLimit(req, authLimiter, "register");
+  if (limited) return limited;
 
-    if (!email || !password) {
+  try {
+    const { email: rawEmail, password } = await req.json();
+
+    if (!rawEmail || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 },
       );
     }
+
+    const email = String(rawEmail).trim().toLowerCase();
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

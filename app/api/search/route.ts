@@ -20,10 +20,13 @@ import {
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const q = searchParams.get("q") || searchParams.get("search") || "";
-  const perPage = parseInt(
+  const rawPerPage = parseInt(
     searchParams.get("per_page") || searchParams.get("limit") || "20",
     10,
   );
+  const perPage = Number.isFinite(rawPerPage)
+    ? Math.min(100, Math.max(1, rawPerPage))
+    : 20;
 
   if (!q.trim()) {
     return NextResponse.json({ songs: [], artists: [] });

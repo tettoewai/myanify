@@ -172,13 +172,20 @@ export function PlayerBar({
               </div>
 
               <Tooltip>
-                {/* <TooltipTrigger asChild>
+                <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                     onClick={handleToggleLike}
                     aria-pressed={songIsLiked}
+                    aria-label={
+                      !session?.user?.id
+                        ? "Sign in to like songs"
+                        : songIsLiked
+                          ? "Remove from favorites"
+                          : "Add to favorites"
+                    }
                   >
                     <Heart
                       className={cn(
@@ -187,7 +194,7 @@ export function PlayerBar({
                       )}
                     />
                   </Button>
-                </TooltipTrigger> */}
+                </TooltipTrigger>
                 <TooltipContent>
                   {!session?.user?.id
                     ? "Sign in to like songs"

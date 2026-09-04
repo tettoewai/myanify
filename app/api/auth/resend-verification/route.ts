@@ -2,16 +2,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
 
 export async function POST(req: Request) {
-  try {
-    const { email } = await req.json();
+  const limited = await enforceRateLimit(req, authLimiter, "resend-verification");
+  if (limited) return limited;
 
-    if (!email) {
+  try {
+    const { email: rawEmail } = await req.json();
+
+    if (!rawEmail) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    const email = String(rawEmail).trim().toLowerCase();
 
     const user = await prisma.user.findUnique({
       where: { email },

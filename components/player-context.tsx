@@ -170,7 +170,9 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 function readVolume(): number {
   if (typeof window === "undefined") return 80;
-  return Number(localStorage.getItem(VOLUME_STORAGE_KEY) ?? 80);
+  const raw = Number(localStorage.getItem(VOLUME_STORAGE_KEY) ?? 80);
+  if (!Number.isFinite(raw)) return 80;
+  return Math.max(0, Math.min(100, raw));
 }
 
 function isRadioSource(source: QueueItemSource): boolean {
@@ -589,7 +591,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       markSongSeen(song.id);
       setCurrentSong(song);
       setIsPlaying(true);
-      void saveToRecentlyPlayed(song);
+      // NOTE: play history is saved on track advance/ended (see nextSong/onEnded)
+      // so that duration reflects actual listen time, not 0 at play start.
       saveLastPlayedSong(song);
 
       if (options?.upNext !== undefined) {
@@ -618,7 +621,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isPremium,
       markSongSeen,
-      saveToRecentlyPlayed,
       saveLastPlayedSong,
       applyUpNext,
       enableSmartRadio,
@@ -689,6 +691,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const nextSong = useCallback(() => {
     if (!currentSongRef.current) return;
 
+    // Persist play history with actual listen time before advancing.
+    void saveToRecentlyPlayed(currentSongRef.current);
+
     if (repeatMode === "one") {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
@@ -754,6 +759,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     advanceQueue,
     clearHistory,
     markSongSeen,
+    saveToRecentlyPlayed,
   ]);
 
   const prevSong = useCallback(() => {
@@ -772,6 +778,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const last = history[history.length - 1];
     if (!last) return;
 
+    // Persist play history with actual listen time before going back.
+    void saveToRecentlyPlayed(currentSongRef.current);
+
     removeFromHistory(history.length - 1);
     const backItem = createQueueItem(currentSongRef.current, "playlist");
     prependOneToQueue(currentSongRef.current, "playlist");
@@ -783,6 +792,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     prependOneToQueue,
     removeFromHistory,
     syncLegacyQueue,
+    saveToRecentlyPlayed,
   ]);
 
   // Keep nextSongRef fresh for the 'ended' event listener
@@ -799,10 +809,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const seekTo = useCallback(
     (seconds: number) => {
       if (!audioRef.current) return;
-      const clamped = Math.max(
-        0,
-        Math.min(seconds, audioRef.current.duration ?? Infinity),
-      );
+      const rawDuration = audioRef.current.duration;
+      const fallbackDuration = currentSongRef.current?.duration ?? 0;
+      const max =
+        Number.isFinite(rawDuration) && rawDuration > 0
+          ? rawDuration
+          : fallbackDuration;
+      const clamped = Math.max(0, Math.min(seconds, max));
       seekingRef.current = true;
       audioRef.current.currentTime = clamped;
       setCurrentTime(clamped);
@@ -1294,6 +1307,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
                 if (
                   saved.songId === foundSong.id &&
                   typeof saved.timestamp === "number" &&
+                  Number.isFinite(saved.timestamp) &&
                   saved.timestamp >= 0 &&
                   saved.timestamp < foundSong.duration
                 ) {
@@ -1337,8 +1351,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
 
       if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
+        if (!currentSongRef.current) return;
         e.preventDefault();
-        if (currentSongRef.current) togglePlay();
+        togglePlay();
         return;
       }
 

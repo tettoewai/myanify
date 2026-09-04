@@ -1,16 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowLeft, Play, Pause, Mic2, Music2 } from "lucide-react";
+import { ArrowLeft, Play, Pause, Mic2, Music2, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/share-button";
 import { AlbumMetadata } from "@/components/album-metadata";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { useNavigation } from "@/lib/navigation";
-import { useSong } from "@/lib/swr";
+import { useSong, useToggleLikeSong } from "@/lib/swr";
 import { usePlayer } from "@/components/player-context";
+import { requireLoginRedirect } from "@/lib/require-login";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import type { LyricLine } from "@/lib/types";
+import { useSession } from "next-auth/react";
 
 interface SongViewProps {
   songSlug: string;
@@ -25,7 +27,11 @@ export function SongView({
 }: SongViewProps) {
   const { navigate, navigateBack } = useNavigation();
   const { song, isLoading } = useSong(songSlug, false, { includeLyrics: true });
-  const { playSong } = usePlayer();
+  const { playSong, togglePlay } = usePlayer();
+  const { data: session } = useSession();
+  const { isLiked, toggleLike } = useToggleLikeSong({
+    enabled: !!session?.user?.id,
+  });
 
   if (isLoading) {
     return <DetailPageSkeleton bannerClassName="h-80 md:h-96" />;
@@ -85,7 +91,10 @@ export function SongView({
         <Button
           size="lg"
           className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg shadow-primary/20"
-          onClick={() => playSong(song)}
+          onClick={() => {
+            if (isCurrent) togglePlay();
+            else playSong(song);
+          }}
         >
           {isCurrent && isPlaying ? (
             <Pause className="w-5 h-5 mr-2" />
@@ -93,6 +102,34 @@ export function SongView({
             <Play className="w-5 h-5 mr-2" />
           )}
           {isCurrent && isPlaying ? "Playing" : "Play"}
+        </Button>
+        <Button
+          size="lg"
+          variant={song && isLiked(song.id) ? "default" : "outline"}
+          className="rounded-full"
+          aria-pressed={song ? isLiked(song.id) : false}
+          aria-label={
+            !session?.user?.id
+              ? "Sign in to like songs"
+              : song && isLiked(song.id)
+                ? "Remove from favorites"
+                : "Add to favorites"
+          }
+          onClick={() => {
+            if (!session?.user?.id) {
+              requireLoginRedirect(undefined, "save");
+              return;
+            }
+            void toggleLike(song);
+          }}
+        >
+          <Heart
+            className={cn(
+              "w-5 h-5 mr-2",
+              song && isLiked(song.id) && "fill-current",
+            )}
+          />
+          {song && isLiked(song.id) ? "Liked" : "Like"}
         </Button>
         <ShareButton
           payload={{
@@ -164,7 +201,10 @@ export function SongView({
       <div className="px-6 md:px-8 pb-8">
         <button
           type="button"
-          onClick={() => playSong(song)}
+          onClick={() => {
+            if (isCurrent) togglePlay();
+            else playSong(song);
+          }}
           aria-label={`Play ${song.title}`}
           className={cn(
             "w-full flex items-center gap-4 p-4 rounded-xl bg-card/50 border border-border",

@@ -66,11 +66,16 @@ function parseArgs(argv: string[]) {
   return { positional, notes, mandatory, force };
 }
 
-function computeFileHashAndSize(filePath: string): { sha256: string; fileSize: number } {
+function computeFileHashAndSize(filePath: string): {
+  sha256: string;
+  md5: string;
+  fileSize: number;
+} {
   const data = readFileSync(filePath);
   const sha256 = createHash("sha256").update(data).digest("hex");
+  const md5 = createHash("md5").update(data).digest("hex");
   const { size } = statSync(filePath);
-  return { sha256, fileSize: size };
+  return { sha256, md5, fileSize: size };
 }
 
 async function resolveApk(
@@ -143,7 +148,7 @@ async function main() {
   const uploadPath = join(tmpdir(), filename);
   copyFileSync(resolved, uploadPath);
 
-  const { sha256, fileSize } = computeFileHashAndSize(uploadPath);
+  const { sha256, md5, fileSize } = computeFileHashAndSize(uploadPath);
 
   console.log(`Creating GitHub release: ${tag}`);
   console.log(`  Repo:        ${RELEASE_REPO}`);
@@ -151,6 +156,7 @@ async function main() {
   console.log(`  VersionCode: ${versionCode}`);
   console.log(`  APK:         ${uploadPath}`);
   console.log(`  SHA256:      ${sha256}`);
+  console.log(`  MD5:         ${md5}`);
   console.log(`  FileSize:    ${fileSize} bytes`);
   if (notes) {
     console.log(`  Notes:       ${notes}`);
@@ -198,6 +204,7 @@ async function main() {
   releaseJson.notes = notes;
   releaseJson.mandatory = mandatory;
   releaseJson.sha256 = sha256;
+  releaseJson.md5 = md5;
   releaseJson.fileSize = fileSize;
   writeFileSync(
     releaseJsonPath,
@@ -207,6 +214,7 @@ async function main() {
   console.log("\nRelease created successfully!");
   console.log("APK URL:", apkUrl);
   console.log("SHA256:", sha256);
+  console.log("MD5:", md5);
   console.log("FileSize:", fileSize);
   console.log("Updated mobile-release.json");
 }

@@ -157,8 +157,12 @@ export async function GET(request: Request) {
       const isPublished =
         isPublishedParam === null ? undefined : isPublishedParam === "true";
       const search = searchParams.get("search") || searchParams.get("q");
-      const page = parseInt(searchParams.get("page") || "1");
-      const limit = parseInt(searchParams.get("limit") || "50");
+      const rawPage = parseInt(searchParams.get("page") || "1");
+      const rawLimit = parseInt(searchParams.get("limit") || "50");
+      const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+      const limit = Number.isFinite(rawLimit)
+        ? Math.min(100, Math.max(1, rawLimit))
+        : 50;
       const skip = (page - 1) * limit;
 
       const where: Record<string, unknown> = {

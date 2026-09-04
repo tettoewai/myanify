@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { User, Mail, Calendar, Save, Lock, Upload } from "lucide-react";
+import { User, Mail, Calendar, Save, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +29,6 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [name, setName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,7 +36,6 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (profile) {
       setName(profile.name || "");
-      setAvatarUrl(profile.avatarUrl || "");
     }
   }, [profile]);
 
@@ -48,7 +46,7 @@ export default function AdminSettingsPage() {
       const response = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, avatarUrl }),
+        body: JSON.stringify({ name }),
       });
 
       if (response.ok) {
@@ -182,20 +180,6 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   Email cannot be changed
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="avatarUrl">Avatar URL</Label>
-                <div className="relative">
-                  <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="avatarUrl"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="pl-10"
-                    placeholder="https://example.com/avatar.jpg"
-                  />
-                </div>
               </div>
 
               {profile?.createdAt && (

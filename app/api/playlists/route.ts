@@ -4,13 +4,25 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { ensureUniqueSlug } from "@/lib/slug";
 
+function clampPagination(searchParams: URLSearchParams): {
+  page: number;
+  limit: number;
+  skip: number;
+} {
+  const rawPage = parseInt(searchParams.get("page") || "1");
+  const rawLimit = parseInt(searchParams.get("limit") || "50");
+  const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(100, Math.max(1, rawLimit))
+    : 50;
+  return { page, limit, skip: (page - 1) * limit };
+}
+
 export async function GET(request: Request) {
   try {
     const session = await getSession();
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = clampPagination(searchParams);
     const isPublicParam = searchParams.get("isPublic");
 
     if (isPublicParam === "true") {
@@ -24,7 +36,6 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 name: true,
-                email: true,
               },
             },
             songs: {
@@ -140,53 +151,72 @@ export async function POST(request: Request) {
 
     const slug = await ensureUniqueSlug("playlist", name, randomUUID());
 
-    const playlist = await prisma.playlist.create({
-      data: {
-        name,
-        slug,
-        description,
-        coverUrl,
-        isPublic: isPublic ?? true,
-        createdById: session.user.id,
-      },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+    const validSongIds: string[] = Array.isArray(songIds)
+      ? [...new Set(songIds.filter((id: unknown) => typeof id === "string"))]
+      : [];
+
+    if (validSongIds.length > 0) {
+      const existingCount = await prisma.song.count({
+        where: { id: { in: validSongIds } },
+      });
+      if (existingCount !== validSongIds.length) {
+        return NextResponse.json(
+          { error: "One or more songs do not exist" },
+          { status: 400 },
+        );
+      }
+    }
+
+    const playlist = await prisma.$transaction(async (tx) => {
+      const created = await tx.playlist.create({
+        data: {
+          name,
+          slug,
+          description,
+          coverUrl,
+          isPublic: isPublic ?? true,
+          createdById: session.user.id,
         },
-        songs: {
-          include: {
-            song: {
-              include: {
-                artists: {
-                  include: {
-                    artist: true,
-                  },
-                },
-                album: true,
-              },
+      });
+
+      if (validSongIds.length > 0) {
+        await tx.playlistSong.createMany({
+          data: validSongIds.map((songId, index) => ({
+            playlistId: created.id,
+            songId,
+            order: index,
+          })),
+        });
+      }
+
+      return tx.playlist.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
-          orderBy: { order: "asc" },
+          songs: {
+            include: {
+              song: {
+                include: {
+                  artists: {
+                    include: {
+                      artist: true,
+                    },
+                  },
+                  album: true,
+                },
+              },
+            },
+            orderBy: { order: "asc" },
+          },
         },
-      },
-    });
-
-    // If songIds are provided, add them to the playlist
-    if (songIds && songIds.length > 0) {
-      const playlistSongs = songIds.map((songId: string, index: number) => ({
-        playlistId: playlist.id,
-        songId,
-        order: index,
-      }));
-
-      await prisma.playlistSong.createMany({
-        data: playlistSongs,
       });
-    }
+    });
 
     return NextResponse.json(playlist, { status: 201 });
   } catch (error) {

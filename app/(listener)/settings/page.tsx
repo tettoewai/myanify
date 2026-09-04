@@ -17,7 +17,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  ImageIcon,
   ShieldCheck,
   LogOut,
   RefreshCw,
@@ -200,14 +199,10 @@ export default function SettingsPage() {
   // Profile form
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [avatarPreviewError, setAvatarPreviewError] = useState(false);
 
   // Dirty tracking
-  const pristineRef = useRef({ name: "", avatarUrl: "" });
-  const isProfileDirty =
-    name !== pristineRef.current.name ||
-    avatarUrl !== pristineRef.current.avatarUrl;
+  const pristineRef = useRef({ name: "" });
+  const isProfileDirty = name !== pristineRef.current.name;
 
   // Password form
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -218,18 +213,14 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) {
       const n = profile.name || "";
-      const a = profile.avatarUrl || "";
       setName(n);
-      setAvatarUrl(a);
-      setAvatarPreviewError(false);
-      pristineRef.current = { name: n, avatarUrl: a };
+      pristineRef.current = { name: n };
     }
   }, [profile]);
 
   const displayName = profile?.name || session?.user?.name || "User";
   const displayEmail = profile?.email || session?.user?.email || "";
-  const liveAvatar = avatarUrl.trim();
-  const showAvatarPreview = liveAvatar.length > 0 && !avatarPreviewError;
+  const displayAvatar = profile?.avatarUrl || "";
 
   const strength = getPasswordStrength(newPassword);
   const passwordsMatch =
@@ -243,7 +234,7 @@ export default function SettingsPage() {
       const response = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, avatarUrl }),
+        body: JSON.stringify({ name }),
       });
       const updated = await handleMutationResponse(response, {
         successMessage: "Profile updated successfully",
@@ -251,7 +242,7 @@ export default function SettingsPage() {
       });
       await mutateProfile(updated, false);
       await updateSession();
-      pristineRef.current = { name, avatarUrl };
+      pristineRef.current = { name };
     } catch (error) {
       if (!(error instanceof ApiError) && !(error instanceof RateLimitError)) {
         handleFetchError(error, "An error occurred while updating profile");
@@ -360,7 +351,7 @@ export default function SettingsPage() {
             <div>
               <CardTitle className="text-base">Profile</CardTitle>
               <CardDescription className="text-xs">
-                Update your display name and avatar
+                Update your display name
               </CardDescription>
             </div>
           </div>
@@ -368,15 +359,14 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           {/* Avatar row */}
           <div className="flex items-center gap-5">
-            {/* Live avatar preview */}
+            {/* Avatar display */}
             <div className="relative shrink-0">
               <div className="w-20 h-20 rounded-full bg-linear-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground overflow-hidden ring-2 ring-border shadow-md">
-                {showAvatarPreview ? (
+                {displayAvatar ? (
                   <img
-                    src={liveAvatar}
+                    src={displayAvatar}
                     alt={displayName}
                     className="w-full h-full object-cover"
-                    onError={() => setAvatarPreviewError(true)}
                   />
                 ) : (
                   <User className="w-9 h-9" />
@@ -446,39 +436,6 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">
                 Managed by your sign-in provider — cannot be changed here.
               </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="avatarUrl" className="text-sm font-medium">
-                Avatar URL
-              </Label>
-              <div className="relative">
-                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="avatarUrl"
-                  value={avatarUrl}
-                  onChange={(e) => {
-                    setAvatarUrl(e.target.value);
-                    setAvatarPreviewError(false);
-                  }}
-                  className={cn(
-                    "pl-10",
-                    avatarPreviewError && avatarUrl && "border-destructive/60",
-                  )}
-                  placeholder="https://example.com/avatar.jpg"
-                  type="url"
-                />
-              </div>
-              {avatarPreviewError && avatarUrl ? (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> Could not load image —
-                  check the URL
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Paste a public image URL. The avatar above updates live.
-                </p>
-              )}
             </div>
 
             {profile?.createdAt && (

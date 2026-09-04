@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { fetchSongLyrics } from "@/lib/swr";
 import type { LyricLine, Song } from "@/lib/types";
 
@@ -146,12 +147,17 @@ export function useLyricsLoader(song?: Song) {
         cacheRef.current.set(requestId, entry);
         setLyrics(l);
       })
-      .catch(() => {
+      .catch((err) => {
         if (songRef.current?.id !== requestId) return;
         // Cache empty with TTL so we show "No lyrics" instead of infinite spinner, but allow retry
         const entry = { lyrics: [], confirmed: true, fetchedAt: Date.now() };
         cacheRef.current.set(requestId, entry);
         setLyrics([]);
+        if (err instanceof TypeError) {
+          toast.error("Couldn't load lyrics — check your connection.");
+        } else {
+          toast.error("Failed to load lyrics.");
+        }
       })
       .finally(() => {
         if (inFlightSongIdRef.current === requestId) {

@@ -2,14 +2,24 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendResetEmail } from "@/lib/email";
+import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 export async function POST(req: Request) {
-  try {
-    const { email } = await req.json();
+  const limited = await enforceRateLimit(req, authLimiter, "forgot-password");
+  if (limited) return limited;
 
-    if (!email) {
+  try {
+    const { email: rawEmail } = await req.json();
+
+    if (!rawEmail) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    const email = String(rawEmail).trim().toLowerCase();
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -23,19 +33,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate reset token
+    // Generate reset token — store only the SHA-256 hash so a DB read
+    // cannot be used to reset passwords while the token is valid.
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken,
+        resetToken: hashResetToken(resetToken),
         resetTokenExpiry,
       },
     });
 
-    // Send email with reset link
+    // Send email with reset link (raw token, never stored)
     await sendResetEmail(email, resetToken);
 
     return NextResponse.json(
