@@ -1,9 +1,9 @@
 {
-  "version": "1.0.6",
-  "versionCode": 19,
-  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.6/myanify_1_0_6_19.apk",
-  "notes": "Fix OTA false positive, add production channel for EAS Update",
+  "version": "1.0.7",
+  "versionCode": 20,
+  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.7/myanify_1_0_7_20.apk",
+  "notes": "Add song request feature",
   "mandatory": false,
-  "sha256": "1241de294dec997e7d76f79f0849bf44eb1f9813f845b918c0e071cf7bb2ac55",
-  "fileSize": 127932692
+  "sha256": "b978fbc248e3096154a7e90cfc6d6776fc8e0b6bc90e376ffb8fc628feed6c1a",
+  "fileSize": 128035484
 }
