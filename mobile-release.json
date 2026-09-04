@@ -4,7 +4,7 @@
   "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.8/myanify_1_0_8_21.apk",
   "notes": "Remove avatar update; fix update notifications; strict APK verification with md5; OTA dismissal tracking",
   "mandatory": false,
-  "sha256": "9dbc943493a142c6451df9fdf31926853a9ce758b9a960b2680a7c6fe8b5286e",
+  "sha256": "3612bb62e49129790a9500576ff66864bc383d4a693dacb6a3d6998f03a80a13",
   "fileSize": 128421481,
-  "md5": "04676915f443992e28c30020f0701d9f"
+  "md5": "cb777178d1d78eac1f3453ef6034de1c"
 }
