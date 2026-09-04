@@ -56,6 +56,33 @@ const nextConfig = {
           { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
         ],
       },
+      {
+        // Android App Links verification — must be application/json, short cache
+        source: "/.well-known/assetlinks.json",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, must-revalidate",
+          },
+        ],
+      },
+      {
+        // iOS Universal Links verification — extensionless file must be JSON
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, must-revalidate",
+          },
+        ],
+      },
+      {
+        // Legacy root copies (if present) — serve as JSON too
+        source: "/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
     ];
   },
   images: {
