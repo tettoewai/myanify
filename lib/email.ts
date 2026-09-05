@@ -1,7 +1,17 @@
 // lib/email.ts
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy singleton: constructing Resend at module scope throws during
+// `next build` prerender when RESEND_API_KEY isn't set (e.g. Docker build).
+// Building it on first use keeps build-time imports side-effect free.
+let resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 const DEBUG_EMAIL = process.env.NODE_ENV === 'development';
 const FROM_EMAIL = process.env.EMAIL_FROM || "Myanify <onboarding@resend.dev>";
 const SEND_EMAILS = process.env.SEND_EMAILS === 'true';
@@ -210,7 +220,7 @@ export async function sendVerificationEmail(email: string, token: string) {
 
   if (!DEBUG_EMAIL || SEND_EMAILS) {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: email,
         subject: "Verify your Myanify account",
@@ -270,7 +280,7 @@ export async function sendResetEmail(email: string, token: string) {
 
   if (!DEBUG_EMAIL || SEND_EMAILS) {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: FROM_EMAIL,
         to: email,
         subject: "Reset your Myanify password",
