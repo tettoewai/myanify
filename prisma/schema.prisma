@@ -628,3 +628,54 @@ enum SongRequestStatus {
   APPROVED
   REJECTED
 }
+
+// Side-loaded Android releases (no Play Store). One row per versionCode;
+// the highest active versionCode is served by GET /api/mobile-update.
+// Seeded from mobile-release.json; updated via POST /api/mobile-update
+// with RELEASE_ADMIN_TOKEN (no web redeploy needed).
+model MobileRelease {
+  id                 String   @id @default(cuid())
+  version            String
+  versionCode        Int      @unique
+  apkUrl             String
+  notes              String   @default("")
+  mandatory          Boolean  @default(false)
+  sha256             String?
+  md5                String?
+  fileSize           Int?
+  minVersionCode     Int?
+  rollout            Int?
+  certSha256         String?
+  previousVersion    String?
+  previousVersionCode Int?
+  previousApkUrl     String?
+  signature          String?  @db.Text
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([isActive, versionCode])
+}
+
+// Lightweight update telemetry (no PII). Powers adoption dashboards.
+model MobileUpdateEvent {
+  id                 String   @id @default(cuid())
+  event              String
+  platform           String   @default("android")
+  currentVersionCode Int?
+  latestVersionCode  Int?
+  error              String?  @db.Text
+  createdAt          DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([latestVersionCode])
+}
+
+// Admin-configurable app settings (key-value). Used for download limits,
+// VIP gating, and other runtime tunables without redeploy.
+model AppSetting {
+  key         String   @id
+  value       String   @db.Text
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}

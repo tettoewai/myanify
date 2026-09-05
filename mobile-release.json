@@ -6,5 +6,7 @@
   "mandatory": false,
   "sha256": "3612bb62e49129790a9500576ff66864bc383d4a693dacb6a3d6998f03a80a13",
   "fileSize": 128421481,
-  "md5": "cb777178d1d78eac1f3453ef6034de1c"
+  "md5": "cb777178d1d78eac1f3453ef6034de1c",
+  "minVersionCode": 1,
+  "rollout": 100
 }
