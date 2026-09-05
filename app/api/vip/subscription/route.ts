@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
-import { generatePaymentReference, VIP_PLANS } from "@/lib/vip-subscription";
+import { generatePaymentReference, VIP_PLANS, isUserVIP } from "@/lib/vip-subscription";
+import { getDownloadSettings } from "@/lib/download-settings";
 import { PlanType } from "@prisma/client";
 
 /**
  * GET /api/vip/subscription
- * Get current user's VIP subscription status
+ * Get current user's VIP subscription status.
+ * Uses isUserVIP() so expiry takes effect immediately (and expires
+ * offline downloads as a side effect).
  */
 export async function GET() {
     try {
@@ -16,11 +19,15 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const subscription = await prisma.premiumSubscription.findUnique({
-            where: { userId: session.user.id },
-        });
+        const [subscription, isVIP, downloadSettings] = await Promise.all([
+            prisma.premiumSubscription.findUnique({
+                where: { userId: session.user.id },
+            }),
+            isUserVIP(session.user.id),
+            getDownloadSettings(),
+        ]);
 
-        return NextResponse.json({ subscription, isVIP: !!subscription });
+        return NextResponse.json({ subscription, isVIP, downloadSettings });
     } catch (error) {
         console.error("Error fetching subscription:", error);
         return NextResponse.json(

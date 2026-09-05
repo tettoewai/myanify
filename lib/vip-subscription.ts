@@ -1,5 +1,6 @@
 import { SubscriptionStatus, PlanType } from "@prisma/client";
 import { prisma } from "@/db";
+import { getDownloadSettings } from "@/lib/download-settings";
 
 export const VIP_PLANS = {
     MONTHLY: {
@@ -47,10 +48,39 @@ export async function isUserVIP(userId: string): Promise<boolean> {
             where: { userId },
             data: { status: SubscriptionStatus.EXPIRED },
         });
+        // Immediate offline block: expire all active downloads so clients
+        // that poll /vip/downloads or /vip/subscription stop playback.
+        await prisma.offlineDownload.updateMany({
+            where: {
+                userId,
+                downloadStatus: { in: ["PENDING", "DOWNLOADING", "COMPLETED"] },
+            },
+            data: { downloadStatus: "EXPIRED" },
+        });
+        // Clear premium flag so song-level premium gates also close.
+        await prisma.user.updateMany({
+            where: { id: userId, isPremium: true },
+            data: { isPremium: false },
+        });
         return false;
     }
 
     return true;
+}
+
+/**
+ * Force-expire a user's offline downloads (e.g. admin revokes VIP).
+ * Returns number of rows expired.
+ */
+export async function expireUserDownloads(userId: string): Promise<number> {
+    const result = await prisma.offlineDownload.updateMany({
+        where: {
+            userId,
+            downloadStatus: { in: ["PENDING", "DOWNLOADING", "COMPLETED"] },
+        },
+        data: { downloadStatus: "EXPIRED" },
+    });
+    return result.count;
 }
 
 /**
@@ -116,18 +146,24 @@ export async function getUserSubscription(userId: string) {
 }
 
 /**
- * Checks download limits for VIP users
+ * Checks download limits for users.
+ * Respects admin-configurable settings:
+ * - download_require_vip (default true): when false, non-VIP may download.
+ * - download_max_songs (default 100): per-user cap on active downloads.
  */
 export const DOWNLOAD_LIMITS = {
     MAX_SONGS: 100,
     MAX_DEVICES: 3,
 } as const;
 
-export async function canUserDownload(userId: string): Promise<{ allowed: boolean; reason?: string }> {
-    const isVIP = await isUserVIP(userId);
+export async function canUserDownload(userId: string): Promise<{ allowed: boolean; reason?: string; maxSongs?: number; requireVip?: boolean }> {
+    const settings = await getDownloadSettings();
 
-    if (!isVIP) {
-        return { allowed: false, reason: 'VIP subscription required for offline downloads' };
+    if (settings.requireVip) {
+        const isVIP = await isUserVIP(userId);
+        if (!isVIP) {
+            return { allowed: false, reason: 'VIP subscription required for offline downloads', maxSongs: settings.maxSongs, requireVip: true };
+        }
     }
 
     // Check download count
@@ -138,9 +174,9 @@ export async function canUserDownload(userId: string): Promise<{ allowed: boolea
         },
     });
 
-    if (downloadCount >= DOWNLOAD_LIMITS.MAX_SONGS) {
-        return { allowed: false, reason: `Download limit reached (max ${DOWNLOAD_LIMITS.MAX_SONGS} songs)` };
+    if (downloadCount >= settings.maxSongs) {
+        return { allowed: false, reason: `Download limit reached (max ${settings.maxSongs} songs)`, maxSongs: settings.maxSongs, requireVip: settings.requireVip };
     }
 
-    return { allowed: true };
+    return { allowed: true, maxSongs: settings.maxSongs, requireVip: settings.requireVip };
 }

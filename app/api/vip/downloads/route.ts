@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
-import { isUserVIP, canUserDownload } from "@/lib/vip-subscription";
+import { canUserDownload } from "@/lib/vip-subscription";
 import { getPlaybackUrl } from "@/lib/playback-url";
 
 /**
@@ -65,16 +65,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check VIP status
-    const vipCheck = await isUserVIP(session.user.id);
-    if (!vipCheck) {
-      return NextResponse.json(
-        { error: "VIP subscription required for offline downloads" },
-        { status: 403 }
-      );
-    }
-
-    // Check download limits
+    // Check VIP status + download limits (both driven by admin settings:
+    // download_require_vip and download_max_songs).
     const downloadCheck = await canUserDownload(session.user.id);
     if (!downloadCheck.allowed) {
       return NextResponse.json(

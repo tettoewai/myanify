@@ -13,7 +13,10 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "typesense:sync": "tsx scripts/sync-typesense.ts",
-    "upload:apk": "tsx scripts/upload-apk.ts"
+    "upload:apk": "tsx scripts/upload-apk.ts",
+    "release:apk": "bash scripts/release-apk.sh",
+    "bump:mobile": "tsx scripts/bump-mobile-version.ts",
+    "gen:release-keys": "tsx scripts/gen-release-keys.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -81,6 +84,7 @@
     "swr": "^2.3.7",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "tweetnacl": "^1.0.3",
     "typesense": "^3.0.6",
     "vaul": "^1.1.2",
     "zod": "3.25.76"

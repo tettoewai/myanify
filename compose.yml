@@ -1,0 +1,53 @@
+name: myanify
+
+# VPS reads ./​.env for ${VAR} interpolation AND as the app's runtime env.
+# Required in .env: DATABASE_URL, AUTH_SECRET, all GOOGLE_*/CLOUDINARY_*/
+# UPSTASH_*/TYPESENSE_*/RESEND_*/RELEASE_* vars (copy via `vercel env pull`),
+# plus API_HOST (public hostname, e.g. api.example.com or api.1-2-3-4.sslip.io)
+# and NEXT_PUBLIC_APP_URL=https://<API_HOST>.
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    env_file:
+      - .env
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+    expose:
+      - "3000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      API_HOST: ${API_HOST}
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

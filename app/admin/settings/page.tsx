@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { User, Mail, Calendar, Save, Lock } from "lucide-react";
+import { User, Mail, Calendar, Save, Lock, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignOutConfirmButton } from "@/components/sign-out-confirm-button";
 import { useProfile } from "@/lib/swr";
@@ -32,12 +33,62 @@ export default function AdminSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [dlLoading, setDlLoading] = useState(true);
+  const [dlSaving, setDlSaving] = useState(false);
+  const [maxSongs, setMaxSongs] = useState("100");
+  const [requireVip, setRequireVip] = useState(true);
 
   useEffect(() => {
     if (profile) {
       setName(profile.name || "");
     }
   }, [profile]);
+
+  useEffect(() => {
+    const loadDownloadSettings = async () => {
+      try {
+        const res = await fetch("/api/admin/download-settings");
+        if (res.ok) {
+          const data = await res.json();
+          setMaxSongs(String(data.settings?.maxSongs ?? 100));
+          setRequireVip(data.settings?.requireVip ?? true);
+        }
+      } catch {
+        // Keep defaults on failure.
+      } finally {
+        setDlLoading(false);
+      }
+    };
+    loadDownloadSettings();
+  }, []);
+
+  const handleSaveDownloadSettings = async () => {
+    const n = Math.floor(Number(maxSongs));
+    if (!Number.isFinite(n) || n < 1 || n > 10000) {
+      toast.error("Max songs must be between 1 and 10000");
+      return;
+    }
+    setDlSaving(true);
+    try {
+      const res = await fetch("/api/admin/download-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxSongs: n, requireVip }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMaxSongs(String(data.settings?.maxSongs ?? n));
+        setRequireVip(data.settings?.requireVip ?? requireVip);
+        toast.success("Download settings saved");
+      } else {
+        toast.error(data.error || "Failed to save download settings");
+      }
+    } catch {
+      toast.error("An error occurred while saving download settings");
+    } finally {
+      setDlSaving(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -122,6 +173,7 @@ export default function AdminSettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="password">Password</TabsTrigger>
+          <TabsTrigger value="downloads">Downloads</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -290,6 +342,70 @@ export default function AdminSettingsPage() {
               your account.
             </p>
             <SignOutConfirmButton fullWidth />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="downloads" className="space-y-6">
+          <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Offline Downloads
+              </h3>
+              <p className="text-muted-foreground text-sm mt-1">
+                Control who can download songs for offline playback and how many
+                songs each user may keep. Applies to songs, albums and
+                playlists.
+              </p>
+            </div>
+
+            {dlLoading ? (
+              <p className="text-muted-foreground text-sm">Loading…</p>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="maxSongs">Max songs per user (default 100)</Label>
+                  <Input
+                    id="maxSongs"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={maxSongs}
+                    onChange={(e) => setMaxSongs(e.target.value)}
+                    placeholder="100"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    When lowered, the oldest downloads beyond the new cap are
+                    expired immediately.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="requireVip">Require VIP for downloads</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {requireVip
+                        ? "Only active VIP subscribers can download and play offline."
+                        : "All signed-in users can download and play offline."}
+                    </p>
+                  </div>
+                  <Switch
+                    id="requireVip"
+                    checked={requireVip}
+                    onCheckedChange={setRequireVip}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSaveDownloadSettings}
+                  disabled={dlSaving}
+                  className="w-full"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {dlSaving ? "Saving..." : "Save Download Settings"}
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
