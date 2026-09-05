@@ -1,5 +1,0 @@
-# Caddy reverse-proxies the Next.js app and provisions HTTPS automatically
-# (needs ports 80+443 reachable + API_HOST resolving to this machine).
-{$API_HOST} {
-	reverse_proxy app:3000
-}

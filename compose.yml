@@ -20,6 +20,10 @@ services:
       PORT: "3000"
     expose:
       - "3000"
+    # Localhost-only publish: system nginx (pawn-shop) owns 80/443 and
+    # reverse-proxies to 127.0.0.1:3000. Never expose 3000 publicly.
+    ports:
+      - "127.0.0.1:3000:3000"
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -34,26 +38,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      API_HOST: ${API_HOST}
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    depends_on:
-      app:
-        condition: service_started
-    restart: unless-stopped
-
-volumes:
-  caddy_data:
-  caddy_config:
