@@ -20,6 +20,9 @@ services:
       PORT: "3000"
     expose:
       - "3000"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
     healthcheck:
       test:
@@ -43,6 +46,9 @@ services:
       - caddy_config:/config
     environment:
       API_HOST: ${API_HOST}
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       app:
         condition: service_started
