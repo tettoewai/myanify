@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Search, Library, User, Settings } from "lucide-react";
+import { Home, Search, Library, Download, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
@@ -12,6 +12,7 @@ export function MobileNav() {
     { path: "/home", label: "Home", icon: Home },
     { path: "/search", label: "Search", icon: Search },
     { path: "/library", label: "Library", icon: Library },
+    { path: "/downloads", label: "Downloads", icon: Download },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 

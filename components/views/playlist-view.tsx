@@ -6,6 +6,7 @@ import { PlaylistPageSkeleton } from "@/components/loading-skeletons";
 import { usePlayer } from "@/components/player-context";
 import { ShareButton } from "@/components/share-button";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
@@ -390,6 +391,7 @@ export function PlaylistView({
                 {isSongQueued(song.id) && (
                   <ListMusic className="w-4 h-4 text-primary shrink-0" />
                 )}
+                <SongRowDownload song={song} />
                 <Button
                   size="icon"
                   variant="ghost"

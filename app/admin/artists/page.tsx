@@ -21,6 +21,7 @@ import { useArtists } from "@/lib/swr";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
+import { useDebounce } from "@/hooks/use-debounce";
 
 
 interface Artist {
@@ -35,12 +36,13 @@ interface Artist {
 export default function ArtistsPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [artistToDelete, setArtistToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const {
     artists,
@@ -48,7 +50,7 @@ export default function ArtistsPage() {
     isLoading,
     mutate: mutateArtists,
   } = useArtists({
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
     page,
     limit: ADMIN_GRID_PAGE_SIZE,
   });
@@ -86,7 +88,7 @@ export default function ArtistsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && artists.length === 0) {
     return <AdminGridPageSkeleton />;
   }
 

@@ -1,26 +1,85 @@
 /**
- * Web Offline Storage Manager
+ * Web Offline Storage Manager (v2)
  *
- * Handles offline downloads for VIP users on web using IndexedDB.
- * Stores encrypted audio files for offline playback.
+ * IndexedDB owns audio blobs for VIP offline playback.
+ * The service worker intentionally does NOT cache `/api/audio/stream`
+ * (Range requests + Serwist CacheFirst don't mix) — see `app/sw.ts`.
+ *
+ * Schema:
+ * - `downloads` (keyPath: songId): OfflineTrack + audioData blob
+ * - `license`   (keyPath: id): device license
+ * - `meta`      (keyPath: key): persistence flag, reconcile stamp, queue order
  */
 
 const DB_NAME = "myanify_offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_DOWNLOADS = "downloads";
 const STORE_LICENSE = "license";
+const STORE_META = "meta";
 
-interface OfflineDownload {
-  id: string;
+export type LocalStatus =
+  | "queued"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "evicted"
+  | "expired"
+  | "cancelled";
+
+/** Server-side statuses from Prisma `DownloadStatus` (subset we reconcile). */
+export type ServerDownloadStatus =
+  | "PENDING"
+  | "DOWNLOADING"
+  | "COMPLETED"
+  | "FAILED"
+  | "EXPIRED"
+  | "CANCELLED";
+
+export interface OfflineTrackMeta {
+  title: string;
+  artistName: string;
+  coverUrl: string | null;
+  durationSec: number | null;
+}
+
+export interface OfflineTrack extends OfflineTrackMeta {
   songId: string;
-  audioData: ArrayBuffer;
-  encrypted: boolean;
-  progress: number;
-  status: "pending" | "downloading" | "completed" | "failed";
+  /** Legacy alias — always equals songId. Kept for v1 compat. */
+  id: string;
+  status: LocalStatus;
+  progress: number; // 0-100
+  bytesReceived: number;
+  totalBytes: number | null;
+
+  /** Stable fetch key (`/api/audio/stream?url=...`), not the raw CDN URL. */
+  playbackUrl: string;
+  mimeType: string;
+
+  queuedAt: number;
+  startedAt: number | null;
+  completedAt: number | null;
+  /** Legacy alias for completedAt. Kept for v1 compat. */
   downloadedAt: number;
-  expiresAt?: number;
-  fileSize?: number;
-  checksum?: string;
+  updatedAt: number;
+  expiresAt: number | null;
+
+  fileSize: number | null;
+  checksum: string | null;
+  /** Legacy v1 field — audio was never encrypted client-side. Always false. */
+  encrypted: boolean;
+  error: string | null;
+  attempts: number;
+  audioData: ArrayBuffer | null; // null while queued/failed/evicted/expired
+}
+
+/** Back-compat alias for v1 callers. */
+export type OfflineDownload = OfflineTrack;
+
+export interface QueueTrackInput extends OfflineTrackMeta {
+  songId: string;
+  playbackUrl: string;
+  mimeType?: string;
+  expiresAt?: number | null;
 }
 
 interface LicenseData {
@@ -29,8 +88,40 @@ interface LicenseData {
   lastValidated: number;
 }
 
-// Open IndexedDB database
-async function openDB(): Promise<IDBDatabase> {
+interface MetaRecord {
+  key: string;
+  [k: string]: unknown;
+}
+
+export interface QuotaInfo {
+  usage: number | null;
+  quota: number | null;
+  persisted: boolean | null;
+}
+
+function isBrowser(): boolean {
+  return typeof window !== "undefined" && "indexedDB" in window;
+}
+
+function ensureBrowser(): void {
+  if (!isBrowser()) {
+    throw new Error("Offline storage is only available in the browser");
+  }
+}
+
+function ensureIndex(
+  store: IDBObjectStore,
+  name: string,
+  keyPath: string,
+): void {
+  if (!store.indexNames.contains(name)) {
+    store.createIndex(name, keyPath, { unique: false });
+  }
+}
+
+// Open IndexedDB database (v1 -> v2 migration handled here)
+function openDB(): Promise<IDBDatabase> {
+  ensureBrowser();
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -39,24 +130,127 @@ async function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const tx = (event.target as IDBOpenDBRequest).transaction;
+      const oldVersion = event.oldVersion;
 
-      // Create downloads store
+      // Downloads store — created in v1 with keyPath songId
+      let downloadStore: IDBObjectStore;
       if (!db.objectStoreNames.contains(STORE_DOWNLOADS)) {
-        const downloadStore = db.createObjectStore(STORE_DOWNLOADS, {
+        downloadStore = db.createObjectStore(STORE_DOWNLOADS, {
           keyPath: "songId",
         });
         downloadStore.createIndex("status", "status", { unique: false });
         downloadStore.createIndex("downloadedAt", "downloadedAt", {
           unique: false,
         });
+      } else if (tx) {
+        downloadStore = tx.objectStore(STORE_DOWNLOADS);
+      } else {
+        // Fallback — should not happen during upgradeneeded
+        downloadStore = db
+          .transaction([STORE_DOWNLOADS], "readwrite")
+          .objectStore(STORE_DOWNLOADS);
       }
 
-      // Create license store
+      if (oldVersion < 2) {
+        // v2 additions: updatedAt + expiresAt indexes for reconcile/sort.
+        ensureIndex(downloadStore, "updatedAt", "updatedAt");
+        ensureIndex(downloadStore, "expiresAt", "expiresAt");
+        // Existing v1 rows are backfilled lazily in `normalizeTrack()`
+        // on read — no cursor walk needed inside the upgrade transaction.
+      }
+
       if (!db.objectStoreNames.contains(STORE_LICENSE)) {
         db.createObjectStore(STORE_LICENSE, { keyPath: "id" });
       }
+
+      if (!db.objectStoreNames.contains(STORE_META)) {
+        db.createObjectStore(STORE_META, { keyPath: "key" });
+      }
     };
   });
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+async function withStore<T>(
+  db: IDBDatabase,
+  storeName: string,
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T> | Promise<T>,
+): Promise<T> {
+  const transaction = db.transaction([storeName], mode);
+  const store = transaction.objectStore(storeName);
+  const result = await fn(store);
+  return result instanceof IDBRequest ? requestToPromise(result) : result;
+}
+
+/** Fill v2 defaults for rows written by v1 clients. */
+function normalizeTrack(raw: Record<string, unknown>): OfflineTrack {
+  const now = Date.now();
+  const songId = String(raw.songId ?? raw.id ?? "");
+  const legacyStatus = String(raw.status ?? "queued");
+  const status: LocalStatus =
+    legacyStatus === "pending"
+      ? "queued"
+      : (["queued", "downloading", "completed", "failed", "evicted", "expired", "cancelled"] as LocalStatus[]).includes(
+          legacyStatus as LocalStatus,
+        )
+        ? (legacyStatus as LocalStatus)
+        : "queued";
+
+  return {
+    songId,
+    id: String(raw.id ?? songId),
+    status,
+    progress: typeof raw.progress === "number" ? raw.progress : 0,
+    bytesReceived:
+      typeof raw.bytesReceived === "number" ? raw.bytesReceived : 0,
+    totalBytes:
+      typeof raw.totalBytes === "number"
+        ? (raw.totalBytes as number)
+        : typeof raw.fileSize === "number"
+          ? (raw.fileSize as number)
+          : null,
+    playbackUrl: typeof raw.playbackUrl === "string" ? raw.playbackUrl : "",
+    mimeType:
+      typeof raw.mimeType === "string" ? raw.mimeType : "audio/mpeg",
+    title: typeof raw.title === "string" ? raw.title : "",
+    artistName: typeof raw.artistName === "string" ? raw.artistName : "",
+    coverUrl:
+      typeof raw.coverUrl === "string" ? (raw.coverUrl as string) : null,
+    durationSec:
+      typeof raw.durationSec === "number"
+        ? (raw.durationSec as number)
+        : null,
+    queuedAt: typeof raw.queuedAt === "number" ? raw.queuedAt : now,
+    startedAt: typeof raw.startedAt === "number" ? raw.startedAt : null,
+    completedAt:
+      typeof raw.completedAt === "number"
+        ? raw.completedAt
+        : typeof raw.downloadedAt === "number"
+          ? (raw.downloadedAt as number)
+          : null,
+    downloadedAt:
+      typeof raw.downloadedAt === "number"
+        ? (raw.downloadedAt as number)
+        : typeof raw.completedAt === "number"
+          ? (raw.completedAt as number)
+          : now,
+    updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : now,
+    expiresAt: typeof raw.expiresAt === "number" ? raw.expiresAt : null,
+    fileSize: typeof raw.fileSize === "number" ? raw.fileSize : null,
+    checksum: typeof raw.checksum === "string" ? raw.checksum : null,
+    encrypted: false,
+    error: typeof raw.error === "string" ? raw.error : null,
+    attempts: typeof raw.attempts === "number" ? raw.attempts : 0,
+    audioData: raw.audioData instanceof ArrayBuffer ? raw.audioData : null,
+  };
 }
 
 // Offline storage manager
@@ -65,37 +259,38 @@ export class WebOfflineStorage {
   private activeBlobUrl: string | null = null;
 
   async initialize(): Promise<void> {
+    if (!isBrowser()) return;
     if (!this.db) {
       this.db = await openDB();
     }
   }
 
+  private async getDB(): Promise<IDBDatabase | null> {
+    if (!isBrowser()) return null;
+    await this.initialize();
+    return this.db;
+  }
+
   // License management
   async getLicense(): Promise<LicenseData | null> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_LICENSE], "readonly");
-      const store = transaction.objectStore(STORE_LICENSE);
-      const request = store.get("current");
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || null);
-    });
+    const db = await this.getDB();
+    if (!db) return null;
+    const result = await withStore(db, STORE_LICENSE, "readonly", (store) =>
+      store.get("current"),
+    );
+    return (result as LicenseData) || null;
   }
 
   async saveLicense(license: LicenseData): Promise<void> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_LICENSE], "readwrite");
-      const store = transaction.objectStore(STORE_LICENSE);
-      const request = store.put({ ...license, id: "current" });
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+    const db = await this.getDB();
+    if (!db) return;
+    await withStore(db, STORE_LICENSE, "readwrite", (store) =>
+      store.put({ ...license, id: "current" }),
+    );
   }
 
   async getDeviceId(): Promise<string> {
+    ensureBrowser();
     let deviceId = localStorage.getItem("myanify_device_id");
 
     if (!deviceId) {
@@ -110,71 +305,171 @@ export class WebOfflineStorage {
   }
 
   // Download management
-  async getDownload(songId: string): Promise<OfflineDownload | null> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_DOWNLOADS], "readonly");
-      const store = transaction.objectStore(STORE_DOWNLOADS);
-      const request = store.get(songId);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || null);
-    });
+  async getDownload(songId: string): Promise<OfflineTrack | null> {
+    const db = await this.getDB();
+    if (!db) return null;
+    const result = await withStore(db, STORE_DOWNLOADS, "readonly", (store) =>
+      store.get(songId),
+    );
+    return result ? normalizeTrack(result as Record<string, unknown>) : null;
   }
 
-  async getAllDownloads(): Promise<OfflineDownload[]> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_DOWNLOADS], "readonly");
-      const store = transaction.objectStore(STORE_DOWNLOADS);
-      const request = store.getAll();
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || []);
-    });
+  async getAllDownloads(): Promise<OfflineTrack[]> {
+    const db = await this.getDB();
+    if (!db) return [];
+    const results = await withStore(db, STORE_DOWNLOADS, "readonly", (store) =>
+      store.getAll(),
+    );
+    return ((results as Record<string, unknown>[]) || []).map(normalizeTrack);
   }
 
-  async saveDownload(download: OfflineDownload): Promise<void> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_DOWNLOADS], "readwrite");
-      const store = transaction.objectStore(STORE_DOWNLOADS);
-      const request = store.put(download);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+  async saveDownload(download: OfflineTrack): Promise<void> {
+    const db = await this.getDB();
+    if (!db) return;
+    const normalized: OfflineTrack = {
+      ...normalizeTrack(download as unknown as Record<string, unknown>),
+      id: download.songId,
+      updatedAt: Date.now(),
+    };
+    await withStore(db, STORE_DOWNLOADS, "readwrite", (store) =>
+      store.put(normalized),
+    );
   }
 
   async deleteDownload(songId: string): Promise<void> {
-    await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_DOWNLOADS], "readwrite");
-      const store = transaction.objectStore(STORE_DOWNLOADS);
-      const request = store.delete(songId);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+    const db = await this.getDB();
+    if (!db) return;
+    await withStore(db, STORE_DOWNLOADS, "readwrite", (store) =>
+      store.delete(songId),
+    );
+    await this.removeFromQueueOrder(songId);
   }
 
-  // Download audio file
+  /** Enqueue a track without downloading yet (foreground queue on iOS). */
+  async queueTrack(input: QueueTrackInput): Promise<OfflineTrack> {
+    const existing = await this.getDownload(input.songId);
+    const now = Date.now();
+    if (existing && (existing.status === "completed" || existing.status === "downloading")) {
+      return existing;
+    }
+    const track: OfflineTrack = normalizeTrack({
+      ...existing,
+      songId: input.songId,
+      id: input.songId,
+      status: "queued",
+      progress: 0,
+      bytesReceived: 0,
+      playbackUrl: input.playbackUrl,
+      mimeType: input.mimeType ?? existing?.mimeType ?? "audio/mpeg",
+      title: input.title,
+      artistName: input.artistName,
+      coverUrl: input.coverUrl,
+      durationSec: input.durationSec,
+      queuedAt: existing?.queuedAt ?? now,
+      expiresAt: input.expiresAt ?? existing?.expiresAt ?? null,
+      audioData: existing?.status === "completed" ? existing.audioData : null,
+      attempts: (existing?.attempts ?? 0) + 0,
+      error: null,
+      updatedAt: now,
+    });
+    await this.saveDownload(track);
+    await this.appendToQueueOrder(input.songId);
+    return track;
+  }
+
+  /** Queued + downloading tracks in FIFO queue order. */
+  async getQueue(): Promise<OfflineTrack[]> {
+    const [all, order] = await Promise.all([
+      this.getAllDownloads(),
+      this.getQueueOrder(),
+    ]);
+    const byId = new Map(all.map((t) => [t.songId, t]));
+    const ordered: OfflineTrack[] = [];
+    for (const id of order) {
+      const t = byId.get(id);
+      if (t && (t.status === "queued" || t.status === "downloading")) {
+        ordered.push(t);
+      }
+    }
+    // Include any queued/downloading rows missing from the order list.
+    for (const t of all) {
+      if (
+        (t.status === "queued" || t.status === "downloading") &&
+        !order.includes(t.songId)
+      ) {
+        ordered.push(t);
+      }
+    }
+    return ordered.sort((a, b) => a.queuedAt - b.queuedAt);
+  }
+
+  async getQueueOrder(): Promise<string[]> {
+    const db = await this.getDB();
+    if (!db) return [];
+    const result = await withStore(db, STORE_META, "readonly", (store) =>
+      store.get("queue-order"),
+    );
+    const ids = (result as { songIds?: unknown } | undefined)?.songIds;
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+  }
+
+  private async setQueueOrder(songIds: string[]): Promise<void> {
+    const db = await this.getDB();
+    if (!db) return;
+    await withStore(db, STORE_META, "readwrite", (store) =>
+      store.put({ key: "queue-order", songIds } satisfies MetaRecord),
+    );
+  }
+
+  private async appendToQueueOrder(songId: string): Promise<void> {
+    const order = await this.getQueueOrder();
+    if (!order.includes(songId)) {
+      await this.setQueueOrder([...order, songId]);
+    }
+  }
+
+  private async removeFromQueueOrder(songId: string): Promise<void> {
+    const order = await this.getQueueOrder();
+    if (order.includes(songId)) {
+      await this.setQueueOrder(order.filter((id) => id !== songId));
+    }
+  }
+
+  // Download audio file with progress + metadata.
   async downloadAudio(
     songId: string,
     audioUrl: string,
     onProgress?: (progress: number) => void,
     signal?: AbortSignal,
+    meta?: Partial<OfflineTrackMeta> & { mimeType?: string; expiresAt?: number | null },
   ): Promise<ArrayBuffer> {
-    // Create download record
-    const download: OfflineDownload = {
-      id: songId,
+    ensureBrowser();
+    const db = await this.getDB();
+    if (!db) throw new Error("Offline storage unavailable");
+
+    const now = Date.now();
+    const previous = await this.getDownload(songId);
+    let download: OfflineTrack = normalizeTrack({
+      ...previous,
       songId,
-      audioData: new ArrayBuffer(0),
-      encrypted: false,
-      progress: 0,
+      id: songId,
       status: "downloading",
-      downloadedAt: Date.now(),
-    };
+      progress: 0,
+      bytesReceived: 0,
+      playbackUrl: audioUrl,
+      mimeType: meta?.mimeType ?? previous?.mimeType ?? "audio/mpeg",
+      title: meta?.title ?? previous?.title ?? "",
+      artistName: meta?.artistName ?? previous?.artistName ?? "",
+      coverUrl: meta?.coverUrl ?? previous?.coverUrl ?? null,
+      durationSec: meta?.durationSec ?? previous?.durationSec ?? null,
+      queuedAt: previous?.queuedAt ?? now,
+      startedAt: now,
+      expiresAt: meta?.expiresAt ?? previous?.expiresAt ?? null,
+      audioData: null,
+      error: null,
+      attempts: (previous?.attempts ?? 0) + 1,
+      updatedAt: now,
+    });
     await this.saveDownload(download);
 
     try {
@@ -197,7 +492,7 @@ export class WebOfflineStorage {
       let receivedLength = 0;
       let lastSavedProgress = 0;
 
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -209,8 +504,11 @@ export class WebOfflineStorage {
           ? Math.round((receivedLength / contentLength) * 100)
           : 0;
 
+        download.bytesReceived = receivedLength;
+        download.totalBytes = contentLength || null;
         download.progress = progress;
         if (progress - lastSavedProgress >= 5 || progress === 100) {
+          download.updatedAt = Date.now();
           await this.saveDownload(download);
           lastSavedProgress = progress;
         }
@@ -230,16 +528,27 @@ export class WebOfflineStorage {
       }
 
       // Save completed download
-      download.audioData = audioData.buffer;
-      download.status = "completed";
-      download.progress = 100;
-      download.fileSize = audioData.length;
+      const completedAt = Date.now();
+      download = {
+        ...download,
+        audioData: audioData.buffer as ArrayBuffer,
+        status: "completed",
+        progress: 100,
+        completedAt,
+        downloadedAt: completedAt,
+        updatedAt: completedAt,
+        fileSize: audioData.length,
+      };
       await this.saveDownload(download);
+      await this.removeFromQueueOrder(songId);
 
-      return audioData.buffer;
+      return audioData.buffer as ArrayBuffer;
     } catch (error) {
-      // Update download status to failed
-      download.status = "failed";
+      // Abort is user-initiated — back to queued so the UI can resume.
+      const cancelled = error instanceof DOMException && error.name === "AbortError";
+      download.status = cancelled ? "queued" : "failed";
+      download.error = error instanceof Error ? error.message : "Download failed";
+      download.updatedAt = Date.now();
       await this.saveDownload(download);
       throw error;
     }
@@ -249,7 +558,7 @@ export class WebOfflineStorage {
   async getAudioUrl(songId: string): Promise<string | null> {
     const download = await this.getDownload(songId);
 
-    if (!download || download.status !== "completed") {
+    if (!download || download.status !== "completed" || !download.audioData) {
       return null;
     }
 
@@ -265,10 +574,128 @@ export class WebOfflineStorage {
       this.activeBlobUrl = null;
     }
 
-    const blob = new Blob([download.audioData], { type: "audio/mpeg" });
+    const blob = new Blob([download.audioData], { type: download.mimeType || "audio/mpeg" });
     const url = URL.createObjectURL(blob);
     this.activeBlobUrl = url;
     return url;
+  }
+
+  /**
+   * Reconcile local rows against server truth.
+   * - server EXPIRED/CANCELLED -> local expired/cancelled + drop blob
+   * - completed rows with missing/empty blob -> evicted (iOS cleared it)
+   * Never deletes evicted rows — UI shows "Tap to re-download".
+   */
+  async reconcileWithServer(
+    serverStatuses: Array<{ songId: string; status: ServerDownloadStatus }>,
+  ): Promise<{ expired: number; evicted: number; checkedAt: number }> {
+    const db = await this.getDB();
+    const checkedAt = Date.now();
+    if (!db) return { expired: 0, evicted: 0, checkedAt };
+
+    const serverById = new Map(serverStatuses.map((s) => [s.songId, s.status]));
+    const local = await this.getAllDownloads();
+    let expired = 0;
+    let evicted = 0;
+
+    for (const track of local) {
+      const serverStatus = serverById.get(track.songId);
+      if (serverStatus === "EXPIRED") {
+        if (track.status !== "expired") {
+          await this.saveDownload({
+            ...track,
+            status: "expired",
+            audioData: null,
+            progress: 0,
+            updatedAt: checkedAt,
+          });
+          expired++;
+        }
+        continue;
+      }
+      if (serverStatus === "CANCELLED") {
+        if (track.status !== "cancelled") {
+          await this.saveDownload({
+            ...track,
+            status: "cancelled",
+            audioData: null,
+            updatedAt: checkedAt,
+          });
+        }
+        continue;
+      }
+      // Local expiry (VIP lapse pushed via expiresAt)
+      if (track.expiresAt && track.expiresAt < checkedAt && track.status === "completed") {
+        await this.saveDownload({ ...track, status: "expired", audioData: null, updatedAt: checkedAt });
+        expired++;
+        continue;
+      }
+      // Eviction detection: row says completed but blob is gone.
+      if (
+        track.status === "completed" &&
+        (!track.audioData || track.audioData.byteLength === 0)
+      ) {
+        await this.saveDownload({ ...track, status: "evicted", updatedAt: checkedAt });
+        evicted++;
+      }
+    }
+
+    await withStore(db, STORE_META, "readwrite", (store) =>
+      store.put({ key: "last-reconciled", at: checkedAt } satisfies MetaRecord),
+    );
+    return { expired, evicted, checkedAt };
+  }
+
+  async getLastReconciledAt(): Promise<number | null> {
+    const db = await this.getDB();
+    if (!db) return null;
+    const result = await withStore(db, STORE_META, "readonly", (store) =>
+      store.get("last-reconciled"),
+    );
+    const at = (result as { at?: unknown } | undefined)?.at;
+    return typeof at === "number" ? at : null;
+  }
+
+  /** Best-effort persistence request — reliably granted on Android, flaky on iOS. */
+  async requestPersistence(): Promise<boolean | null> {
+    if (typeof navigator === "undefined" || !navigator.storage?.persist) {
+      return null;
+    }
+    try {
+      const granted = await navigator.storage.persist();
+      const db = await this.getDB();
+      if (db) {
+        await withStore(db, STORE_META, "readwrite", (store) =>
+          store.put({
+            key: "storage-persisted",
+            granted,
+            checkedAt: Date.now(),
+          } satisfies MetaRecord),
+        );
+      }
+      return granted;
+    } catch {
+      return null;
+    }
+  }
+
+  async getQuota(): Promise<QuotaInfo> {
+    if (typeof navigator === "undefined" || !navigator.storage?.estimate) {
+      return { usage: null, quota: null, persisted: null };
+    }
+    try {
+      const [{ usage, quota }, persisted] = await Promise.all([
+        navigator.storage.estimate(),
+        navigator.storage.persisted ? navigator.storage.persisted() : Promise.resolve(null),
+      ]);
+      return {
+        usage: typeof usage === "number" ? usage : null,
+        quota: typeof quota === "number" ? quota : null,
+        persisted: typeof persisted === "boolean" ? persisted : null,
+      };
+    } catch {
+      return { usage: null, quota: null, persisted: null };
+    }
   }
 
   // Clean up expired downloads
@@ -277,17 +704,21 @@ export class WebOfflineStorage {
     const now = Date.now();
 
     for (const download of downloads) {
-      if (download.expiresAt && download.expiresAt < now) {
+      if (
+        (download.expiresAt && download.expiresAt < now) ||
+        download.status === "expired"
+      ) {
         await this.deleteDownload(download.songId);
       }
     }
   }
 
-  // Get storage usage estimate
+  // Sum of stored blob bytes (local estimate — use getQuota() for device truth).
   async getStorageUsage(): Promise<number> {
     const downloads = await this.getAllDownloads();
     return downloads.reduce(
-      (total, download) => total + (download.fileSize || 0),
+      (total, download) =>
+        total + (download.fileSize ?? download.audioData?.byteLength ?? 0),
       0,
     );
   }

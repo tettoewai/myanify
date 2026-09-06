@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { validateLicenseKey } from "@/lib/encryption";
-import { isUserVIP } from "@/lib/vip-subscription";
 
 /**
  * POST /api/vip/devices/validate
@@ -26,9 +25,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check VIP status
-    const vipCheck = await isUserVIP(session.user.id);
-    if (!vipCheck) {
+    // Check VIP status — User.isPremium is the single source of truth.
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isPremium: true },
+    });
+    if (!user?.isPremium) {
       return NextResponse.json(
         { valid: false, error: "VIP subscription expired or inactive" },
         { status: 403 }

@@ -16,6 +16,7 @@ import { useArtist } from "@/lib/swr";
 import { useLikedArtists, likeArtist, unlikeArtist } from "@/lib/swr";
 import { usePlayer } from "@/components/player-context";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { ListMusic } from "lucide-react";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import Image from "next/image";
@@ -375,6 +376,7 @@ export function ArtistView({
                           )}
 
                           {/* Add to Playlist Button */}
+                          <SongRowDownload song={song} />
                           <div
                             className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0"
                             onClick={(e) => e.stopPropagation()}

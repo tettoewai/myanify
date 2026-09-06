@@ -67,7 +67,11 @@ export async function POST(request: Request) {
 
     // Check VIP status + download limits (both driven by admin settings:
     // download_require_vip and download_max_songs).
-    const downloadCheck = await canUserDownload(session.user.id);
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isPremium: true },
+    });
+    const downloadCheck = await canUserDownload(session.user.id, user?.isPremium ?? false);
     if (!downloadCheck.allowed) {
       return NextResponse.json(
         { error: downloadCheck.reason || "Download limit reached" },

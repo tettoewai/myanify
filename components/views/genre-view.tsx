@@ -10,6 +10,7 @@ import { cn, getSongCoverUrl } from "@/lib/utils";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { usePlayer } from "@/components/player-context";
 import { ListMusic } from "lucide-react";
 import { CollapsibleDescription } from "@/components/collapsible-description";
@@ -240,6 +241,7 @@ export function GenreView({
                       )}
 
                       {/* Add to Playlist Button */}
+                      <SongRowDownload song={song} />
                       <div
                         className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0"
                         onClick={(e) => e.stopPropagation()}

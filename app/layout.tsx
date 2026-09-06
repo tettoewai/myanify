@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { WebsiteStructuredData } from "@/components/structured-data";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import ServiceWorkerRegister from "./ServiceWorkerRegister";
 import "./globals.css";
 
 import { BRAND_THEME_COLOR } from "@/lib/brand-colors";
@@ -71,8 +72,8 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
   },
   verification: {
     google: "wLLttKwHFEdPT2RbYpz_EsAP7VsY9DUHCA1GHuixcMw",
@@ -99,8 +100,16 @@ export default function RootLayout({
       <head>
         <link rel="dns-prefetch" href="//myanify.vercel.app" />
         <link rel="preconnect" href="https://myanify.vercel.app" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="Myanify" />
       </head>
       <body className={`font-sans antialiased`}>
+        <ServiceWorkerRegister />
         <WebsiteStructuredData
           name="Myanify"
           url={getSiteUrl()}

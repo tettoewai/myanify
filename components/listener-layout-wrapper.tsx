@@ -1,10 +1,12 @@
 "use client";
 
 import { FullscreenLyrics } from "@/components/fullscreen-lyrics";
+import { FloatingDownloadProgress } from "@/components/floating-download-progress";
 import { LoginPromptProvider } from "@/components/login-prompt-provider";
 import { LyricsPanel } from "@/components/lyrics-panel";
 import { MobileNav } from "@/components/mobile-nav";
 import { MobileNowPlaying } from "@/components/mobile-now-playing";
+import { OfflineProvider } from "@/components/offline-provider";
 import { PlayerBar } from "@/components/player-bar";
 import { PlayerProvider, usePlayer } from "@/components/player-context";
 import { Sidebar } from "@/components/sidebar";
@@ -174,6 +176,7 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
         />
       )}
       <UpNextDrawer />
+      <FloatingDownloadProgress />
       {showFullscreenLyrics && currentSong && (
         <FullscreenLyrics
           key={`fullscreen-lyrics-${currentSong.id}`}
@@ -199,9 +202,11 @@ export function ListenerLayoutWrapper({
   return (
     <LoginPromptProvider>
       <PlayerProvider>
-        <Suspense fallback={null}>
-          <ListenerLayoutContent>{children}</ListenerLayoutContent>
-        </Suspense>
+        <OfflineProvider>
+          <Suspense fallback={null}>
+            <ListenerLayoutContent>{children}</ListenerLayoutContent>
+          </Suspense>
+        </OfflineProvider>
       </PlayerProvider>
     </LoginPromptProvider>
   );

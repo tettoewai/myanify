@@ -2,9 +2,11 @@
 
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { HomePageSkeleton } from "@/components/loading-skeletons";
 import { usePlayer } from "@/components/player-context";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { Button } from "@/components/ui/button";
 import { useNavigation } from "@/lib/navigation";
 import {
@@ -268,7 +270,7 @@ export function HomeView({
               >
                 <button
                   onClick={() => onPlaySong(song)}
-                  className="flex items-center gap-3 flex-1 min-w-0 pr-6 sm:pr-7"
+                  className="flex items-center gap-3 flex-1 min-w-0 pr-10 sm:pr-7"
                 >
                   <div className="relative shrink-0">
                     <Image
@@ -308,6 +310,7 @@ export function HomeView({
                   {isSongQueued(song.id) && (
                     <ListMusic className="w-4 h-4 text-primary shrink-0" />
                   )}
+                  <SongRowDownload song={song} />
                   <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
                     <AddToPlaylistDialog songId={song.id} />
                   </div>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/context-menu";
 import { shareContent } from "@/lib/share";
 import { usePlayer } from "@/components/player-context";
+import { useDownloadSong } from "@/components/download-button";
 import type { Song } from "@/lib/types";
 
 interface SongContextMenuProps {
@@ -27,6 +28,27 @@ export function SongContextMenu({ song, children }: SongContextMenuProps) {
   } = usePlayer();
 
   const queued = isSongQueued(song.id);
+  const { track, start: startDownload } = useDownloadSong(song);
+
+  const downloadLabel =
+    !track || track.status === "cancelled"
+      ? "Download for offline"
+      : track.status === "queued"
+        ? "Queued for download"
+        : track.status === "downloading"
+          ? `Downloading ${track.progress}%`
+          : track.status === "completed"
+            ? "Downloaded ✓"
+            : track.status === "failed"
+              ? "Retry download"
+              : track.status === "evicted"
+                ? "Download again"
+                : "Download expired";
+
+  const downloadDisabled =
+    track?.status === "queued" ||
+    track?.status === "downloading" ||
+    track?.status === "expired";
 
   return (
     <ContextMenu>
@@ -41,6 +63,12 @@ export function SongContextMenu({ song, children }: SongContextMenuProps) {
         <ContextMenuItem onSelect={() => addToQueue(song)}>
           Add to Queue
           {queued ? " (in queue)" : ""}
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={downloadDisabled}
+          onSelect={() => void startDownload()}
+        >
+          {downloadLabel}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => startRadio(song)}>

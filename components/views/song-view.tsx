@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { ArrowLeft, Play, Pause, Mic2, Music2, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DownloadButton } from "@/components/download-button";
 import { ShareButton } from "@/components/share-button";
 import { AlbumMetadata } from "@/components/album-metadata";
 import { DetailPageSkeleton } from "@/components/loading-skeletons";
@@ -139,6 +140,7 @@ export function SongView({
             text: `${song.title} by ${song.artist}`,
           }}
         />
+        <DownloadButton song={song} />
         {song.albumSlug ? (
           <Button
             variant="outline"

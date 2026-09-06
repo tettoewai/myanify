@@ -25,9 +25,12 @@ export function generatePaymentReference(): string {
 }
 
 /**
- * Checks if a user has an active VIP subscription
+ * Reconcile User.isPremium against the subscription table and expire stale
+ * rows/downloads. Maintenance only (cron/admin) — request paths must check
+ * User.isPremium directly and never call this per request.
+ * Returns the resulting premium flag.
  */
-export async function isUserVIP(userId: string): Promise<boolean> {
+export async function syncUserVIPFlag(userId: string): Promise<boolean> {
     const subscription = await prisma.premiumSubscription.findUnique({
         where: { userId },
     });
@@ -156,14 +159,11 @@ export const DOWNLOAD_LIMITS = {
     MAX_DEVICES: 3,
 } as const;
 
-export async function canUserDownload(userId: string): Promise<{ allowed: boolean; reason?: string; maxSongs?: number; requireVip?: boolean }> {
+export async function canUserDownload(userId: string, isPremium: boolean): Promise<{ allowed: boolean; reason?: string; maxSongs?: number; requireVip?: boolean }> {
     const settings = await getDownloadSettings();
 
-    if (settings.requireVip) {
-        const isVIP = await isUserVIP(userId);
-        if (!isVIP) {
-            return { allowed: false, reason: 'VIP subscription required for offline downloads', maxSongs: settings.maxSongs, requireVip: true };
-        }
+    if (settings.requireVip && !isPremium) {
+        return { allowed: false, reason: 'VIP subscription required for offline downloads', maxSongs: settings.maxSongs, requireVip: true };
     }
 
     // Check download count

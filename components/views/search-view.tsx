@@ -6,6 +6,7 @@ import { useGenres, useSearch } from "@/lib/swr";
 import type { Song } from "@/lib/types";
 import { cn, getSongCoverUrl } from "@/lib/utils";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { usePlayer } from "@/components/player-context";
 import { ListMusic } from "lucide-react";
 import { Pause, Play, Search, X, Music, Users } from "lucide-react";
@@ -287,6 +288,7 @@ export function SearchView({
                 {isSongQueued(song.id) && (
                   <ListMusic className="w-4 h-4 text-primary shrink-0" />
                 )}
+                <SongRowDownload song={song} />
                 <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                   <AddToPlaylistDialog songId={song.id} />
                 </div>

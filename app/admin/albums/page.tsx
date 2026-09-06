@@ -23,6 +23,7 @@ import { mutate } from "swr";
 import Link from "next/link";
 import { AlbumTypeBadge } from "@/components/album-type-badge";
 import type { AlbumType } from "@/lib/album-type";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface Album {
   id: string;
@@ -40,12 +41,13 @@ interface Album {
 export default function AlbumsPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [albumToDelete, setAlbumToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const {
     albums,
@@ -53,7 +55,7 @@ export default function AlbumsPage() {
     isLoading,
     mutate: mutateAlbums,
   } = useAlbums({
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
     page,
     limit: ADMIN_GRID_PAGE_SIZE,
   });
@@ -86,7 +88,7 @@ export default function AlbumsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && albums.length === 0) {
     return <AdminGridPageSkeleton />;
   }
 

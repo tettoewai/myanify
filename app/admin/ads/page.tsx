@@ -20,6 +20,7 @@ import { useAds } from "@/lib/swr";
 import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
+import { useDebounce } from "@/hooks/use-debounce";
 
 
 interface Ad {
@@ -40,17 +41,18 @@ interface Ad {
 export default function AdsPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [adToDelete, setAdToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const { ads, pagination, isLoading, mutate: mutateAds } = useAds({
     page,
     limit: ADMIN_GRID_PAGE_SIZE,
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
     includeInactive: true,
   });
 
@@ -103,7 +105,7 @@ export default function AdsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && ads.length === 0) {
     return <AdminGridPageSkeleton />;
   }
 

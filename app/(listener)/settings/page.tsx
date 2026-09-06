@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   User,
+  BellRing,
   Mail,
   Calendar,
   Save,
@@ -639,6 +640,26 @@ export default function SettingsPage() {
           </Button>
         </div>
       )} */}
+
+      {/* ── What's New ── */}
+      <Link href="/announcements" className="block">
+        <Card className="border-border/60 shadow-sm hover:bg-accent/50 transition-colors cursor-pointer">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <BellRing className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">What&apos;s New</p>
+                <p className="text-xs text-muted-foreground">
+                  Announcements and app updates
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* ── Song Requests ── */}
       <Link href="/request-song" className="block">

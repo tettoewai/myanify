@@ -1,12 +1,15 @@
 "use client";
 
 import { CreatePlaylistDialog } from "@/components/create-playlist-dialog";
+import { AnnouncementBell } from "@/components/announcement-bell";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlaylists } from "@/lib/swr";
 import { cn } from "@/lib/utils";
 import {
   Home,
+  BellRing,
+  Download,
   LayoutDashboard,
   Library,
   Music2,
@@ -31,6 +34,8 @@ export function Sidebar() {
     { path: "/home", label: "Home", icon: Home },
     { path: "/search", label: "Search", icon: Search },
     { path: "/library", label: "Your Library", icon: Library },
+    { path: "/downloads", label: "Downloads", icon: Download },
+    { path: "/announcements", label: "What's New", icon: BellRing },
   ];
 
   const isActive = (path: string) => {
@@ -44,14 +49,17 @@ export function Sidebar() {
     <aside className="hidden md:flex w-64 h-full bg-card border-r border-border flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <Link href="/home" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg group-hover:shadow-primary/20 transition-shadow">
-            <Music2 className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">
-            Myanify
-          </span>
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/home" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg group-hover:shadow-primary/20 transition-shadow">
+              <Music2 className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold text-foreground tracking-tight">
+              Myanify
+            </span>
+          </Link>
+          <AnnouncementBell />
+        </div>
       </div>
 
       {/* Main Navigation */}

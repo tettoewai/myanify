@@ -23,19 +23,21 @@ import { mutate } from "swr";
 import Link from "next/link";
 import { Song } from "@/lib/types";
 import { getSongCoverUrl } from "@/lib/utils";
+import { useDebounce } from "@/hooks/use-debounce";
 
 type FilterStatus = "all" | "published" | "draft";
 
 export default function SongsPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [songToDelete, setSongToDelete] = useState<Song | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filterStatus]);
+  }, [debouncedSearchQuery, filterStatus]);
 
   const isPublishedParam =
     filterStatus === "all"
@@ -51,7 +53,7 @@ export default function SongsPage() {
     mutate: mutateSongs,
   } = useSongs({
     isPublished: isPublishedParam,
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
     page,
     limit: ADMIN_PAGE_SIZE,
   });
@@ -122,7 +124,7 @@ export default function SongsPage() {
     </Button>
   );
 
-  if (isLoading) {
+  if (isLoading && songs.length === 0) {
     return <AdminListPageSkeleton />;
   }
 

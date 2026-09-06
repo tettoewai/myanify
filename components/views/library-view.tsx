@@ -27,6 +27,7 @@ import {
 } from "@/lib/swr";
 import { AddToPlaylistDialog } from "@/components/add-to-playlist-dialog";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { usePlayer } from "@/components/player-context";
 
 interface LibraryViewProps {
@@ -305,6 +306,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                         {isSongQueued(song.id) && (
                           <ListMusic className="w-4 h-4 text-primary shrink-0" />
                         )}
+                        <SongRowDownload song={song} />
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                           <AddToPlaylistDialog songId={song.id} />
                         </div>
@@ -464,6 +466,7 @@ export function LibraryView({ onPlaySong }: LibraryViewProps) {
                       {Math.floor(song.duration / 60)}:
                       {(song.duration % 60).toString().padStart(2, "0")}
                     </span>
+                    <SongRowDownload song={song} />
                   </button>
                 </SongContextMenu>
               ))}

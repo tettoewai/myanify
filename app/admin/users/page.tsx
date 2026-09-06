@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useDebounce } from "@/hooks/use-debounce";
 
 
 interface AdminUserStats {
@@ -56,13 +57,9 @@ interface UsersResponse {
 }
 
 export default function AdminUsersPage() {
-  const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const debouncedSearchQuery = useDebounce(searchQuery);
 
   const [roleFilter, setRoleFilter] = useState<"all" | "ADMIN" | "LISTENER">(
     "all"
@@ -71,7 +68,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, roleFilter, vipFilter]);
+  }, [debouncedSearchQuery, roleFilter, vipFilter]);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleDialogUser, setRoleDialogUser] = useState<AdminUser | null>(null);
@@ -92,7 +89,7 @@ export default function AdminUsersPage() {
     isLoading,
     mutate: mutateUsers,
   } = useAdminUsers({
-    search: searchQuery,
+    search: debouncedSearchQuery,
     role: roleFilter,
     vip: vipFilter,
     page,
@@ -199,20 +196,12 @@ export default function AdminUsersPage() {
     setAdminPassword("");
   };
 
-  if (!mounted) {
-    return <AdminListPageSkeleton />;
-  }
-
   if (error) {
     return (
       <div className="text-center py-12 text-destructive">
         Failed to load users
       </div>
     );
-  }
-
-  if (isLoading) {
-    return <AdminListPageSkeleton />;
   }
 
   return (
@@ -275,7 +264,9 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
-        {sortedUsers.length === 0 ? (
+        {isLoading && users.length === 0 ? (
+          <AdminListPageSkeleton withSearch={false} />
+        ) : sortedUsers.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
             No users found
           </div>

@@ -679,3 +679,44 @@ model AppSetting {
   updatedAt   DateTime @updatedAt
   updatedById String?
 }
+
+// Announcements / What's New. Created by admin, read by all users.
+enum AnnouncementAudience {
+  ALL
+  FREE
+  PREMIUM
+}
+
+model Announcement {
+  id        String               @id @default(cuid())
+  title     String
+  body      String               @db.Text
+  imageUrl  String?
+  linkUrl   String?
+  audience  AnnouncementAudience @default(ALL)
+  startsAt  DateTime             @default(now())
+  endsAt    DateTime?
+  isActive  Boolean              @default(true)
+  createdBy String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  reads AnnouncementRead[]
+
+  @@index([isActive, startsAt])
+  @@index([audience])
+  @@index([createdAt])
+}
+
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+  @@index([announcementId])
+}

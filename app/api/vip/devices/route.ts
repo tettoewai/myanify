@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { generateLicenseKey, validateLicenseKey } from "@/lib/encryption";
-import { isUserVIP, DOWNLOAD_LIMITS } from "@/lib/vip-subscription";
+import { DOWNLOAD_LIMITS } from "@/lib/vip-subscription";
 
 /**
  * GET /api/vip/devices
@@ -60,9 +60,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check VIP status
-    const vipCheck = await isUserVIP(session.user.id);
-    if (!vipCheck) {
+    // Check VIP status — User.isPremium is the single source of truth.
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isPremium: true },
+    });
+    if (!user?.isPremium) {
       return NextResponse.json(
         { error: "VIP subscription required for device registration" },
         { status: 403 }

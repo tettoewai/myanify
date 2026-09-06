@@ -1046,3 +1046,72 @@ export function useAdminSongRequests(options?: {
     mutate,
   };
 }
+
+export interface AnnouncementItem {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  audience: "ALL" | "FREE" | "PREMIUM";
+  startsAt: string;
+  read?: boolean;
+  isActive?: boolean;
+  endsAt?: string | null;
+  createdAt?: string;
+  _count?: { reads: number };
+}
+
+// Public listener feed: currently-visible announcements + unreadCount.
+export function useAnnouncements(options?: { limit?: number }) {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set("limit", String(options.limit));
+  const key = params.toString()
+    ? `/api/announcements?${params.toString()}`
+    : "/api/announcements";
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 60_000,
+  });
+  return {
+    announcements: (data?.data || []) as AnnouncementItem[],
+    unreadCount: (data?.unreadCount || 0) as number,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export async function markAnnouncementsRead(ids: string[]) {
+  if (ids.length === 0) return;
+  await fetch("/api/announcements/read", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  }).catch(() => {});
+}
+
+// Admin: full list incl. inactive/scheduled.
+export function useAdminAnnouncements(options?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.search) params.set("search", options.search);
+  const key = `/api/admin/announcements?${params.toString()}`;
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+  return {
+    announcements: (data?.data || []) as AnnouncementItem[],
+    pagination: data?.pagination as PaginationMeta | undefined,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}

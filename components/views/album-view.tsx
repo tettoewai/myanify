@@ -6,6 +6,7 @@ import { DetailPageSkeleton } from "@/components/loading-skeletons";
 import { usePlayer } from "@/components/player-context";
 import { ShareButton } from "@/components/share-button";
 import { SongContextMenu } from "@/components/song-context-menu";
+import { SongRowDownload } from "@/components/download-button";
 import { Button } from "@/components/ui/button";
 import { useNavigation } from "@/lib/navigation";
 import { useAlbum } from "@/lib/swr";
@@ -271,6 +272,7 @@ export function AlbumView({
                           )}
 
                           {/* Trigger actions menu wrapper display */}
+                          <SongRowDownload song={song} />
                           <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
                             <AddToPlaylistDialog songId={song.id} />
                           </div>

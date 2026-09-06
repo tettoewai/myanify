@@ -1,3 +1,12 @@
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+  disable: process.env.NODE_ENV !== "production",
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  exclude: [/\.webmanifest$/],
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Reduce attack surface and fingerprinting
@@ -120,4 +129,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

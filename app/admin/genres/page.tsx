@@ -20,6 +20,7 @@ import { useGenres } from "@/lib/swr";
 import { ADMIN_GRID_PAGE_SIZE } from "@/lib/pagination";
 import { mutate } from "swr";
 import Link from "next/link";
+import { useDebounce } from "@/hooks/use-debounce";
 
 
 interface Genre {
@@ -33,15 +34,16 @@ interface Genre {
 export default function GenresPage() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [genreToDelete, setGenreToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const { genres, pagination, isLoading, mutate: mutateGenres } = useGenres({
-    search: searchQuery || undefined,
+    search: debouncedSearchQuery || undefined,
     page,
     limit: ADMIN_GRID_PAGE_SIZE,
   });
@@ -74,7 +76,7 @@ export default function GenresPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && genres.length === 0) {
     return <AdminGridPageSkeleton />;
   }
 

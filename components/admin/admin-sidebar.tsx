@@ -9,6 +9,7 @@ import {
   User,
   Tag,
   Megaphone,
+  BellRing,
   Settings,
   Disc,
   CreditCard,
@@ -34,6 +35,7 @@ const navItems = [
   },
   { path: "/admin/payment-methods", label: "Payment Methods", icon: Wallet },
   { path: "/admin/ads", label: "Ads", icon: Megaphone },
+  { path: "/admin/announcements", label: "Announcements", icon: BellRing },
   { path: "/admin/users", label: "Users", icon: User },
   { path: "/admin/settings", label: "Settings", icon: Settings },
 ];
