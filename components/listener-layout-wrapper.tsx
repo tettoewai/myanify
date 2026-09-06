@@ -15,6 +15,7 @@ import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
 import { isMobileViewport } from "@/lib/utils";
 import { Suspense, useEffect, useRef } from "react";
 import { AppDownloadBanner } from "@/components/app-download-banner";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -138,8 +139,9 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex bg-background overflow-hidden [--desktop-player-bar-height:6rem]">
       <Sidebar />
       <main className="flex-1 overflow-y-auto w-full md:w-auto pb-32 md:pb-0">
-        <div className="px-4 pt-4 md:px-6 md:pt-6 lg:px-8">
+        <div className="px-4 pt-4 md:px-6 md:pt-6 lg:px-8 space-y-3">
           <AppDownloadBanner />
+          <PwaInstallBanner />
         </div>
         {children}
       </main>

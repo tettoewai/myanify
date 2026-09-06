@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { withRetry } from "@/db";
 import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
 import { MAX_STATIC_PATHS } from "@/lib/seo";
@@ -42,7 +43,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const { prisma } = await import("@/db");
-    const [artists, genres, playlists, albums, songs] = await Promise.all([
+    const [artists, genres, playlists, albums, songs] = await withRetry(() =>
+      Promise.all([
       prisma.artist.findMany({
         where: {
           songs: {
@@ -117,7 +119,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         orderBy: { updatedAt: "desc" },
         take: MAX_STATIC_PATHS,
       }),
-    ]);
+      ]),
+    );
 
     return [
       ...staticRoutes,

@@ -13,14 +13,8 @@ import {
   isSchemaMarkup,
   notFoundMetadata,
 } from "@/lib/seo";
-import { getAlbumSlugs, safeStaticParams } from "@/lib/seo-static";
 
 export const revalidate = 3600;
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  return safeStaticParams(getAlbumSlugs);
-}
 
 export async function generateMetadata({
   params,

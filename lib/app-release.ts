@@ -7,6 +7,7 @@ import type { MobileReleaseManifest } from "./mobile-release";
 
 export const APP_RELEASE_REPO_FALLBACK = "tettoewai/myanify-releases";
 export const APP_BANNER_DISMISS_KEY = "myanify-app-banner-dismissed";
+export const PWA_BANNER_DISMISS_KEY = "myanify-pwa-banner-dismissed";
 /** Stable download URL — server resolves to the latest GitHub release APK. */
 export const APP_DOWNLOAD_URL = "/api/app-download";
 
@@ -24,6 +25,41 @@ export function useIsAndroidWeb(): boolean {
     setIsAndroid(isAndroidDevice());
   }, []);
   return isAndroid;
+}
+
+export function isIOSDevice(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined")
+    return false;
+  const ua = navigator.userAgent || "";
+  // iPad in desktop mode reports MacIntel — detect via touch points.
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" &&
+      "ontouchend" in window &&
+      navigator.maxTouchPoints > 1)
+  );
+}
+
+export function isStandaloneMode(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined")
+    return false;
+  if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+  // Legacy iOS Safari PWA flag.
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+/**
+ * True on iOS web when the PWA is not already installed (standalone).
+ * iOS has no native app / APK — installation is Add to Home Screen.
+ */
+export function useIsIOSWeb(): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    setVisible(isIOSDevice() && !isStandaloneMode());
+  }, []);
+  return visible;
 }
 
 export function getRepoFromApkUrl(apkUrl?: string): string {

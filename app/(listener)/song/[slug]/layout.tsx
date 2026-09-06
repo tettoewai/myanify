@@ -14,19 +14,13 @@ import {
   notFoundMetadata,
 } from "@/lib/seo";
 import { resolveSongCoverUrl } from "@/lib/utils";
-import { getPublishedSongSlugs, safeStaticParams } from "@/lib/seo-static";
 
 export const revalidate = 3600;
-export const dynamicParams = true;
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `PT${mins}M${secs}S`;
-}
-
-export async function generateStaticParams() {
-  return safeStaticParams(getPublishedSongSlugs);
 }
 
 export async function generateMetadata({

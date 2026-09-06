@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/db";
+import { prisma, withRetry } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { isAdmin } from "@/lib/require-admin";
 import { resolveSongId } from "@/lib/api-entity";
@@ -35,23 +35,25 @@ export async function GET(
     const isAdminUser = isAdmin(session);
 
     const fetchSong = async () => {
-      const song = await prisma.song.findUnique({
-        where: { id },
-        include: {
-          seo: true,
-          ...buildSongIncludeFromRequest(request),
-        },
+      return withRetry(async () => {
+        const song = await prisma.song.findUnique({
+          where: { id },
+          include: {
+            seo: true,
+            ...buildSongIncludeFromRequest(request),
+          },
+        });
+
+        if (!song) {
+          throw new Error("SONG_NOT_FOUND");
+        }
+
+        if (!song.isPublished && !isAdminUser) {
+          throw new Error("SONG_NOT_FOUND");
+        }
+
+        return formatSongResponse(song, request);
       });
-
-      if (!song) {
-        throw new Error("SONG_NOT_FOUND");
-      }
-
-      if (!song.isPublished && !isAdminUser) {
-        throw new Error("SONG_NOT_FOUND");
-      }
-
-      return formatSongResponse(song, request);
     };
 
     try {

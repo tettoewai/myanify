@@ -1,4 +1,4 @@
-import { prisma } from "@/db";
+import { prisma, withRetry } from "@/db";
 import { buildSongInclude } from "@/lib/song-query";
 
 export const QUICK_PLAY_DEFAULT_LIMIT = 4;
@@ -13,14 +13,16 @@ export function parseQuickPlayLimit(value: string | null): number {
 }
 
 export async function fetchQuickPlaySongs(limit = QUICK_PLAY_DEFAULT_LIMIT) {
-  const songInclude = buildSongInclude(false);
+  return withRetry(async () => {
+    const songInclude = buildSongInclude(false);
 
-  const songs = await prisma.song.findMany({
-    where: { isPublished: true },
-    include: songInclude,
-    orderBy: [{ playCount: "desc" }, { createdAt: "desc" }],
-    take: limit,
+    const songs = await prisma.song.findMany({
+      where: { isPublished: true },
+      include: songInclude,
+      orderBy: [{ playCount: "desc" }, { createdAt: "desc" }],
+      take: limit,
+    });
+
+    return songs;
   });
-
-  return songs;
 }

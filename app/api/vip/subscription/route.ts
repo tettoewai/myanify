@@ -3,6 +3,7 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { generatePaymentReference, VIP_PLANS } from "@/lib/vip-subscription";
 import { getDownloadSettings } from "@/lib/download-settings";
+import { withRetry } from "@/db";
 import { PlanType } from "@prisma/client";
 
 /**
@@ -19,13 +20,17 @@ export async function GET() {
         }
 
         const [subscription, user, downloadSettings] = await Promise.all([
-            prisma.premiumSubscription.findUnique({
-                where: { userId: session.user.id },
-            }),
-            prisma.user.findUnique({
-                where: { id: session.user.id },
-                select: { isPremium: true },
-            }),
+            withRetry(() =>
+                prisma.premiumSubscription.findUnique({
+                    where: { userId: session.user.id },
+                })
+            ),
+            withRetry(() =>
+                prisma.user.findUnique({
+                    where: { id: session.user.id },
+                    select: { isPremium: true },
+                })
+            ),
             getDownloadSettings(),
         ]);
 

@@ -46,6 +46,7 @@ import { getLoginUrl } from "@/lib/require-login";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppDownloadCard } from "@/components/app-download-card";
+import { PwaInstallCard } from "@/components/pwa-install-card";
 
 // ------------------------------
 //  Password strength utils
@@ -644,6 +645,9 @@ export default function SettingsPage() {
 
       {/* ── Android app download (Android web only) ── */}
       <AppDownloadCard />
+
+      {/* ── iOS app install (iOS web only, hidden when installed) ── */}
+      <PwaInstallCard />
 
       {/* ── What's New ── */}
       <Link href="/announcements" className="block">
