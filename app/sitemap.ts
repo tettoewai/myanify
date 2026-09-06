@@ -4,7 +4,7 @@ import { entityPath } from "@/lib/routes";
 import { getSiteUrl } from "@/lib/site-url";
 import { MAX_STATIC_PATHS } from "@/lib/seo";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 function absoluteUrl(siteUrl: string, path = "/") {
   return `${siteUrl}${path}`;

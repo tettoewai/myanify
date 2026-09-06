@@ -15,11 +15,10 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 
-# Build-time vars: DATABASE_URL is read during static prerender,
+
 # NEXT_PUBLIC_* is inlined into the client bundle.
-ARG DATABASE_URL
 ARG NEXT_PUBLIC_APP_URL
-ENV DATABASE_URL=$DATABASE_URL NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NODE_OPTIONS=--max-old-space-size=1536
 
 COPY . .
