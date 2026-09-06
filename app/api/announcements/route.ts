@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 
-const VALID_AUDIENCES = ["ALL", "FREE", "PREMIUM"] as const;
-
 function isVisibleNow(now: Date) {
   return {
     isActive: true,
@@ -80,5 +78,3 @@ export async function GET(request: Request) {
     );
   }
 }
-
-export { VALID_AUDIENCES };
