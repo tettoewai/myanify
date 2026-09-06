@@ -15,6 +15,8 @@ const nextConfig = {
   // Compression is on by default, kept explicit for clarity
   compress: true,
 
+   allowedDevOrigins: ['192.168.100.234'],
+
   experimental: {
     serverActions: {
       bodySizeLimit: "50mb",

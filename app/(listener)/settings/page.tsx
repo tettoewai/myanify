@@ -45,6 +45,7 @@ import { useProfile } from "@/lib/swr";
 import { getLoginUrl } from "@/lib/require-login";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppDownloadCard } from "@/components/app-download-card";
 
 // ------------------------------
 //  Password strength utils
@@ -640,6 +641,9 @@ export default function SettingsPage() {
           </Button>
         </div>
       )} */}
+
+      {/* ── Android app download (Android web only) ── */}
+      <AppDownloadCard />
 
       {/* ── What's New ── */}
       <Link href="/announcements" className="block">

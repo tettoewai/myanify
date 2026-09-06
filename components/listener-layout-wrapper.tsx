@@ -14,6 +14,7 @@ import { UpNextDrawer } from "@/components/up-next-drawer";
 import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
 import { isMobileViewport } from "@/lib/utils";
 import { Suspense, useEffect, useRef } from "react";
+import { AppDownloadBanner } from "@/components/app-download-banner";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
   const {
@@ -137,6 +138,9 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="h-screen flex bg-background overflow-hidden [--desktop-player-bar-height:6rem]">
       <Sidebar />
       <main className="flex-1 overflow-y-auto w-full md:w-auto pb-32 md:pb-0">
+        <div className="px-4 pt-4 md:px-6 md:pt-6 lg:px-8">
+          <AppDownloadBanner />
+        </div>
         {children}
       </main>
       <MobileNav />
