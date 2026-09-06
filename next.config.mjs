@@ -18,6 +18,8 @@ const nextConfig = {
    allowedDevOrigins: ['192.168.100.234'],
 
   experimental: {
+    // Small VPS instances can otherwise be OOM-killed by parallel build workers.
+    cpus: 1,
     serverActions: {
       bodySizeLimit: "50mb",
     },

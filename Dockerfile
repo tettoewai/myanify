@@ -2,6 +2,10 @@
 # Full install + `next start`. No standalone output needed.
 FROM node:22-bookworm-slim
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends openssl \
+	&& rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 WORKDIR /app
@@ -16,6 +20,7 @@ RUN pnpm install --frozen-lockfile
 ARG DATABASE_URL
 ARG NEXT_PUBLIC_APP_URL
 ENV DATABASE_URL=$DATABASE_URL NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NODE_OPTIONS=--max-old-space-size=1536
 
 COPY . .
 RUN pnpm build
