@@ -19,7 +19,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Pull, migrate, rebuild
+      - name: Pull image, migrate, deploy
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -28,8 +28,8 @@ jobs:
           command_timeout: 30m
           script: |
             cd ~/myanify
-            git pull origin main
-            docker compose up -d --build
+            docker compose pull app
+            docker compose up -d --no-build --remove-orphans
             sleep 20
             docker compose exec -T app pnpm exec prisma migrate deploy
             curl -sf -o /dev/null https://api.18-138-227-206.sslip.io/api/health
