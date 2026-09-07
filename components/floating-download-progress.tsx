@@ -32,7 +32,6 @@ export function FloatingDownloadProgress() {
         }
       } finally {
         drainingRef.current = false;
-        prevHadWork.current = true;
       }
     })();
   }, [isSupported, queue.length, downloadNext]);
@@ -41,18 +40,21 @@ export function FloatingDownloadProgress() {
   // completion pill so the user can jump to Downloads.
   useEffect(() => {
     if (!isSupported) return;
-    const hadWork = prevHadWork.current || queue.length > 0;
-    if (!hadWork) {
+    if (queue.length > 0) {
+      prevHadWork.current = true;
       setShowComplete(false);
       return;
     }
-    if (queue.length === 0) {
+    // queue is empty — if we previously had work, show completion briefly
+    if (prevHadWork.current) {
+      setShowComplete(true);
       const id = setTimeout(() => {
         setShowComplete(false);
         prevHadWork.current = false;
       }, 4000);
       return () => clearTimeout(id);
     }
+    setShowComplete(false);
   }, [isSupported, queue.length]);
 
   if (!isSupported) return null;
@@ -60,7 +62,7 @@ export function FloatingDownloadProgress() {
 
   const isComplete = queue.length === 0;
   const current =
-    queue.find((t) => t.status === "downloading") ?? queue[0];
+    queue.find((t) => t.status === "downloading") ?? queue[0] ?? null;
 
   return (
     <button
@@ -76,7 +78,7 @@ export function FloatingDownloadProgress() {
       <div className="flex items-center gap-2">
         {isComplete ? (
           <Check className="w-4 h-4 shrink-0 text-emerald-500" />
-        ) : current.status === "downloading" ? (
+        ) : current?.status === "downloading" ? (
           <Loader2 className="w-4 h-4 shrink-0 animate-spin text-primary" />
         ) : (
           <Download className="w-4 h-4 shrink-0 text-primary" />
@@ -85,12 +87,12 @@ export function FloatingDownloadProgress() {
           <p className="text-xs font-semibold truncate">
             {isComplete
               ? "Download complete"
-              : current.status === "downloading"
+              : current?.status === "downloading"
                 ? `Downloading ${current.progress}%`
                 : `Queued (${queue.length})`}
           </p>
           <p className="text-xs text-muted-foreground truncate">
-            {isComplete ? "View in Download" : current.title || "Preparing…"}
+            {isComplete ? "View in Download" : current?.title || "Preparing…"}
           </p>
         </div>
         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -99,7 +101,7 @@ export function FloatingDownloadProgress() {
         <div
           className="h-full bg-primary transition-all"
           style={{
-            width: `${isComplete ? 100 : current.status === "downloading" ? current.progress : 0}%`,
+            width: `${isComplete ? 100 : current?.status === "downloading" ? current.progress : 0}%`,
           }}
         />
       </div>

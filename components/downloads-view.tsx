@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -159,12 +159,33 @@ export function DownloadsView() {
   const { playSong } = usePlayer();
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [draining, setDraining] = useState(false);
+  // Platform is resolved post-mount; until then keep SSR/CSR initial markup
+  // identical so hydration doesn't mismatch on the platform copy.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Until mounted, isSupported/platform are still at their SSR defaults and
+  // could diverge after hydration — render a stable shell to avoid breaking
+  // React's hydration.
+  if (!mounted) {
+    return (
+      <div className="p-6 md:p-8 max-w-3xl mx-auto pb-32">
+        <h1 className="text-2xl font-bold mb-1">Downloads</h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          Saved for offline listening
+        </p>
+      </div>
+    );
+  }
 
   if (!isSupported) {
     return (
-      <div className="p-6 md:p-8 max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Downloads</h1>
-        <p className="text-muted-foreground">
+      <div className="p-6 md:p-8 max-w-3xl mx-auto pb-32">
+        <h1 className="text-2xl font-bold mb-1">Downloads</h1>
+        <p className="text-sm text-muted-foreground mb-6">
           Offline downloads aren&apos;t supported in this browser.
         </p>
       </div>
