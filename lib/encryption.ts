@@ -17,8 +17,9 @@ const KEY_LENGTH = 32; // 256 bits
  * Derives an encryption key from a user ID and master secret
  */
 function getMasterKey(): string {
-  const key = process.env.ENCRYPTION_MASTER_KEY;
-  if (!key) throw new Error("ENCRYPTION_MASTER_KEY is not set");
+  const key = process.env.ENCRYPTION_MASTER_KEY || process.env.AUTH_SECRET;
+  if (!key)
+    throw new Error("ENCRYPTION_MASTER_KEY is not set (set it or AUTH_SECRET)");
   return key;
 }
 
