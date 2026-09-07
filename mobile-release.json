@@ -1,17 +1,17 @@
 {
-  "version": "1.0.9",
-  "versionCode": 22,
-  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.9/myanify_1_0_9_22.apk",
-  "notes": "Backend moved to private VPS (fixes update and API blocks); signed update manifests; VIP offline and download settings; update flow hardening",
+  "version": "1.0.10",
+  "versionCode": 23,
+  "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.10/myanify_1.0.10.apk",
+  "notes": "Fix VIP device registration, downloads screen with completion toasts, settings entry",
   "mandatory": false,
-  "sha256": "f844d24ac95b07ad62da7af978bec01e2b3e2afeade3b29e5a6a1deda78cc4d8",
-  "fileSize": 114469427,
-  "md5": "f793cabaa878b99d1b1765718c32abc8",
+  "sha256": "862484b88eaf7204a7c17b619111e2370dc81a5b40064cd8916164c0b1f6e8d1",
+  "fileSize": 114504759,
+  "md5": "4c211a31f10cfc3a90bcb2d16f1095c8",
   "minVersionCode": 1,
   "rollout": 100,
   "certSha256": "fac61745dc0903786fb9d62a962b399f7348f0bb6f899b8332667591033b9c",
-  "previousVersion": "1.0.8",
-  "previousVersionCode": 21,
-  "previousApkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.8/myanify_1_0_8_21.apk",
-  "signature": "WoP6+Yhu1wMSLijLtvwoiatjescHwzgLQsZzzYb2KQEA2aMO/4MGyCxeplJEDMDr+y++mvR2d3/WJ8imt/O9DA=="
+  "previousVersion": "1.0.9",
+  "previousVersionCode": 22,
+  "previousApkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.9/myanify_1_0_9_22.apk",
+  "signature": "Xfe5PxyMgcwPuVNKv+r9Rszi1wxVlizqgosTn/0uLo8NU8OX+jE1ghfvmIrhnu3FEAQffXB7LHR1EHHlpjgzBQ=="
 }
