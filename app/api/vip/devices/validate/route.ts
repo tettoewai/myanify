@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/db";
+import { prisma, withRetry } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { validateLicenseKey } from "@/lib/encryption";
 
@@ -26,10 +26,12 @@ export async function POST(request: Request) {
     }
 
     // Check VIP status — User.isPremium is the single source of truth.
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { isPremium: true },
-    });
+    const user = await withRetry(() =>
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isPremium: true },
+      }),
+    );
     if (!user?.isPremium) {
       return NextResponse.json(
         { valid: false, error: "VIP subscription expired or inactive" },
@@ -38,28 +40,39 @@ export async function POST(request: Request) {
     }
 
     // Find device license
-    const device = await prisma.deviceLicense.findUnique({
-      where: {
-        userId_deviceId: {
-          userId: session.user.id,
-          deviceId,
+    const device = await withRetry(() =>
+      prisma.deviceLicense.findUnique({
+        where: {
+          userId_deviceId: {
+            userId: session.user.id,
+            deviceId,
+          },
         },
-      },
-    });
+      }),
+    );
 
     if (!device) {
       return NextResponse.json(
-        { valid: false, error: "Device not registered" },
+        { valid: false, error: "Device not registered", code: "DEVICE_NOT_REGISTERED" },
         { status: 404 }
+      );
+    }
+
+    // Revoked rows are distinct from a bad key: the client can self-heal by
+    // re-registering (POST /vip/devices reactivates the row), so tell it that.
+    if (!device.isValid) {
+      return NextResponse.json(
+        { valid: false, error: "Device revoked, please re-register", code: "DEVICE_REVOKED" },
+        { status: 403 }
       );
     }
 
     // Validate license key
     const isValidKey = validateLicenseKey(licenseKey, session.user.id, deviceId);
-    
-    if (!isValidKey || !device.isValid) {
+
+    if (!isValidKey) {
       return NextResponse.json(
-        { valid: false, error: "Invalid license key" },
+        { valid: false, error: "Invalid license key", code: "INVALID_LICENSE_KEY" },
         { status: 403 }
       );
     }
@@ -70,10 +83,12 @@ export async function POST(request: Request) {
 
     if (daysSinceValidation > 30) {
       // Update last validation
-      await prisma.deviceLicense.update({
-        where: { id: device.id },
-        data: { lastValidatedAt: new Date() },
-      });
+      await withRetry(() =>
+        prisma.deviceLicense.update({
+          where: { id: device.id },
+          data: { lastValidatedAt: new Date() },
+        }),
+      );
     }
 
     return NextResponse.json({

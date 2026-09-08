@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/db";
+import { prisma, withRetry } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { generateLicenseKey, validateLicenseKey } from "@/lib/encryption";
 import { DOWNLOAD_LIMITS } from "@/lib/vip-subscription";
@@ -61,10 +61,12 @@ export async function POST(request: Request) {
     }
 
     // Check VIP status — User.isPremium is the single source of truth.
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { isPremium: true },
-    });
+    const user = await withRetry(() =>
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { isPremium: true },
+      }),
+    );
     if (!user?.isPremium) {
       return NextResponse.json(
         { error: "VIP subscription required for device registration" },
@@ -73,12 +75,14 @@ export async function POST(request: Request) {
     }
 
     // Check device limit
-    const deviceCount = await prisma.deviceLicense.count({
-      where: {
-        userId: session.user.id,
-        isValid: true,
-      },
-    });
+    const deviceCount = await withRetry(() =>
+      prisma.deviceLicense.count({
+        where: {
+          userId: session.user.id,
+          isValid: true,
+        },
+      }),
+    );
 
     if (deviceCount >= DOWNLOAD_LIMITS.MAX_DEVICES) {
       return NextResponse.json(
@@ -88,45 +92,77 @@ export async function POST(request: Request) {
     }
 
     // Check if device already exists
-    const existing = await prisma.deviceLicense.findUnique({
-      where: {
-        userId_deviceId: {
-          userId: session.user.id,
-          deviceId,
+    const existing = await withRetry(() =>
+      prisma.deviceLicense.findUnique({
+        where: {
+          userId_deviceId: {
+            userId: session.user.id,
+            deviceId,
+          },
         },
-      },
-    });
+      }),
+    );
 
     let licenseKey: string;
+    let existingKeyValid = false;
+    if (existing) {
+      existingKeyValid = validateLicenseKey(
+        existing.licenseKey,
+        session.user.id,
+        deviceId,
+      );
+    }
+    try {
+      // Reuse the stored key when it still verifies; otherwise mint a fresh
+      // one. generateLicenseKey throws when no signing secret is configured —
+      // surface that as a distinct code so mobile diagnostics can point at
+      // server env instead of a generic "Failed to register device".
+      licenseKey =
+        existing && existingKeyValid
+          ? existing.licenseKey
+          : generateLicenseKey(session.user.id, deviceId);
+    } catch (e) {
+      console.error("License signing misconfigured:", e);
+      return NextResponse.json(
+        {
+          error:
+            "Server license signing is misconfigured (ENCRYPTION_MASTER_KEY/AUTH_SECRET missing)",
+          code: "LICENSE_SIGNING_MISCONFIGURED",
+        },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
-      // Device exists - validate existing license
-      if (validateLicenseKey(existing.licenseKey, session.user.id, deviceId)) {
-        // License is valid - return existing
-        const updated = await prisma.deviceLicense.update({
-          where: { id: existing.id },
-          data: {
-            lastValidatedAt: new Date(),
-            isValid: true,
-          },
-        });
+      if (existingKeyValid) {
+        // License is valid - return existing (also re-activates revoked rows)
+        const updated = await withRetry(() =>
+          prisma.deviceLicense.update({
+            where: { id: existing.id },
+            data: {
+              lastValidatedAt: new Date(),
+              isValid: true,
+            },
+          }),
+        );
         return NextResponse.json({
           message: "Device already registered",
           device: updated,
           licenseKey: updated.licenseKey,
         });
       } else {
-        // License invalid - generate new one
-        licenseKey = generateLicenseKey(session.user.id, deviceId);
-        const updated = await prisma.deviceLicense.update({
-          where: { id: existing.id },
-          data: {
-            licenseKey,
-            lastValidatedAt: new Date(),
-            isValid: true,
-            deviceName: deviceName || existing.deviceName,
-          },
-        });
+        // Stored license no longer verifies (secret rotated) - mint new one
+        const updated = await withRetry(() =>
+          prisma.deviceLicense.update({
+            where: { id: existing.id },
+            data: {
+              licenseKey,
+              lastValidatedAt: new Date(),
+              isValid: true,
+              deviceName: deviceName || existing.deviceName,
+            },
+          }),
+        );
         return NextResponse.json({
           message: "License regenerated",
           device: updated,
@@ -135,23 +171,52 @@ export async function POST(request: Request) {
       }
     } else {
       // New device - generate license
-      licenseKey = generateLicenseKey(session.user.id, deviceId);
-      const device = await prisma.deviceLicense.create({
-        data: {
-          userId: session.user.id,
-          deviceId,
-          deviceName: deviceName || `${deviceType} Device`,
-          deviceType,
-          licenseKey,
-          isValid: true,
-        },
-      });
+      try {
+        const device = await withRetry(() =>
+          prisma.deviceLicense.create({
+            data: {
+              userId: session.user.id,
+              deviceId,
+              deviceName: deviceName || `${deviceType} Device`,
+              deviceType,
+              licenseKey,
+              isValid: true,
+            },
+          }),
+        );
 
-      return NextResponse.json({
-        message: "Device registered successfully",
-        device,
-        licenseKey,
-      });
+        return NextResponse.json({
+          message: "Device registered successfully",
+          device,
+          licenseKey,
+        });
+      } catch (e: any) {
+        // Concurrent first-run registers (parallel downloads) can both pass
+        // the findUnique check, then one hits the @@unique(userId, deviceId)
+        // constraint. Recover by loading the winner's row instead of 500.
+        if (e?.code === "P2002") {
+          const winner = await prisma.deviceLicense.findUnique({
+            where: {
+              userId_deviceId: {
+                userId: session.user.id,
+                deviceId,
+              },
+            },
+          });
+          if (winner) {
+            const updated = await prisma.deviceLicense.update({
+              where: { id: winner.id },
+              data: { lastValidatedAt: new Date(), isValid: true },
+            });
+            return NextResponse.json({
+              message: "Device already registered",
+              device: updated,
+              licenseKey: updated.licenseKey,
+            });
+          }
+        }
+        throw e;
+      }
     }
   } catch (error) {
     console.error("Error registering device:", error);
