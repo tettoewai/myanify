@@ -1,0 +1,27 @@
+name: Deploy to VPS (manual)
+
+# Manual rollout of the prebuilt GHCR image (published by the pre-push hook).
+# Trigger: Actions tab → "Deploy to VPS (manual)" → Run workflow,
+# or: gh workflow run deploy-vps.yml --repo tettoewai/myanify --ref main
+# Needs secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull image, migrate, deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            cd ~/myanify
+            docker compose pull
+            docker compose up -d --force-recreate
+            sleep 20
+            docker compose exec -T app pnpm exec prisma migrate deploy
+            curl -sf -o /dev/null https://api.18-138-227-206.sslip.io/api/health
