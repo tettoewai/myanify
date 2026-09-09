@@ -13,8 +13,10 @@ function getResend(): Resend {
   return resend;
 }
 const DEBUG_EMAIL = process.env.NODE_ENV === 'development';
-const FROM_EMAIL = process.env.EMAIL_FROM || "Myanify <onboarding@resend.dev>";
-const SEND_EMAILS = process.env.SEND_EMAILS === 'true';
+const SEND_EMAILS = () => process.env.SEND_EMAILS === 'true';
+function getFromEmail(): string {
+  return process.env.EMAIL_FROM || "Myanify <onboarding@resend.dev>";
+}
 
 // Shared email styles matching your design system
 const emailStyles = `
@@ -218,10 +220,10 @@ export async function sendVerificationEmail(email: string, token: string) {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
-  if (!DEBUG_EMAIL || SEND_EMAILS) {
+  if (!DEBUG_EMAIL || SEND_EMAILS()) {
     try {
       await getResend().emails.send({
-        from: FROM_EMAIL,
+        from: getFromEmail(),
         to: email,
         subject: "Verify your Myanify account",
         html: getEmailTemplate(`
@@ -278,10 +280,10 @@ export async function sendResetEmail(email: string, token: string) {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
-  if (!DEBUG_EMAIL || SEND_EMAILS) {
+  if (!DEBUG_EMAIL || SEND_EMAILS()) {
     try {
       await getResend().emails.send({
-        from: FROM_EMAIL,
+        from: getFromEmail(),
         to: email,
         subject: "Reset your Myanify password",
         html: getEmailTemplate(`

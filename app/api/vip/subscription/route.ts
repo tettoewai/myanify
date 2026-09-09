@@ -3,13 +3,15 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { generatePaymentReference, VIP_PLANS } from "@/lib/vip-subscription";
 import { getDownloadSettings } from "@/lib/download-settings";
+import { getVIPSettings, resolveEffectiveIsPremium } from "@/lib/vip-settings";
 import { withRetry } from "@/db";
 import { PlanType } from "@prisma/client";
 
 /**
  * GET /api/vip/subscription
  * Get current user's VIP subscription status.
- * Uses User.isPremium directly for a fast, reliable check.
+ * Uses User.isPremium + global vip_enabled flag for the effective check:
+ * when VIP is disabled, everyone counts as VIP.
  */
 export async function GET() {
     try {
@@ -19,7 +21,7 @@ export async function GET() {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const [subscription, user, downloadSettings] = await Promise.all([
+        const [subscription, user, downloadSettings, vipSettings] = await Promise.all([
             withRetry(() =>
                 prisma.premiumSubscription.findUnique({
                     where: { userId: session.user.id },
@@ -32,9 +34,13 @@ export async function GET() {
                 })
             ),
             getDownloadSettings(),
+            getVIPSettings(),
         ]);
 
-        return NextResponse.json({ subscription, isVIP: user?.isPremium ?? false, downloadSettings });
+        const rawIsVIP = user?.isPremium ?? false;
+        const isVIP = resolveEffectiveIsPremium(rawIsVIP, vipSettings.enabled);
+
+        return NextResponse.json({ subscription, isVIP, isPremiumRaw: rawIsVIP, vipEnabled: vipSettings.enabled, vipSettings, downloadSettings });
     } catch (error) {
         console.error("Error fetching subscription:", error);
         return NextResponse.json(

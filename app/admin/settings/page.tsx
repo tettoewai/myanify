@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminFormPageSkeleton } from "@/components/loading-skeletons";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { User, Mail, Calendar, Save, Lock, Download } from "lucide-react";
+import { User, Mail, Calendar, Save, Lock, Download, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,9 @@ export default function AdminSettingsPage() {
   const [dlSaving, setDlSaving] = useState(false);
   const [maxSongs, setMaxSongs] = useState("100");
   const [requireVip, setRequireVip] = useState(true);
+  const [vipLoading, setVipLoading] = useState(true);
+  const [vipSaving, setVipSaving] = useState(false);
+  const [vipEnabled, setVipEnabled] = useState(true);
 
   useEffect(() => {
     if (profile) {
@@ -61,6 +64,49 @@ export default function AdminSettingsPage() {
     };
     loadDownloadSettings();
   }, []);
+
+  useEffect(() => {
+    const loadVipSettings = async () => {
+      try {
+        const res = await fetch("/api/admin/vip-settings");
+        if (res.ok) {
+          const data = await res.json();
+          setVipEnabled(data.settings?.enabled ?? true);
+        }
+      } catch {
+        // Keep default (enabled) on failure.
+      } finally {
+        setVipLoading(false);
+      }
+    };
+    loadVipSettings();
+  }, []);
+
+  const handleSaveVipSettings = async () => {
+    setVipSaving(true);
+    try {
+      const res = await fetch("/api/admin/vip-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: vipEnabled }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setVipEnabled(data.settings?.enabled ?? vipEnabled);
+        toast.success(
+          data.settings?.enabled === false
+            ? "VIP turned off — everyone now gets VIP features"
+            : "VIP settings saved",
+        );
+      } else {
+        toast.error(data.error || "Failed to save VIP settings");
+      }
+    } catch {
+      toast.error("An error occurred while saving VIP settings");
+    } finally {
+      setVipSaving(false);
+    }
+  };
 
   const handleSaveDownloadSettings = async () => {
     const n = Math.floor(Number(maxSongs));
@@ -173,6 +219,7 @@ export default function AdminSettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="password">Password</TabsTrigger>
+          <TabsTrigger value="vip">VIP</TabsTrigger>
           <TabsTrigger value="downloads">Downloads</TabsTrigger>
         </TabsList>
 
@@ -342,6 +389,61 @@ export default function AdminSettingsPage() {
               your account.
             </p>
             <SignOutConfirmButton fullWidth />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="vip" className="space-y-6">
+          <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <Crown className="w-5 h-5" />
+                VIP Access
+              </h3>
+              <p className="text-muted-foreground text-sm mt-1">
+                Global kill-switch for the VIP system. When VIP is turned off,
+                everyone gets VIP features for free — premium songs, no ads,
+                offline downloads and device registration.
+              </p>
+            </div>
+
+            {vipLoading ? (
+              <p className="text-muted-foreground text-sm">Loading…</p>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="vipEnabled">Enable VIP</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {vipEnabled
+                        ? "VIP is ON — only active VIP subscribers get premium features."
+                        : "VIP is OFF — everyone gets VIP features for free."}
+                    </p>
+                  </div>
+                  <Switch
+                    id="vipEnabled"
+                    checked={vipEnabled}
+                    onCheckedChange={setVipEnabled}
+                  />
+                </div>
+
+                {!vipEnabled && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                    VIP is currently off. All users can play premium songs,
+                    skip ads, and download for offline playback without a
+                    subscription.
+                  </p>
+                )}
+
+                <Button
+                  onClick={handleSaveVipSettings}
+                  disabled={vipSaving}
+                  className="w-full"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {vipSaving ? "Saving..." : "Save VIP Settings"}
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 

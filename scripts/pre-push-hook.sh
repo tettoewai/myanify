@@ -70,11 +70,11 @@ if ! grep -q "ghcr.io" ~/.docker/config.json 2>/dev/null; then
 fi
 
 echo "[pre-push] Running:"
-echo "  docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_APP_URL=\"https://api.18-138-227-206.sslip.io\" -t ghcr.io/tettoewai/myanify:latest ."
+echo "  docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_APP_URL=\"https://myanify.tettoewai.com\" -t ghcr.io/tettoewai/myanify:latest ."
 
 docker build \
   --platform linux/amd64 \
-  --build-arg NEXT_PUBLIC_APP_URL="https://api.18-138-227-206.sslip.io" \
+  --build-arg NEXT_PUBLIC_APP_URL="https://myanify.tettoewai.com" \
   -t ghcr.io/tettoewai/myanify:latest .
 
 echo "[pre-push] Pushing ghcr.io/tettoewai/myanify:latest ..."

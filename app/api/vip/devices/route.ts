@@ -3,6 +3,7 @@ import { prisma, withRetry } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { generateLicenseKey, validateLicenseKey } from "@/lib/encryption";
 import { DOWNLOAD_LIMITS } from "@/lib/vip-subscription";
+import { getVIPSettings, resolveEffectiveIsPremium } from "@/lib/vip-settings";
 
 /**
  * GET /api/vip/devices
@@ -60,14 +61,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check VIP status — User.isPremium is the single source of truth.
+    // Check VIP status — User.isPremium + global vip_enabled flag.
+    // When VIP is disabled, everyone counts as VIP.
     const user = await withRetry(() =>
       prisma.user.findUnique({
         where: { id: session.user.id },
         select: { isPremium: true },
       }),
     );
-    if (!user?.isPremium) {
+    const vipSettings = await getVIPSettings();
+    if (!resolveEffectiveIsPremium(user?.isPremium ?? false, vipSettings.enabled)) {
       return NextResponse.json(
         { error: "VIP subscription required for device registration" },
         { status: 403 }

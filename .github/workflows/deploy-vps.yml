@@ -24,4 +24,4 @@ jobs:
             docker compose up -d --force-recreate
             sleep 20
             docker compose exec -T app pnpm exec prisma migrate deploy
-            curl -sf -o /dev/null https://api.18-138-227-206.sslip.io/api/health
+            curl -sf -o /dev/null https://myanify.tettoewai.com/api/health

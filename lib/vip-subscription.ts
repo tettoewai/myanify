@@ -1,6 +1,7 @@
 import { SubscriptionStatus, PlanType } from "@prisma/client";
 import { prisma } from "@/db";
 import { getDownloadSettings } from "@/lib/download-settings";
+import { getVIPSettings } from "@/lib/vip-settings";
 
 export const VIP_PLANS = {
     MONTHLY: {
@@ -151,6 +152,7 @@ export async function getUserSubscription(userId: string) {
 /**
  * Checks download limits for users.
  * Respects admin-configurable settings:
+ * - vip_enabled (default true): when false, EVERYONE counts as VIP.
  * - download_require_vip (default true): when false, non-VIP may download.
  * - download_max_songs (default 100): per-user cap on active downloads.
  */
@@ -160,9 +162,15 @@ export const DOWNLOAD_LIMITS = {
 } as const;
 
 export async function canUserDownload(userId: string, isPremium: boolean): Promise<{ allowed: boolean; reason?: string; maxSongs?: number; requireVip?: boolean }> {
-    const settings = await getDownloadSettings();
+    const [settings, vipSettings] = await Promise.all([
+        getDownloadSettings(),
+        getVIPSettings(),
+    ]);
 
-    if (settings.requireVip && !isPremium) {
+    // Global VIP kill-switch: VIP disabled => everyone gets VIP features.
+    const effectiveIsPremium = !vipSettings.enabled ? true : isPremium;
+
+    if (settings.requireVip && !effectiveIsPremium) {
         return { allowed: false, reason: 'VIP subscription required for offline downloads', maxSongs: settings.maxSongs, requireVip: true };
     }
 

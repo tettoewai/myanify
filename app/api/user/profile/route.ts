@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { getVIPSettings, resolveEffectiveIsPremium } from "@/lib/vip-settings";
 
 export async function GET(request: Request) {
   try {
@@ -72,17 +73,29 @@ export async function GET(request: Request) {
       });
       // Return user data with hasPassword flag
       const { passwordHash, paymentRequests, ...userData } = newUser;
+      const createdVipSettings = await getVIPSettings();
       return NextResponse.json({
         ...userData,
+        isPremium: resolveEffectiveIsPremium(
+          newUser.isPremium,
+          createdVipSettings.enabled,
+        ),
+        isPremiumRaw: newUser.isPremium,
+        vipEnabled: createdVipSettings.enabled,
         hasPassword: !!passwordHash,
         hasPendingPremium: paymentRequests.length > 0,
       });
     }
 
-    // Return user data with hasPassword flag
+    // Return user data with hasPassword flag.
+    // Apply global VIP toggle: when VIP is disabled, everyone is effectively VIP.
     const { passwordHash, paymentRequests, ...userData } = user;
+    const vipSettings = await getVIPSettings();
     return NextResponse.json({
       ...userData,
+      isPremium: resolveEffectiveIsPremium(user.isPremium, vipSettings.enabled),
+      isPremiumRaw: user.isPremium,
+      vipEnabled: vipSettings.enabled,
       hasPassword: !!passwordHash,
       hasPendingPremium: paymentRequests.length > 0,
     });
@@ -123,7 +136,13 @@ export async function PATCH(request: Request) {
       },
     });
 
-    return NextResponse.json(user);
+    const vipSettings = await getVIPSettings();
+    return NextResponse.json({
+      ...user,
+      isPremium: resolveEffectiveIsPremium(user.isPremium, vipSettings.enabled),
+      isPremiumRaw: user.isPremium,
+      vipEnabled: vipSettings.enabled,
+    });
   } catch (error) {
     console.error("Error updating user profile:", error);
     return NextResponse.json(

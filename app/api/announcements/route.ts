@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { getVIPSettings } from "@/lib/vip-settings";
 
 function isVisibleNow(now: Date) {
   return {
@@ -22,9 +23,12 @@ export async function GET(request: Request) {
 
     const session = await getSession();
     const userId = (session?.user as { id?: string } | undefined)?.id;
-    const isPremium =
+    const rawIsPremium =
       (session?.user as { isPremium?: boolean } | undefined)?.isPremium ??
       false;
+    // When VIP is disabled globally, everyone counts as premium.
+    const vipSettings = await getVIPSettings();
+    const isPremium = !vipSettings.enabled ? true : rawIsPremium;
 
     const now = new Date();
     const announcements = await prisma.announcement.findMany({

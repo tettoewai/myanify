@@ -320,6 +320,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     { revalidateOnFocus: false, revalidateOnReconnect: true },
   );
 
+  // Global VIP kill-switch: when VIP is disabled, everyone gets VIP features.
+  const { data: vipSettings } = useSWR("/api/vip-settings", swrFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
+
   // ─── Auth helper ───────────────────────────────────────────────────────────
 
   /**
@@ -399,6 +405,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // ─── Sync: premium / profile ───────────────────────────────────────────────
 
   useEffect(() => {
+    // Global kill-switch wins: VIP disabled => everyone is VIP.
+    if (vipSettings && vipSettings.enabled === false) {
+      setIsPremium(true);
+      return;
+    }
     if (profile && typeof profile.isPremium === "boolean") {
       setIsPremium(profile.isPremium);
       return;
@@ -410,7 +421,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (typeof session.user.isPremium === "boolean") {
       setIsPremium(session.user.isPremium);
     }
-  }, [profile, session?.user?.id, session?.user?.isPremium, sessionStatus]);
+  }, [
+    profile,
+    vipSettings,
+    session?.user?.id,
+    session?.user?.isPremium,
+    sessionStatus,
+  ]);
 
   // ─── Queue helpers ─────────────────────────────────────────────────────────
 
