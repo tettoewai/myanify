@@ -124,10 +124,6 @@ export default function SongsPage() {
     </Button>
   );
 
-  if (isLoading && songs.length === 0) {
-    return <AdminListPageSkeleton />;
-  }
-
   const formatDuration = (seconds: number) => {
     const minutes = seconds / 60;
     return `${minutes.toFixed(1)} min`;
@@ -168,6 +164,9 @@ export default function SongsPage() {
       </div>
 
       <div className="bg-card rounded-lg border border-border overflow-hidden">
+        {isLoading && songs.length === 0 ? (
+          <AdminListPageSkeleton withSearch={false} />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50">
@@ -276,6 +275,7 @@ export default function SongsPage() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       <AdminPagination

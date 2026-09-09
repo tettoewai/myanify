@@ -88,10 +88,6 @@ export default function AlbumsPage() {
     }
   };
 
-  if (isLoading && albums.length === 0) {
-    return <AdminGridPageSkeleton />;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -120,7 +116,11 @@ export default function AlbumsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {albums.length === 0 ? (
+        {isLoading && albums.length === 0 ? (
+          <div className="col-span-full">
+            <AdminGridPageSkeleton withHeader={false} withSearch={false} />
+          </div>
+        ) : albums.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No albums found
           </div>

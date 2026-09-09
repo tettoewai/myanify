@@ -127,8 +127,6 @@ export default function AnnouncementsAdminPage() {
     }
   };
 
-  if (isLoading && announcements.length === 0) return <AdminGridPageSkeleton />;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -154,7 +152,11 @@ export default function AnnouncementsAdminPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {announcements.length === 0 ? (
+        {isLoading && announcements.length === 0 ? (
+          <div className="col-span-full">
+            <AdminGridPageSkeleton withHeader={false} withSearch={false} />
+          </div>
+        ) : announcements.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No announcements yet. Publish your first update.
           </div>

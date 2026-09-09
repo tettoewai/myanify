@@ -289,11 +289,19 @@ export function AdminListPageSkeleton({
   );
 }
 
-export function AdminGridPageSkeleton({ count = 8 }: { count?: number }) {
+export function AdminGridPageSkeleton({
+  count = 8,
+  withHeader = true,
+  withSearch = true,
+}: {
+  count?: number;
+  withHeader?: boolean;
+  withSearch?: boolean;
+}) {
   return (
     <div className="space-y-6" aria-hidden>
-      <AdminPageHeaderSkeleton />
-      <Skeleton className="h-10 w-full max-w-md rounded-md" />
+      {withHeader && <AdminPageHeaderSkeleton />}
+      {withSearch && <Skeleton className="h-10 w-full max-w-md rounded-md" />}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="rounded-lg border border-border p-4 space-y-3">

@@ -105,10 +105,6 @@ export default function AdsPage() {
     }
   };
 
-  if (isLoading && ads.length === 0) {
-    return <AdminGridPageSkeleton />;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,7 +135,11 @@ export default function AdsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ads.length === 0 ? (
+        {isLoading && ads.length === 0 ? (
+          <div className="col-span-full">
+            <AdminGridPageSkeleton withHeader={false} withSearch={false} />
+          </div>
+        ) : ads.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground">
             No ads found
           </div>
