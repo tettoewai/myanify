@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { notifyAnnouncement } from "@/lib/notifications";
 
 function requireAdmin(session: unknown) {
   const s = session as { user?: { role?: string } } | null;
@@ -90,6 +91,9 @@ export async function POST(request: Request) {
         createdBy: (session as { user?: { id?: string } })?.user?.id ?? null,
       },
     });
+    if (created.isActive) {
+      void notifyAnnouncement(created.id, created.title, created.body, created.audience);
+    }
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Error creating announcement:", error);

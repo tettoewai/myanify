@@ -46,6 +46,8 @@ model User {
   paymentMethods   PaymentMethod[]
   songRequests     SongRequest[] @relation("SongRequestUser")
   reviewedRequests SongRequest[] @relation("SongRequestReviewer")
+  pushTokens       PushToken[]
+  notificationPreference NotificationPreference?
 
   @@index([email])
   @@index([role])
@@ -719,4 +721,37 @@ model AnnouncementRead {
   @@unique([announcementId, userId])
   @@index([userId])
   @@index([announcementId])
+}
+
+// Push notification tokens for mobile devices
+model PushToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String
+  platform   String   @default("ANDROID")
+  deviceName String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([token])
+  @@index([userId])
+  @@index([isActive])
+}
+
+// Per-user notification preferences
+model NotificationPreference {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  newSongs           Boolean  @default(true)
+  newAlbums          Boolean  @default(true)
+  songRequestUpdates Boolean  @default(true)
+  announcements      Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

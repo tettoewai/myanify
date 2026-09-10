@@ -19,6 +19,7 @@ import {
   getCached,
   invalidateContentCache,
 } from "@/lib/cache";
+import { notifyNewSong } from "@/lib/notifications";
 
 export async function GET(
   request: Request,
@@ -127,6 +128,7 @@ export async function PATCH(
         slug: true,
         title: true,
         englishTitle: true,
+        isPublished: true,
       },
     });
 
@@ -182,6 +184,9 @@ export async function PATCH(
       ...(seo !== undefined && { seoId }),
     };
 
+    const wasPublished = existing.isPublished;
+    const nowPublished = isPublished !== undefined ? isPublished : wasPublished;
+
     if (artistIds !== undefined && Array.isArray(artistIds)) {
       await prisma.songArtist.deleteMany({
         where: { songId: id },
@@ -206,6 +211,23 @@ export async function PATCH(
     });
 
     await invalidateContentCache();
+
+    if (nowPublished && !wasPublished) {
+      const artistNames = song.artists.map(
+        (sa: { artist: { name: string } }) => sa.artist.name,
+      );
+      const artistIds = song.artists.map(
+        (sa: { artistId: string }) => sa.artistId,
+      );
+      void notifyNewSong(
+        song.id,
+        song.title,
+        song.englishTitle,
+        artistNames,
+        song.coverUrl,
+        artistIds,
+      );
+    }
 
     return NextResponse.json(
       formatSongResponse(song, request, { includeLyrics: true }),

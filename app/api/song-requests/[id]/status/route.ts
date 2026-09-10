@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
+import { notifySongRequestUpdate } from "@/lib/notifications";
 
 /**
  * PATCH /api/song-requests/[id]/status
@@ -54,6 +55,8 @@ export async function PATCH(
         reviewedAt: new Date(),
       },
     });
+
+    void notifySongRequestUpdate(songRequest.userId, status, songRequest.songTitle);
 
     return NextResponse.json(updated);
   } catch (error) {

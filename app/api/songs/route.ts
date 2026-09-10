@@ -24,6 +24,7 @@ import {
   getCached,
   invalidateContentCache,
 } from "@/lib/cache";
+import { notifyNewSong } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -129,6 +130,19 @@ export async function POST(request: Request) {
     });
 
     await invalidateContentCache();
+
+    if (song.isPublished) {
+      const artistNames = song.artists.map((sa) => sa.artist.name);
+      const artistIds = song.artists.map((sa) => sa.artistId);
+      void notifyNewSong(
+        song.id,
+        song.title,
+        song.englishTitle,
+        artistNames,
+        song.coverUrl,
+        artistIds,
+      );
+    }
 
     return NextResponse.json(
       formatSongResponse(song, request, { includeLyrics: true }),

@@ -16,6 +16,7 @@ import {
   getCached,
   invalidateContentCache,
 } from "@/lib/cache";
+import { notifyNewAlbum } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -168,6 +169,8 @@ export async function POST(request: Request) {
     });
 
     await invalidateContentCache();
+
+    void notifyNewAlbum(album.id, album.name, album.englishName, album.coverUrl);
 
     return NextResponse.json(album, { status: 201 });
   } catch (error) {
