@@ -14,6 +14,7 @@ import { AuthLegalNotice } from "@/components/auth/auth-legal-notice";
 import { AuthPageHeader } from "@/components/auth/auth-page-header";
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { SpotifySignInButton } from "@/components/auth/spotify-sign-in-button";
 import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { Mail } from "lucide-react";
 
@@ -178,6 +179,7 @@ function LoginForm() {
 
       <div className="space-y-4">
         <GoogleSignInButton />
+        <SpotifySignInButton />
         <AuthEmailDivider />
       </div>
 

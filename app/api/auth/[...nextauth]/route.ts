@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
-import { credentialsProvider, googleProvider } from "@/lib/auth-providers";
+import { credentialsProvider, googleProvider, spotifyProvider } from "@/lib/auth-providers";
 
 // Create handlers with credentials provider (only in API route, not middleware)
 // This runs in Node.js runtime, so it can use bcryptjs
@@ -11,7 +11,7 @@ const authSecret =
 const { handlers } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 days
-  providers: [credentialsProvider, googleProvider],
+  providers: [credentialsProvider, googleProvider, spotifyProvider],
   // Fallback secret for local dev to avoid JSON parse errors when missing env
   secret: authSecret,
   trustHost: true, // Trust all hosts (safe for development)

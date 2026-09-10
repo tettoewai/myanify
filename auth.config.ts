@@ -1,6 +1,10 @@
 import type { NextAuthConfig } from "next-auth";
 import { UserRole } from "@prisma/client";
-import { googleProvider, credentialsProvider } from "@/lib/auth-providers";
+import {
+  googleProvider,
+  spotifyProvider,
+  credentialsProvider,
+} from "@/lib/auth-providers";
 import { prisma } from "@/db";
 
 export const authConfig = {
@@ -23,25 +27,36 @@ export const authConfig = {
         return true;
       }
 
-      // For Google OAuth, auto-verify the email
-      if (account?.provider === "google") {
+      // For OAuth (Google / Spotify), auto-verify email + link Account row.
+      // Same email across providers links to one User (auto-link).
+      if (account?.provider === "google" || account?.provider === "spotify") {
         try {
+          if (!user.email) {
+            // Spotify can hide email if user-read-email scope denied
+            console.error(
+              `OAuth sign-in without email (provider=${account.provider})`,
+            );
+            return "/login?error=OAuthAccountNotLinked";
+          }
           const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
+            where: { email: user.email },
           });
 
+          let userId: string;
           if (!existingUser) {
             // Create new user with email already verified
-            await prisma.user.create({
+            const created = await prisma.user.create({
               data: {
-                email: user.email!,
+                email: user.email,
                 name: user.name,
                 avatarUrl: user.image,
                 role: UserRole.LISTENER,
                 emailVerified: new Date(),
               },
             });
+            userId = created.id;
           } else {
+            userId = existingUser.id;
             // If user exists but not verified, auto-verify them
             if (!existingUser.emailVerified) {
               await prisma.user.update({
@@ -52,18 +67,58 @@ export const authConfig = {
               });
             }
             // Update name/avatar if needed
-            if (!existingUser.name && user.name) {
+            if ((!existingUser.name && user.name) || (!existingUser.avatarUrl && user.image)) {
               await prisma.user.update({
                 where: { id: existingUser.id },
                 data: {
-                  name: user.name,
-                  avatarUrl: user.image || existingUser.avatarUrl,
+                  name: existingUser.name || user.name,
+                  avatarUrl: existingUser.avatarUrl || user.image,
                 },
               });
             }
           }
+
+          // Upsert OAuth Account row so Spotify tokens can be refreshed
+          // for playlist/library APIs (and Google stays linkable).
+          if (account.providerAccountId) {
+            await prisma.account.upsert({
+              where: {
+                provider_providerAccountId: {
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                },
+              },
+              create: {
+                userId,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                refresh_token: account.refresh_token ?? undefined,
+                access_token: account.access_token ?? undefined,
+                expires_at: account.expires_at ?? undefined,
+                token_type: account.token_type ?? undefined,
+                scope: account.scope ?? undefined,
+                id_token: account.id_token ?? undefined,
+                session_state:
+                  typeof account.session_state === "string"
+                    ? account.session_state
+                    : undefined,
+              },
+              update: {
+                userId,
+                refresh_token: account.refresh_token ?? undefined,
+                access_token: account.access_token ?? undefined,
+                expires_at: account.expires_at ?? undefined,
+                scope: account.scope ?? undefined,
+                id_token: account.id_token ?? undefined,
+              },
+            });
+          }
         } catch (error) {
-          console.error("Error handling Google sign-in:", error);
+          console.error(
+            `Error handling ${account.provider} sign-in:`,
+            error,
+          );
           return false;
         }
       }
@@ -134,7 +189,10 @@ export const authConfig = {
       }
       if (account) {
         token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
+        token.refreshToken = account.refresh_token ?? token.refreshToken;
+        (token as any).accessTokenExpires =
+          account.expires_at != null ? account.expires_at * 1000 : undefined;
+        (token as any).provider = account.provider;
       }
       return token;
     },
@@ -152,5 +210,5 @@ export const authConfig = {
       return session;
     },
   },
-  providers: [googleProvider, credentialsProvider],
+  providers: [googleProvider, spotifyProvider, credentialsProvider],
 } satisfies NextAuthConfig;
