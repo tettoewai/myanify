@@ -257,6 +257,13 @@ function normalizeTrack(raw: Record<string, unknown>): OfflineTrack {
 export class WebOfflineStorage {
   private db: IDBDatabase | null = null;
   private activeBlobUrl: string | null = null;
+  /**
+   * Per-song blob URLs for playback. Unlike `activeBlobUrl` (single-slot,
+   * used by the downloads preview), these coexist so the main element and
+   * the preload element can each hold a blob URL during gapless swaps
+   * without revoking the currently-playing track.
+   */
+  private playbackBlobUrls = new Map<string, string>();
 
   async initialize(): Promise<void> {
     if (!isBrowser()) return;
@@ -337,6 +344,7 @@ export class WebOfflineStorage {
   }
 
   async deleteDownload(songId: string): Promise<void> {
+    this.releasePlaybackBlobUrl(songId);
     const db = await this.getDB();
     if (!db) return;
     await withStore(db, STORE_DOWNLOADS, "readwrite", (store) =>
@@ -578,6 +586,43 @@ export class WebOfflineStorage {
     const url = URL.createObjectURL(blob);
     this.activeBlobUrl = url;
     return url;
+  }
+
+  /**
+   * Offline-first resolver for the player (mirrors mobile
+   * `resolvePlayableAudioUri`). Returns a cached per-song blob URL when the
+   * track is downloaded, without revoking other songs' URLs, so the main
+   * and preload `<audio>` elements can coexist during gapless swaps.
+   * Returns null when there is no usable offline copy.
+   */
+  async getPlaybackBlobUrl(songId: string): Promise<string | null> {
+    if (!isBrowser()) return null;
+    const cached = this.playbackBlobUrls.get(songId);
+    if (cached) return cached;
+    const download = await this.getDownload(songId);
+    if (!download || download.status !== "completed" || !download.audioData) {
+      return null;
+    }
+    if (download.expiresAt && download.expiresAt < Date.now()) {
+      await this.deleteDownload(songId);
+      return null;
+    }
+    const blob = new Blob([download.audioData], {
+      type: download.mimeType || "audio/mpeg",
+    });
+    const url = URL.createObjectURL(blob);
+    this.playbackBlobUrls.set(songId, url);
+    return url;
+  }
+
+  /** Revoke a cached playback blob URL (e.g. after eviction/delete). */
+  releasePlaybackBlobUrl(songId: string): void {
+    if (!isBrowser()) return;
+    const url = this.playbackBlobUrls.get(songId);
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.playbackBlobUrls.delete(songId);
+    }
   }
 
   /**

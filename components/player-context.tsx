@@ -20,6 +20,7 @@ import {
   type PersistedQueueEntry,
 } from "@/lib/queue";
 import { requireLoginRedirect } from "@/lib/require-login";
+import { offlineStorage } from "@/lib/offline-storage";
 import { usePlayHistory, useSongs } from "@/lib/swr";
 import type { LyricLine, QueueItem, QueueItemSource, Song } from "@/lib/types";
 import { useSession } from "next-auth/react";
@@ -44,7 +45,7 @@ const LAST_PLAYBACK_POSITION_KEY = "myanify_last_playback_position";
 const VOLUME_STORAGE_KEY = "myanify_volume";
 const MAX_RECENTLY_PLAYED = 50;
 const POSITION_SAVE_INTERVAL_MS = 5_000;
-const PRELOAD_SECONDS_BEFORE_END = 20;
+const PRELOAD_SECONDS_BEFORE_END = 15;
 const CROSSFADE_DURATION_MS = 2_000;
 const PREV_SONG_RESTART_THRESHOLD_S = 3;
 
@@ -74,9 +75,12 @@ interface PlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
   currentTime: number;
+  duration: number;
   volume: number;
   isMuted: boolean;
   playbackRate: number;
+  isLoading: boolean;
+  error: string | null;
 
   // ── Queue / history ──
   /** Flat legacy list kept for backward compat — prefer upNext. */
@@ -107,6 +111,7 @@ interface PlayerContextType {
 
   // ── Features ──
   sleepTimer: SleepTimer | null;
+  sleepTimerRemaining: number;
 
   // ── Refs ──
   audioRef: RefObject<HTMLAudioElement | null>;
@@ -152,6 +157,7 @@ interface PlayerContextType {
 
   // ── Actions: misc ──
   setSleepTimer: (minutes: number | null) => void;
+  clearError: () => void;
   getRecentlyPlayed: () => Song[];
   setIsPremium: (premium: boolean) => void;
 
@@ -188,9 +194,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(readVolume);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRateState] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Queue & history ──
   const [queue, setQueue] = useState<Song[]>([]);
@@ -238,6 +247,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ── Features ──
   const [sleepTimer, setSleepTimerState] = useState<SleepTimer | null>(null);
+  const [sleepTimerRemaining, setSleepTimerRemaining] = useState(0);
+
+  // ── Offline-first resolver (mirrors mobile resolvePlayableAudioUri) ──
+  const resolveWebPlaybackUrl = useCallback(async (song: Song): Promise<string> => {
+    try {
+      const offlineUrl = await offlineStorage.getPlaybackBlobUrl(song.id);
+      if (offlineUrl) return offlineUrl;
+    } catch {
+      // Fall through to streaming.
+    }
+    return song.playbackUrl || song.audioUrl;
+  }, []);
 
   // ── Radio fetch ──
   const { isFetching: isFetchingRadio, fetchSimilarSongs: radioFetchSimilar } =
@@ -278,6 +299,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // Sleep timer
   const sleepTimerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sleepTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // ─── Keep refs in sync with state ─────────────────────────────────────────
 
@@ -361,7 +383,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const saveLastPlayedSong = useCallback((song: Song) => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(LAST_PLAYED_SONG_KEY, JSON.stringify(song));
+      // Store only the id (mirrors mobile SecureStore) so restores resolve
+      // against the live catalog instead of a stale snapshot.
+      localStorage.setItem(LAST_PLAYED_SONG_KEY, song.id);
     } catch (err) {
       console.error("[Player] Failed to save last played song:", err);
     }
@@ -608,6 +632,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       markSongSeen(song.id);
       setCurrentSong(song);
       setIsPlaying(true);
+      setIsLoading(true);
+      setError(null);
       // NOTE: play history is saved on track advance/ended (see nextSong/onEnded)
       // so that duration reflects actual listen time, not 0 at play start.
       saveLastPlayedSong(song);
@@ -874,40 +900,68 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (audioRef.current) audioRef.current.playbackRate = playbackRate;
   }, [playbackRate]);
 
-  // ─── Sleep timer ───────────────────────────────────────────────────────────
+  // ─── Sleep timer (mirrors mobile countdown ticker) ─────────────────────────
 
-  const setSleepTimer = useCallback((minutes: number | null) => {
+  const clearSleepTimerRefs = useCallback(() => {
     if (sleepTimerTimeoutRef.current) {
       clearTimeout(sleepTimerTimeoutRef.current);
       sleepTimerTimeoutRef.current = null;
     }
-
-    if (minutes === null || minutes <= 0) {
-      setSleepTimerState(null);
-      return;
+    if (sleepTimerIntervalRef.current) {
+      clearInterval(sleepTimerIntervalRef.current);
+      sleepTimerIntervalRef.current = null;
     }
-
-    const endsAt = Date.now() + minutes * 60 * 1000;
-    setSleepTimerState({ endsAt, durationMinutes: minutes });
-    toast.success(
-      `Sleep timer set for ${minutes} minute${minutes === 1 ? "" : "s"}`,
-    );
-
-    sleepTimerTimeoutRef.current = setTimeout(
-      () => {
-        setIsPlaying(false);
-        setSleepTimerState(null);
-        toast("Sleep timer ended — playback paused");
-      },
-      minutes * 60 * 1000,
-    );
   }, []);
+
+  const setSleepTimer = useCallback(
+    (minutes: number | null) => {
+      clearSleepTimerRefs();
+
+      if (minutes === null || minutes <= 0) {
+        setSleepTimerState(null);
+        setSleepTimerRemaining(0);
+        return;
+      }
+
+      const endsAt = Date.now() + minutes * 60 * 1000;
+      setSleepTimerState({ endsAt, durationMinutes: minutes });
+      setSleepTimerRemaining(Math.round(minutes * 60));
+      toast.success(
+        `Sleep timer set for ${minutes} minute${minutes === 1 ? "" : "s"}`,
+      );
+
+      sleepTimerIntervalRef.current = setInterval(() => {
+        const remaining = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+        setSleepTimerRemaining(remaining);
+        if (remaining <= 0 && sleepTimerIntervalRef.current) {
+          clearInterval(sleepTimerIntervalRef.current);
+          sleepTimerIntervalRef.current = null;
+        }
+      }, 1000);
+
+      sleepTimerTimeoutRef.current = setTimeout(
+        () => {
+          if (audioRef.current) audioRef.current.pause();
+          setIsPlaying(false);
+          setSleepTimerState(null);
+          setSleepTimerRemaining(0);
+          toast("Sleep timer ended — playback paused");
+        },
+        minutes * 60 * 1000,
+      );
+    },
+    [clearSleepTimerRefs],
+  );
+
+  const clearError = useCallback(() => setError(null), []);
 
   // Clean up sleep timer on unmount
   useEffect(
     () => () => {
       if (sleepTimerTimeoutRef.current)
         clearTimeout(sleepTimerTimeoutRef.current);
+      if (sleepTimerIntervalRef.current)
+        clearInterval(sleepTimerIntervalRef.current);
     },
     [],
   );
@@ -1013,6 +1067,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
+
+    const onLoadedMetadataSetup = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+      setIsLoading(false);
     };
 
     const onEnded = () => {
@@ -1029,6 +1093,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const onError = async () => {
       console.error("[Player] Audio playback error");
       isChangingSongRef.current = false;
+      setIsLoading(false);
+      setError("Couldn't play this track");
       const playbackUrl = currentSongRef.current?.playbackUrl;
       if (playbackUrl) {
         try {
@@ -1057,12 +1123,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("loadedmetadata", onLoadedMetadataSetup);
+    const onWaiting = () => setIsLoading(true);
+    const onPlaying = () => setIsLoading(false);
+    audio.addEventListener("waiting", onWaiting);
+    audio.addEventListener("playing", onPlaying);
     window.addEventListener("beforeunload", onBeforeUnload);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadataSetup);
+      audio.removeEventListener("waiting", onWaiting);
+      audio.removeEventListener("playing", onPlaying);
       window.removeEventListener("beforeunload", onBeforeUnload);
       audio.pause();
       audio.src = "";
@@ -1087,7 +1161,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [isPlaying]);
 
-  // ─── Load new song into audio element ─────────────────────────────────────
+  // ─── Load new song into audio element (offline-first) ───────────────────
 
   useEffect(() => {
     if (
@@ -1096,6 +1170,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     )
       return;
 
+    const songId = currentSong.id;
     const nextQid = upNextRef.current[0]?.qid;
     const canUsePreload =
       preloadedQidRef.current &&
@@ -1103,33 +1178,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       !!preloadRef.current?.src;
 
     // Avoid reloading the same song (e.g. on unrelated re-renders)
-    if (!canUsePreload && loadedSongIdRef.current === currentSong.id) return;
+    if (!canUsePreload && loadedSongIdRef.current === songId) return;
 
-    loadedSongIdRef.current = currentSong.id;
+    loadedSongIdRef.current = songId;
     isChangingSongRef.current = true;
+    setIsLoading(true);
+    setError(null);
 
     audioRef.current.pause();
-
-    if (canUsePreload && preloadRef.current) {
-      // Gapless: swap the preloaded element's src in
-      const src = preloadRef.current.src;
-      preloadRef.current.src = "";
-      preloadedQidRef.current = null;
-      audioRef.current.src = src;
-    } else {
-      audioRef.current.src = currentSong.playbackUrl || currentSong.audioUrl;
-    }
-
-    audioRef.current.playbackRate = playbackRate;
-    audioRef.current.load();
-
-    if (restorePositionRef.current === null) setCurrentTime(0);
+    let cancelled = false;
 
     const applyRestoredPosition = () => {
       if (!audioRef.current || restorePositionRef.current === null) return;
       const pos = restorePositionRef.current;
       const duration = audioRef.current.duration || currentSong.duration;
-      if (pos >= 0 && pos < duration) {
+      if (pos >= 0 && (duration <= 0 || pos < duration)) {
         audioRef.current.currentTime = pos;
         setCurrentTime(pos);
       } else {
@@ -1143,10 +1206,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!canPlayFired) {
         canPlayFired = true;
         isChangingSongRef.current = false;
+        setIsLoading(false);
       }
     };
 
     const onLoadedMetadata = () => {
+      if (
+        audioRef.current &&
+        Number.isFinite(audioRef.current.duration) &&
+        audioRef.current.duration > 0
+      ) {
+        setDuration(audioRef.current.duration);
+      }
       applyRestoredPosition();
       // Fallback: if canplay never fires, clear after 2s
       setTimeout(clearChangingFlag, 2000);
@@ -1166,13 +1237,41 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onLoadError = () => {
       clearChangingFlag();
+      setError("Couldn't play this track");
     };
 
-    audioRef.current.addEventListener("loadedmetadata", onLoadedMetadata);
-    audioRef.current.addEventListener("canplay", onCanPlay);
-    audioRef.current.addEventListener("error", onLoadError);
+    const loadWithUrl = (src: string) => {
+      if (cancelled || !audioRef.current) return;
+      if (canUsePreload && preloadRef.current) {
+        // Gapless: swap the preloaded element's src in
+        const preloadedSrc = preloadRef.current.src;
+        preloadRef.current.src = "";
+        preloadedQidRef.current = null;
+        audioRef.current.src = preloadedSrc;
+      } else {
+        audioRef.current.src = src;
+      }
+
+      audioRef.current.playbackRate = playbackRate;
+      audioRef.current.load();
+
+      if (restorePositionRef.current === null) setCurrentTime(0);
+
+      audioRef.current.addEventListener("loadedmetadata", onLoadedMetadata);
+      audioRef.current.addEventListener("canplay", onCanPlay);
+      audioRef.current.addEventListener("error", onLoadError);
+    };
+
+    if (canUsePreload) {
+      loadWithUrl("");
+    } else {
+      void resolveWebPlaybackUrl(currentSong).then((url) => {
+        if (!cancelled) loadWithUrl(url);
+      });
+    }
 
     return () => {
+      cancelled = true;
       audioRef.current?.removeEventListener("loadedmetadata", onLoadedMetadata);
       audioRef.current?.removeEventListener("canplay", onCanPlay);
       audioRef.current?.removeEventListener("error", onLoadError);
@@ -1183,6 +1282,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     currentSong?.audioUrl,
     currentSong?.duration,
     playbackRate,
+    resolveWebPlaybackUrl,
   ]);
 
   // ─── Preload next + crossfade ──────────────────────────────────────────────
@@ -1204,12 +1304,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!next) return;
 
     // Begin preloading if not already done for this queue item
+    // (offline-first, mirrors mobile preloadUriRef)
     if (preloadedQidRef.current !== next.qid) {
-      const url = next.song.playbackUrl || next.song.audioUrl;
-      if (!url) return;
-      preloadRef.current.src = url;
-      preloadRef.current.load();
-      preloadedQidRef.current = next.qid;
+      const qid = next.qid;
+      const song = next.song;
+      void resolveWebPlaybackUrl(song).then((url) => {
+        if (!url || !preloadRef.current) return;
+        if (preloadedQidRef.current === qid) return;
+        // Don't clobber a newer preload started while resolving.
+        preloadRef.current.src = url;
+        preloadRef.current.load();
+        preloadedQidRef.current = qid;
+      });
     }
 
     // Start crossfade in the final CROSSFADE_DURATION_MS
@@ -1251,6 +1357,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     upNext,
     volume,
     isMuted,
+    resolveWebPlaybackUrl,
   ]);
 
   // ─── Periodic position save ────────────────────────────────────────────────
@@ -1309,42 +1416,81 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setQueue(songs);
     }
 
-    // Restore last played song + seek position
+    // Restore last played song + seek position (id string new format,
+    // legacy full-song JSON still supported)
     if (!currentSong && session?.user?.id && typeof window !== "undefined") {
-      try {
-        const lastPlayedRaw = localStorage.getItem(LAST_PLAYED_SONG_KEY);
-        if (lastPlayedRaw) {
-          const lastPlayed = JSON.parse(lastPlayedRaw);
-          const foundSong = songs.find((s) => s.id === lastPlayed.id);
-          if (foundSong) {
-            const posRaw = localStorage.getItem(LAST_PLAYBACK_POSITION_KEY);
-            if (posRaw) {
-              try {
-                const saved = JSON.parse(posRaw);
-                if (
-                  saved.songId === foundSong.id &&
-                  typeof saved.timestamp === "number" &&
-                  Number.isFinite(saved.timestamp) &&
-                  saved.timestamp >= 0 &&
-                  saved.timestamp < foundSong.duration
-                ) {
-                  restorePositionRef.current = saved.timestamp;
-                }
-              } catch {
-                /* ignore */
-              }
-            }
-            setCurrentSong(foundSong);
-            markSongSeen(foundSong.id);
+      const lastPlayedRaw = localStorage.getItem(LAST_PLAYED_SONG_KEY);
+      if (lastPlayedRaw) {
+        let lastId: string | null = null;
+        try {
+          const parsed: unknown = JSON.parse(lastPlayedRaw);
+          if (typeof parsed === "string") lastId = parsed;
+          else if (parsed && typeof (parsed as { id?: unknown }).id === "string") {
+            lastId = (parsed as { id: string }).id;
+          }
+        } catch {
+          // Pre-JSON format: raw id string stored directly.
+          lastId = lastPlayedRaw;
+        }
+        if (!lastId) {
+          // Very old format stored the raw song object without JSON parse above.
+          try {
+            const fallback = lastPlayedRaw;
+            if (fallback) lastId = fallback;
+          } catch {
+            /* ignore */
           }
         }
-      } catch (err) {
-        console.error("[Player] Error restoring last played song:", err);
+        const resolveLastSong = (id: string): Song | undefined =>
+          songsById.get(id) ?? recentlyPlayedSongs.find((s) => s.id === id);
+        const applyRestoredSong = (foundSong: Song) => {
+          const posRaw = localStorage.getItem(LAST_PLAYBACK_POSITION_KEY);
+          if (posRaw) {
+            try {
+              const saved = JSON.parse(posRaw);
+              if (
+                saved.songId === foundSong.id &&
+                typeof saved.timestamp === "number" &&
+                Number.isFinite(saved.timestamp) &&
+                saved.timestamp >= 0 &&
+                (foundSong.duration <= 0 || saved.timestamp < foundSong.duration)
+              ) {
+                restorePositionRef.current = saved.timestamp;
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          setCurrentSong(foundSong);
+          markSongSeen(foundSong.id);
+        };
+        if (lastId) {
+          const foundSong = resolveLastSong(lastId);
+          if (foundSong) {
+            applyRestoredSong(foundSong);
+          } else {
+            // Catalog / recent miss (e.g. id-only restore): fetch single song.
+            void (async () => {
+              try {
+                const res = await fetch(
+                  `/api/songs/${encodeURIComponent(lastId as string)}`,
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                const song = (data?.data ?? data) as Song | undefined;
+                if (song?.id) applyRestoredSong(song);
+              } catch (err) {
+                console.error("[Player] Error restoring last played song:", err);
+              }
+            })();
+          }
+        }
       }
     }
   }, [
     songs,
     songsById,
+    recentlyPlayedSongs,
     queue.length,
     currentSong,
     session?.user?.id,
@@ -1441,6 +1587,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       currentSong,
       isPlaying,
       currentTime,
+      duration,
       queue,
       upNext,
       history,
@@ -1461,6 +1608,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isLoadingLyrics,
       playbackRate,
       sleepTimer,
+      sleepTimerRemaining,
+      isLoading,
+      error,
       audioRef,
 
       // Playback
@@ -1498,6 +1648,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       // Misc
       setSleepTimer,
+      clearError,
       getRecentlyPlayed,
       setIsPremium,
 
@@ -1511,6 +1662,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       currentSong,
       isPlaying,
       currentTime,
+      duration,
       queue,
       upNext,
       history,
@@ -1531,6 +1683,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isLoadingLyrics,
       playbackRate,
       sleepTimer,
+      sleepTimerRemaining,
+      isLoading,
+      error,
       playSong,
       playFromContext,
       togglePlay,
@@ -1549,6 +1704,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       handleSetRadioMode,
       requestCurrentSongLyrics,
       setSleepTimer,
+      clearError,
       getRecentlyPlayed,
     ],
   );
