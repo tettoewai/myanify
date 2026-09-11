@@ -181,6 +181,12 @@ export function Sidebar() {
             Admin dashboard
           </Link>
         )}
+        <p className="px-4 pt-1 text-[11px] leading-snug text-muted-foreground/90">
+          <span className="font-semibold text-amber-600 dark:text-amber-400">
+            Non-commercial project
+          </span>{" "}
+          · Free to use · Not affiliated with artists or labels
+        </p>
       </div>
     </aside>
   );

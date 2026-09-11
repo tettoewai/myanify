@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { DisclaimerNotice } from "@/components/disclaimer-notice";
 
 export function LandingPageContent() {
   const searchParams = useSearchParams();
@@ -140,6 +141,13 @@ export function LandingPageContent() {
                 </Link>
               </Button>
             </div>
+            <p className="mt-8 text-xs sm:text-sm text-muted-foreground">
+              <span className="font-semibold text-amber-600 dark:text-amber-400">
+                Non-commercial project.
+              </span>{" "}
+              Free to use · Built for learning &amp; portfolio · Not affiliated
+              with artists or labels
+            </p>
             <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center">
@@ -369,7 +377,8 @@ export function LandingPageContent() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            <p>© 2024 Myanify. All rights reserved.</p>
+            <DisclaimerNotice className="mx-auto max-w-3xl" />
+            <p className="mt-6">© 2024 Myanify. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -15,6 +15,7 @@ import { useHomePlayerUrl } from "@/hooks/use-home-player-url";
 import { isMobileViewport } from "@/lib/utils";
 import { Suspense, useEffect, useRef } from "react";
 import { AppDownloadBanner } from "@/components/app-download-banner";
+import { DisclaimerNotice } from "@/components/disclaimer-notice";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
@@ -140,10 +141,14 @@ function ListenerLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main className="flex-1 overflow-y-auto w-full md:w-auto pb-32 md:pb-0">
         <div className="px-4 pt-4 md:px-6 md:pt-6 lg:px-8 space-y-3">
+          <DisclaimerNotice />
           <AppDownloadBanner />
           <PwaInstallBanner />
         </div>
         {children}
+        <div className="mt-4 pb-24 md:pb-28">
+          <DisclaimerNotice variant="footer" />
+        </div>
       </main>
       <MobileNav />
       {showPlayer && (
