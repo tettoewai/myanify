@@ -4,6 +4,10 @@ import Spotify from "next-auth/providers/spotify";
 import { prisma } from "@/db";
 import bcrypt from "bcryptjs";
 
+// Re-exported here so server code has a single import site; the constant
+// itself lives in auth-redirect.ts (client-safe).
+export { SPOTIFY_LOGIN_ENABLED } from "./auth-redirect";
+
 export async function authorizeCredentials(credentials: any) {
   if (!credentials?.email || !credentials?.password) {
     return null;

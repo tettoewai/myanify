@@ -4,6 +4,7 @@ import {
   googleProvider,
   spotifyProvider,
   credentialsProvider,
+  SPOTIFY_LOGIN_ENABLED,
 } from "@/lib/auth-providers";
 import { prisma } from "@/db";
 
@@ -210,5 +211,13 @@ export const authConfig = {
       return session;
     },
   },
-  providers: [googleProvider, spotifyProvider, credentialsProvider],
+  // NOTE: Spotify login is disabled via SPOTIFY_LOGIN_ENABLED (see
+  // lib/auth-providers.ts). The signIn/jwt handlers above keep their Spotify
+  // branches so re-enabling is a one-line change.
+  providers: [
+    googleProvider,
+    // To re-enable Spotify login: set SPOTIFY_LOGIN_ENABLED = true.
+    ...(SPOTIFY_LOGIN_ENABLED ? [spotifyProvider] : []),
+    credentialsProvider,
+  ],
 } satisfies NextAuthConfig;

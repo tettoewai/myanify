@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db";
 import { UserRole } from "@prisma/client";
 import jwt from "jsonwebtoken";
-import { SPOTIFY_SCOPES } from "@/lib/auth-providers";
+import { SPOTIFY_SCOPES, SPOTIFY_LOGIN_ENABLED } from "@/lib/auth-providers";
 import { authLimiter, enforceRateLimit } from "@/lib/rate-limit";
 
 const CORS = {
@@ -29,6 +29,15 @@ interface SpotifyMe {
  * returns the same 30d Myanify JWT as google-login.
  */
 export async function POST(request: Request) {
+  // Spotify login is disabled (see SPOTIFY_LOGIN_ENABLED). Fail closed so
+  // old mobile builds can't start a Spotify flow anymore.
+  if (!SPOTIFY_LOGIN_ENABLED) {
+    return NextResponse.json(
+      { error: "Spotify login is currently disabled" },
+      { status: 503, headers: CORS },
+    );
+  }
+
   const limited = await enforceRateLimit(request, authLimiter, "spotify-login");
   if (limited) return limited;
 

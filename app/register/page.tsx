@@ -15,7 +15,7 @@ import { AuthPageHeader } from "@/components/auth/auth-page-header";
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { SpotifySignInButton } from "@/components/auth/spotify-sign-in-button";
-import { getAuthRedirectUrl } from "@/lib/auth-redirect";
+import { getAuthRedirectUrl, SPOTIFY_LOGIN_ENABLED } from "@/lib/auth-redirect";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { Mail, ArrowLeft, Clock } from "lucide-react";
 
@@ -179,7 +179,8 @@ function RegisterForm() {
 
       <div className="space-y-4">
         <GoogleSignInButton />
-        <SpotifySignInButton />
+        {/* Spotify login disabled via SPOTIFY_LOGIN_ENABLED in lib/auth-redirect.ts */}
+        {SPOTIFY_LOGIN_ENABLED && <SpotifySignInButton />}
         <AuthEmailDivider />
       </div>
 
