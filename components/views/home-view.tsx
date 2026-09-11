@@ -258,19 +258,19 @@ export function HomeView({
             Quick Play
           </h2>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {quickPlaySongs.map((song) => (
             <SongContextMenu key={song.id} song={song}>
               <div
                 className={cn(
-                  "group flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer relative min-w-0",
+                  "group flex items-center gap-2 p-3 rounded-lg bg-card hover:bg-accent transition-all text-left cursor-pointer min-w-0",
                   currentSong?.id === song.id &&
                     "bg-primary/10 ring-1 ring-primary/30 hover:bg-primary/15",
                 )}
               >
                 <button
                   onClick={() => onPlaySong(song)}
-                  className="flex items-center gap-3 flex-1 min-w-0 pr-10 sm:pr-7"
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
                 >
                   <div className="relative shrink-0">
                     <Image
@@ -278,7 +278,7 @@ export function HomeView({
                       alt={song.title}
                       width={56}
                       height={56}
-                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-md object-cover"
+                      className="w-12 h-12 sm:w-14 sm:h-14 xl:w-12 xl:h-12 rounded-md object-cover"
                       unoptimized
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-md transition-opacity">
@@ -306,12 +306,12 @@ export function HomeView({
                     </p>
                   </div>
                 </button>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                <div className="flex items-center gap-0.5 shrink-0">
                   {isSongQueued(song.id) && (
                     <ListMusic className="w-4 h-4 text-primary shrink-0" />
                   )}
                   <SongRowDownload song={song} />
-                  <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="hidden md:block opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
                     <AddToPlaylistDialog songId={song.id} />
                   </div>
                 </div>
