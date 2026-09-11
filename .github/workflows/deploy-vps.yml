@@ -22,3 +22,7 @@ jobs:
             docker compose up -d --force-recreate
             sleep 20
             docker compose exec -T app pnpm exec prisma migrate deploy
+            # Drop the previous release image (now dangling) so VPS disk
+            # doesn't fill up over successive deploys. Only removes
+            # untagged images, never anything in use.
+            docker image prune -f
