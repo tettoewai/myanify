@@ -74,9 +74,14 @@ export async function POST(request: Request) {
     });
     if (!tokenRes.ok) {
       const text = await tokenRes.text();
-      console.error("Spotify code exchange failed:", tokenRes.status, text);
+      console.error("Spotify code exchange failed:", tokenRes.status, text, {
+        redirectUri,
+      });
       return NextResponse.json(
-        { error: "Invalid Spotify authorization code" },
+        {
+          error: "Invalid Spotify authorization code",
+          hint: "Ensure `myanify://auth/spotify` (exact match) is registered as a Redirect URI in the Spotify dashboard for this client ID.",
+        },
         { status: 401, headers: CORS },
       );
     }

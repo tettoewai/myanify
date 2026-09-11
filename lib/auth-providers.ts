@@ -69,14 +69,61 @@ export const SPOTIFY_SCOPES = [
   "user-top-read",
 ].join(" ");
 
+/** Trim whitespace/quotes that .env files and Docker secret mounts often add. */
+function cleanEnv(value: string | undefined): string | undefined {
+  const cleaned = value?.trim().replace(/^["']|["']$/g, "").trim();
+  return cleaned || undefined;
+}
+
+const spotifyClientId = cleanEnv(process.env.SPOTIFY_CLIENT_ID);
+const spotifyClientSecret = cleanEnv(process.env.SPOTIFY_CLIENT_SECRET);
+if (!spotifyClientId || !spotifyClientSecret) {
+  console.error(
+    "SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET are not configured – Spotify login will fail",
+  );
+}
+
 export const spotifyProvider = Spotify({
-  clientId: process.env.SPOTIFY_CLIENT_ID!,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
+  clientId: spotifyClientId!,
+  clientSecret: spotifyClientSecret!,
   authorization: {
     // NOTE: url is required here. The Spotify default defines
     // `authorization` as a string; passing only `{ params }` replaces it
     // entirely and leaves url undefined -> "Invalid URL" / error=Configuration.
     url: "https://accounts.spotify.com/authorize",
     params: { scope: SPOTIFY_SCOPES },
+  },
+  token: {
+    url: "https://accounts.spotify.com/api/token",
+    /**
+     * Guard the code->token exchange: Spotify (or a proxy in front of it)
+     * sometimes answers with a non-JSON body (e.g. `Active pre...`), which
+     * otherwise crashes inside openid-client with
+     * `SyntaxError: ... is not valid JSON` wrapped in an opaque
+     * CallbackRouteError. Validating here puts the real status/body in the
+     * server logs and raises a descriptive error instead.
+     */
+    async conform(response: Response) {
+      const raw = await response.clone().text();
+      let isJson = false;
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        isJson = parsed !== null && typeof parsed === "object";
+      } catch {
+        isJson = false;
+      }
+      if (!isJson) {
+        console.error("Spotify token endpoint returned non-JSON response:", {
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          body: raw.slice(0, 500),
+        });
+        throw new Error(
+          `Spotify token exchange failed (status ${response.status}): expected JSON but received: ${raw.slice(0, 200)}`,
+        );
+      }
+      // Return undefined so Auth.js keeps handling the original response.
+      return undefined;
+    },
   },
 });
