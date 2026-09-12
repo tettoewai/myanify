@@ -122,4 +122,4 @@ prisma/           # Database schema, migrations, and seed data
 
 ## License
 
-Private project.
+MIT — see [LICENSE](LICENSE).
