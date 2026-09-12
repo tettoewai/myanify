@@ -10,6 +10,7 @@ import {
   Home,
   BellRing,
   Download,
+  Github,
   LayoutDashboard,
   Library,
   Music2,
@@ -187,6 +188,16 @@ export function Sidebar() {
           </span>{" "}
           · Free to use · Not affiliated with artists or labels
         </p>
+        <a
+          href="https://github.com/tettoewai/myanify"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View source on GitHub"
+          className="mx-4 flex items-center gap-2 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Github className="w-3.5 h-3.5" />
+          View on GitHub
+        </a>
       </div>
     </aside>
   );

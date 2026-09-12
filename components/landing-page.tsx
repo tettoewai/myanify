@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   FileText,
+  Github,
   Headphones,
   Heart,
   Music,
@@ -68,6 +69,9 @@ export function LandingPageContent() {
     { value: "50+", label: "Genres" },
     { value: "25K+", label: "Active Listeners" },
   ];
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
 
   const testimonials = [
     {
@@ -374,11 +378,21 @@ export function LandingPageContent() {
               >
                 Privacy Policy
               </Link>
+              <a
+                href="https://github.com/tettoewai/myanify"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-foreground transition"
+                title="View source on GitHub"
+              >
+                <Github className="w-4 h-4" />
+                GitHub
+              </a>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
             <DisclaimerNotice className="mx-auto max-w-3xl" />
-            <p className="mt-6">© 2024 Myanify. All rights reserved.</p>
+            <p className="mt-6">© {currentYear} Myanify. All rights reserved.</p>
           </div>
         </div>
       </footer>
