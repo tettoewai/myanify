@@ -205,6 +205,11 @@ model Song {
   isPremium          Boolean   @default(false)
   isPublished        Boolean   @default(false) // Admin can publish/unpublish
   playCount          Int       @default(0)
+  // Recommendation signals: song type / mood / tags.
+  // Works with small catalogs (content-based) and scales up later
+  // (collaborative / embeddings) without breaking the engine.
+  mood               String?
+  tags               String[]  @default([])
   seoId              String?   @unique
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -231,6 +236,7 @@ model Song {
   @@index([genreId])
   @@index([isPublished])
   @@index([isPremium])
+  @@index([mood])
   @@index([releaseDate])
   @@index([createdAt])
 }

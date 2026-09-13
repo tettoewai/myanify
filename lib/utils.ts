@@ -7,6 +7,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Derive a 1–2 character avatar fallback from a user's full name,
+ * falling back to the email prefix when no name is set.
+ * e.g. "Aung Min" → "AM", "Zaw" → "ZA", no name → first 2 chars of email.
+ */
+export function getInitials(
+  name?: string | null,
+  email?: string | null
+): string {
+  const clean = (name ?? "").trim()
+  if (clean) {
+    const parts = clean.split(/\s+/)
+    if (parts.length >= 2 && parts[0][0] && parts[parts.length - 1][0]) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    }
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  const prefix = (email ?? "").split("@")[0].replace(/[^a-zA-Z0-9]/g, "")
+  if (prefix) {
+    return prefix.slice(0, 2).toUpperCase()
+  }
+  return "U"
+}
+
 export function isMobileViewport() {
   return (
     typeof window !== "undefined" &&

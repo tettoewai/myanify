@@ -12,6 +12,7 @@ import { useNavigation } from "@/lib/navigation";
 import {
   useAlbums,
   useArtists,
+  useForYouSongs,
   useGenres,
   usePlayHistory,
   usePlaylists,
@@ -97,6 +98,8 @@ export function HomeView({
     enabled: !!session?.user?.id,
   });
   const { songs: newReleases } = useSongs({ limit: 8 });
+  const { songs: forYouSongs, isPersonalized: forYouPersonalized } =
+    useForYouSongs(8, { enabled: !!session?.user?.id });
 
   // Scroll handlers
   const scrollGenres = (direction: "left" | "right") => {
@@ -320,6 +323,79 @@ export function HomeView({
           ))}
         </div>
       </section>
+
+      {/* Made For You — personalized by genre / mood / tags + taste profile */}
+      {forYouSongs.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                Made For You
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {forYouPersonalized
+                  ? "Picked from your genres, moods, and listening history"
+                  : "Trending picks — like songs to personalize"}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {forYouSongs.map((song) => (
+              <SongContextMenu key={song.id} song={song}>
+                <div
+                  className={cn(
+                    "group text-left relative w-full min-w-0",
+                    currentSong?.id === song.id &&
+                      "ring-1 ring-primary/30 rounded-xl",
+                  )}
+                >
+                  <button
+                    onClick={() =>
+                      playFromContext(song, forYouSongs, "playlist")
+                    }
+                    className="w-full min-w-0 cursor-pointer"
+                  >
+                    <div className="relative aspect-square rounded-xl overflow-hidden mb-3 shadow-md">
+                      <Image
+                        src={getSongCoverUrl(song)}
+                        alt={song.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        {currentSong?.id === song.id && isPlaying ? (
+                          <Pause className="w-10 h-10 text-white" />
+                        ) : (
+                          <Play className="w-10 h-10 text-white" />
+                        )}
+                      </div>
+                      {song.isPremium && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                          Premium
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h3
+                        className={cn(
+                          "font-medium text-sm truncate",
+                          currentSong?.id === song.id && "text-primary",
+                        )}
+                      >
+                        {song.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {song.artist}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </SongContextMenu>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* New Releases */}
       {newReleases.length > 0 && (
@@ -596,7 +672,8 @@ export function HomeView({
       )}
 
       {/* Featured Playlists */}
-      <section>
+      {playlists.length > 0 && (
+        <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl md:text-2xl font-bold text-foreground">
             Featured Playlists
@@ -674,7 +751,8 @@ export function HomeView({
             );
           })}
         </div>
-      </section>
+        </section>
+      )}
 
       {/* Recently Played */}
       {recentlyPlayed.length > 0 && (

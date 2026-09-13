@@ -3,6 +3,7 @@ import { prisma } from "@/db";
 import { getSession } from "@/lib/auth-utils";
 import { formatSongsResponse, formatSongResponse } from "@/lib/song-response";
 import { buildSongInclude } from "@/lib/song-query";
+import { getForYouSongs } from "@/lib/recommendations";
 import { CACHE_TTL, cacheKey, getCached } from "@/lib/cache";
 import { calculateMonthlyListenersByArtistIds } from "@/lib/monthly-listeners";
 
@@ -175,15 +176,31 @@ export async function GET(request: Request) {
       HOME_CACHE_TTL,
     );
 
-    // Fetch recently played if authenticated (not cached — personal data)
+    // Fetch recently played + personalized picks if authenticated
+    // (not cached — personal data)
     let recentlyPlayed: any[] = [];
+    let forYou: any[] = [];
+    let forYouPersonalized = false;
     if (session?.user?.id) {
-      recentlyPlayed = await fetchRecentlyPlayed(session.user.id, request);
+      const [history, picks] = await Promise.all([
+        fetchRecentlyPlayed(session.user.id, request),
+        getForYouSongs({ userId: session.user.id, limit: 8 }).catch(() => null),
+      ]);
+      recentlyPlayed = history;
+      if (picks) {
+        forYou = formatSongsResponse(picks.songs, request).map((s, i) => ({
+          ...s,
+          _reason: (picks.songs[i] as any)?._reason ?? null,
+        }));
+        forYouPersonalized = picks.isPersonalized;
+      }
     }
 
     return NextResponse.json({
       ...homeData,
       recentlyPlayed,
+      forYou,
+      forYouPersonalized,
     });
   } catch (error) {
     console.error("Error fetching home data:", error);

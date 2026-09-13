@@ -9,6 +9,10 @@ import {
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse, formatSongsResponse } from "@/lib/song-response";
 import {
+  normalizeMood,
+  normalizeTags,
+} from "@/lib/recommendations";
+import {
   buildSongInclude,
   buildSongIncludeFromRequest,
 } from "@/lib/song-query";
@@ -55,6 +59,8 @@ export async function POST(request: Request) {
       isPublished,
       lyrics,
       seo,
+      mood,
+      tags,
     } = body;
 
     const artistIdsArray = artistIds && Array.isArray(artistIds) && artistIds.length > 0
@@ -97,6 +103,8 @@ export async function POST(request: Request) {
         albumId: albumId || null,
         isPremium: isPremium || false,
         isPublished: isPublished || false,
+        mood: normalizeMood(mood),
+        tags: normalizeTags(tags),
         seoId,
         artists: {
           create: artistIdsArray.map((id: string) => ({
@@ -172,6 +180,8 @@ export async function GET(request: Request) {
         const isPublished =
           isPublishedParam === null ? undefined : isPublishedParam === "true";
         const search = searchParams.get("search") || searchParams.get("q");
+        const isPremiumParam = searchParams.get("isPremium");
+        const sort = searchParams.get("sort");
         const rawPage = parseInt(searchParams.get("page") || "1");
         const rawLimit = parseInt(searchParams.get("limit") || "50");
         const page = Number.isFinite(rawPage) ? Math.max(1, rawPage) : 1;
@@ -183,6 +193,11 @@ export async function GET(request: Request) {
         const where: Record<string, unknown> = {
           ...(genreId && { genreId }),
           ...(albumId && { albumId }),
+          ...(isPremiumParam === "true"
+            ? { isPremium: true }
+            : isPremiumParam === "false"
+              ? { isPremium: false }
+              : {}),
         };
 
         if (isAdminUser) {
@@ -208,13 +223,25 @@ export async function GET(request: Request) {
         const total = await prisma.song.count({ where });
         const songInclude = buildSongIncludeFromRequest(request);
 
+        const orderBy =
+          sort === "popular"
+            ? ({ playCount: "desc" } as const)
+            : sort === "title"
+              ? ({ title: "asc" } as const)
+              : ({ createdAt: "desc" } as const);
+
         let songs = await prisma.song.findMany({
           where,
-          include: songInclude,
+          include: isAdminUser
+            ? {
+                ...songInclude,
+                _count: { select: { likedBy: true, playHistory: true } },
+              }
+            : songInclude,
           ...(search
             ? {}
             : {
-                orderBy: { createdAt: "desc" },
+                orderBy,
                 take: limit,
                 skip,
               }),

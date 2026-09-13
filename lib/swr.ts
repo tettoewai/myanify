@@ -24,6 +24,8 @@ export function useSongs(options?: {
   artistId?: string;
   albumId?: string;
   isPublished?: boolean;
+  isPremium?: boolean;
+  sort?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -36,6 +38,9 @@ export function useSongs(options?: {
   if (options?.albumId) params.set("albumId", options.albumId);
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
+  if (options?.isPremium !== undefined)
+    params.set("isPremium", String(options.isPremium));
+  if (options?.sort) params.set("sort", options.sort);
   if (options?.search) params.set("search", options.search);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
@@ -76,6 +81,8 @@ export function useAdminSongs(options?: {
   artistId?: string;
   albumId?: string;
   isPublished?: boolean;
+  isPremium?: boolean;
+  sort?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -88,6 +95,9 @@ export function useAdminSongs(options?: {
   if (options?.albumId) params.set("albumId", options.albumId);
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
+  if (options?.isPremium !== undefined)
+    params.set("isPremium", String(options.isPremium));
+  if (options?.sort) params.set("sort", options.sort);
   if (options?.search) params.set("search", options.search);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
@@ -147,11 +157,13 @@ export function useQuickPlaySongs(limit = 4) {
 
 export function useArtists(options?: {
   search?: string;
+  sort?: string;
   page?: number;
   limit?: number;
 }) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
+  if (options?.sort) params.set("sort", options.sort);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
 
@@ -343,6 +355,44 @@ export function usePlaylists(options?: {
 
   return {
     playlists,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useForYouSongs(limit = 8, options?: { enabled?: boolean }) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+
+  const { data, error, isLoading, mutate } = useSWR(
+    options?.enabled !== false
+      ? `/api/recommendations/for-you?${params.toString()}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 30_000,
+    },
+  );
+
+  const songs: Song[] =
+    data?.data?.map((raw: any) => ({
+      ...transformSong(raw),
+      _reason: raw?._reason ?? null,
+    })) ||
+    data?.map((raw: any) => ({ ...transformSong(raw), _reason: raw?._reason ?? null })) ||
+    [];
+
+  return {
+    songs,
+    isPersonalized: (data?.isPersonalized as boolean | undefined) ?? false,
+    taste: (data?.taste as {
+      topGenres: { id: string; name: string }[];
+      topArtists: { id: string; name: string }[];
+      topMoods: { mood: string }[];
+    } | null) ?? null,
     isLoading,
     isError: error,
     mutate,
@@ -548,12 +598,14 @@ export function useAlbums(options?: {
   search?: string;
   page?: number;
   limit?: number;
+  type?: string;
   sort?: "name" | "recent";
 }) {
   const params = new URLSearchParams();
   if (options?.search) params.set("search", options.search);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.type) params.set("type", options.type);
   if (options?.sort) params.set("sort", options.sort);
 
   const key = params.toString()
@@ -923,6 +975,10 @@ export function useAdminUsers(options?: {
   search?: string;
   role?: string;
   vip?: string;
+  subscription?: string;
+  joined?: string;
+  verified?: string;
+  sort?: string;
   page?: number;
   limit?: number;
 }) {
@@ -931,6 +987,13 @@ export function useAdminUsers(options?: {
   if (options?.role && options.role !== "all") params.set("role", options.role);
   if (options?.vip === "vip") params.set("vip", "true");
   else if (options?.vip === "non-vip") params.set("vip", "false");
+  if (options?.subscription && options.subscription !== "all")
+    params.set("subscription", options.subscription);
+  if (options?.joined && options.joined !== "all")
+    params.set("joined", options.joined);
+  if (options?.verified && options.verified !== "all")
+    params.set("verified", options.verified);
+  if (options?.sort) params.set("sort", options.sort);
   if (options?.page) params.set("page", String(options.page));
   if (options?.limit) params.set("limit", String(options.limit));
 
@@ -941,11 +1004,62 @@ export function useAdminUsers(options?: {
   const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
+    keepPreviousData: true,
   });
 
   return {
     users: data?.data || [],
     pagination: data?.pagination as PaginationMeta | undefined,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export interface AdminUserStatsSummary {
+  total: number;
+  vip: number;
+  free: number;
+  admins: number;
+  listeners: number;
+  newThisWeek: number;
+  newThisMonth: number;
+  verified: number;
+  unverified: number;
+  activeSubscriptions: number;
+  pendingPayments: number;
+}
+
+export function useAdminUserStats() {
+  const { data, error, isLoading, mutate } = useSWR(
+    "/api/admin/users/stats",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  return {
+    stats: (data as AdminUserStatsSummary | undefined) ?? null,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useAdminUserDetail(userId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR(
+    userId ? `/api/admin/users/${userId}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  return {
+    detail: data ?? null,
     isLoading,
     isError: error,
     mutate,

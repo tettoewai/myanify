@@ -84,6 +84,8 @@ export async function invalidateContentCache() {
     invalidateCache(`${CACHE_PREFIX}:genres:*`),
     invalidateCache(`${CACHE_PREFIX}:search:*`),
     invalidateCache(`${CACHE_PREFIX}:similar:*`),
+    invalidateCache(`${CACHE_PREFIX}:recommendations:*`),
+    invalidateCache(`${CACHE_PREFIX}:home:*`),
   ]);
 }
 

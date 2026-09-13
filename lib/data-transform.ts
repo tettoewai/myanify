@@ -47,6 +47,10 @@ export function transformSong(prismaSong: any): Song {
     audioUrl: prismaSong.audioUrl,
     playbackUrl: prismaSong.playbackUrl || getPlaybackUrl(prismaSong.audioUrl),
     genre: prismaSong.genre?.name || "",
+    genreId: prismaSong.genreId ?? prismaSong.genre?.id ?? null,
+    language: prismaSong.language ?? null,
+    mood: prismaSong.mood ?? null,
+    tags: Array.isArray(prismaSong.tags) ? prismaSong.tags : [],
     isPremium: prismaSong.isPremium,
     isPublished: prismaSong.isPublished,
     lyrics:
@@ -77,6 +81,10 @@ export function transformArtist(prismaArtist: any): Artist {
     bio: prismaArtist.bio || "",
     monthlyListeners: prismaArtist.monthlyListeners,
     genres: prismaArtist.artistGenres?.map((ag: any) => ag.genre.name) || [],
+    songCount: prismaArtist._count?.songs ?? 0,
+    fans: prismaArtist._count?.likedBy ?? 0,
+    country: prismaArtist.country ?? null,
+    createdAt: prismaArtist.createdAt ?? null,
   };
 }
 

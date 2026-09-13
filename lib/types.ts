@@ -40,6 +40,11 @@ export interface Song {
   audioUrl: string;
   playbackUrl: string;
   genre: string;
+  genreId?: string | null;
+  language?: string | null;
+  mood?: string | null;
+  tags?: string[];
+  _reason?: string | null;
   lyrics?: LyricLine[];
   isPremium: boolean;
   isPublished?: boolean;
@@ -61,6 +66,10 @@ export interface Artist {
   bio: string;
   monthlyListeners: number;
   genres: string[];
+  songCount?: number;
+  fans?: number;
+  country?: string | null;
+  createdAt?: string | null;
 }
 
 export interface Playlist {

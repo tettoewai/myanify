@@ -10,6 +10,10 @@ import {
 import { upsertSeoMetadata } from "@/lib/seo-admin";
 import { formatSongResponse } from "@/lib/song-response";
 import {
+  normalizeMood,
+  normalizeTags,
+} from "@/lib/recommendations";
+import {
   buildSongInclude,
   buildSongIncludeFromRequest,
 } from "@/lib/song-query";
@@ -118,6 +122,8 @@ export async function PATCH(
       language,
       releaseDate,
       seo,
+      mood,
+      tags,
       ...updateData
     } = body;
 
@@ -182,6 +188,8 @@ export async function PATCH(
       }),
       ...(isPublished !== undefined && { isPublished }),
       ...(seo !== undefined && { seoId }),
+      ...(mood !== undefined && { mood: normalizeMood(mood) }),
+      ...(tags !== undefined && { tags: normalizeTags(tags) }),
     };
 
     const wasPublished = existing.isPublished;

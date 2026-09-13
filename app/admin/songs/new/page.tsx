@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatAlbumWithType, type AlbumType } from "@/lib/album-type";
+import { SONG_MOODS } from "@/lib/song-meta";
 import { uploadAudioFile } from "@/lib/audio-upload-client";
 import { formatMaxAudioSize } from "@/lib/audio-upload-config";
 import {
@@ -64,6 +65,8 @@ export default function NewSongPage() {
     artistIds: [] as string[],
     genreId: "",
     albumId: "",
+    mood: "",
+    tags: "",
     isPremium: false,
     isPublished: false,
   });
@@ -255,6 +258,8 @@ export default function NewSongPage() {
           alternativeTitles: formData.alternativeTitles,
           language: formData.language || "my",
           releaseDate: formData.releaseDate || null,
+          mood: formData.mood || null,
+          tags: formData.tags,
           seo: seoFormToApi(seoData),
           lyrics: lyricsData,
         }),
@@ -561,6 +566,46 @@ export default function NewSongPage() {
                       )}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <Label htmlFor="mood">Mood (for recommendations)</Label>
+                  <Select
+                    value={formData.mood || "none"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        mood: value === "none" ? "" : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2 w-full" id="mood">
+                      <SelectValue placeholder="Select a mood (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {SONG_MOODS.map((mood) => (
+                        <SelectItem key={mood} value={mood}>
+                          {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-0">
+                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="tags"
+                    value={formData.tags}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tags: e.target.value })
+                    }
+                    placeholder="e.g. acoustic, live, workout"
+                    className="mt-2 w-full"
+                  />
                 </div>
               </div>
 

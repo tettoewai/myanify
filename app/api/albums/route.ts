@@ -30,12 +30,16 @@ export async function GET(request: Request) {
         const skip = (page - 1) * limit;
 
         const sort = searchParams.get("sort");
+        const type = searchParams.get("type");
         const orderBy =
           sort === "recent"
             ? ({ createdAt: "desc" } as const)
             : ({ name: "asc" } as const);
 
         const where: Record<string, unknown> = {};
+        if (type === "SINGLE" || type === "EP" || type === "ALBUM") {
+          where.type = type;
+        }
         if (search) {
           where.OR = buildAlbumSearchWhere(search);
         }
