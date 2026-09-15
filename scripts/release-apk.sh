@@ -13,6 +13,21 @@ VERSION="$1"; shift
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT/../myanify-app"
 OUT="/tmp/myanify_${VERSION}.apk"
+BUILD_ARCHIVE="/tmp/myanify_${VERSION}_eas.tar.gz"
+
+if grep -q '"keyAlias": "androiddebugkey"' "$APP_DIR/credentials.json" 2>/dev/null; then
+  echo "Release credentials point to the Android debug keystore. Configure credentials.json with a production release.keystore first."
+  exit 1
+fi
+
+if [ -d "$APP_DIR/android" ]; then
+  if git -C "$APP_DIR" check-ignore -q android; then
+    rm -rf "$APP_DIR/android"
+  else
+    echo "Refusing to remove tracked android/ directory. Clean or update native metadata manually."
+    exit 1
+  fi
+fi
 
 cd "$ROOT"
 echo "==> Bumping to $VERSION"
@@ -20,7 +35,10 @@ pnpm bump:mobile "$VERSION"
 
 echo "==> Building APK locally"
 cd "$APP_DIR"
-eas build --platform android --profile production-apk --local --output "$OUT" --non-interactive
+rm -f "$OUT" "$BUILD_ARCHIVE"
+eas build --platform android --profile production-apk --local --output "$BUILD_ARCHIVE" --non-interactive
+tar -xOf "$BUILD_ARCHIVE" release/app-release.apk > "$OUT"
+rm -f "$BUILD_ARCHIVE"
 
 echo "==> Verifying"
 if command -v aapt >/dev/null 2>&1; then
