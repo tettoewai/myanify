@@ -4,14 +4,14 @@
   "apkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.13/myanify_1_0_13_32.apk",
   "notes": "fix: notification player parity - prev/next/like with liked state, tap to full player, crash + OOM + visibility fixes across Android 7-15",
   "mandatory": false,
-  "sha256": "4e2f0c57253857290b24c3882de6e4b38493d077b2450d4dd7416667c8b467f6",
-  "fileSize": 114772288,
-  "md5": "945f71942793461462eca1726a22cdf2",
+  "sha256": "5fe8d6d7ea628206ae6c421a669195cc6df43271b7314e97b641efb8014bb0a6",
+  "fileSize": 114772292,
+  "md5": "109d6377ac2b0d13414fac96f17e33e9",
   "minVersionCode": 1,
   "rollout": 100,
   "certSha256": "fac61745dc0903786fb9d62a962b399f7348f0bb6f899b8332667591033b9c",
   "previousVersion": "1.0.13",
-  "previousVersionCode": 31,
-  "previousApkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.13/myanify_1_0_13_31.apk",
-  "signature": "2/J9wjOfi4Fe0fk/+pdH9E0ZWHN5ZTWo31CTdqqPhqNoGgAn7fkjPOvMj/EGDcUdc9HUDwbDidw9vEln20kWDA=="
+  "previousVersionCode": 32,
+  "previousApkUrl": "https://github.com/tettoewai/myanify-releases/releases/download/v1.0.13/myanify_1_0_13_32.apk",
+  "signature": "C93zsRUKi4BbRM4oAoadn6xNdNKhFRkQhAlyGjXjZGXxenrgGhi1jkPtYJUGD7wDTrHpZUgRkAs+oS4URC8ZDQ=="
 }
