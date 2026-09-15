@@ -13,11 +13,22 @@ import {
   FilterX,
   Download,
   X,
+  ChevronDown,
+  Check,
+  Loader2,
+  Users,
+  Disc,
+  ListMusic,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -36,8 +47,9 @@ import {
 } from "@/components/ui/dialog";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AdminListPageSkeleton } from "@/components/loading-skeletons";
-import { useAdminSongs, useGenres } from "@/lib/swr";
+import { useAdminSongs, useGenres, useArtists, useAlbums } from "@/lib/swr";
 import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
+import { SONG_MOODS } from "@/lib/song-meta";
 import { mutate } from "swr";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -80,6 +92,10 @@ function pickStatus(value: string | null): FilterStatus {
 
 function pickPremium(value: string | null) {
   return value === "premium" || value === "free" ? value : "all";
+}
+
+function pickMood(value: string | null) {
+  return value ? value : "all";
 }
 
 function pickSort(value: string | null) {
@@ -145,6 +161,139 @@ function exportCsv(songs: AdminSong[]) {
   URL.revokeObjectURL(url);
 }
 
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+interface PickerOption {
+  id: string;
+  name: string;
+  subtitle?: string | null;
+}
+
+function SearchEntityPicker({
+  label,
+  placeholder,
+  icon: Icon,
+  selectedId,
+  selectedName,
+  items,
+  isLoading,
+  search,
+  onSearchChange,
+  onSelect,
+  onClear,
+}: {
+  label: string;
+  placeholder: string;
+  icon: typeof Users;
+  selectedId: string;
+  selectedName: string;
+  items: PickerOption[];
+  isLoading: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onSelect: (item: PickerOption) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) onSearchChange("");
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "max-w-44 justify-between gap-1.5 font-normal",
+            selectedId && "border-primary/50 bg-primary/5 font-medium",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">{selectedName || label}</span>
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64 p-0">
+        <div
+          className="border-b border-border p-2"
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") e.stopPropagation();
+          }}
+        >
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              autoFocus
+              placeholder={placeholder}
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+        </div>
+        <div className="max-h-60 overflow-y-auto p-1">
+          {selectedId && (
+            <button
+              type="button"
+              onClick={() => {
+                onClear();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear selection
+            </button>
+          )}
+          {isLoading && items.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Searching…
+            </div>
+          ) : items.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+              No {label.toLowerCase()}s found
+            </p>
+          ) : (
+            items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onSelect(item);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{item.name}</span>
+                  {item.subtitle && (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {item.subtitle}
+                    </span>
+                  )}
+                </span>
+                {item.id === selectedId && (
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function SongsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -164,6 +313,9 @@ export default function SongsPage() {
   const [genreFilter, setGenreFilter] = useState(
     () => searchParams.get("genreId") ?? "all"
   );
+  const [moodFilter, setMoodFilter] = useState(
+    () => pickMood(searchParams.get("mood"))
+  );
   const [sort, setSort] = useState(() => pickSort(searchParams.get("sort")));
   const [artistId, setArtistId] = useState(
     () => searchParams.get("artistId") ?? ""
@@ -180,6 +332,11 @@ export default function SongsPage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  const [artistPickerSearch, setArtistPickerSearch] = useState("");
+  const [albumPickerSearch, setAlbumPickerSearch] = useState("");
+  const debouncedArtistPickerSearch = useDebounce(artistPickerSearch);
+  const debouncedAlbumPickerSearch = useDebounce(albumPickerSearch);
+
   // Keep URL in sync (shareable, survives refresh)
   const lastPushedParamsRef = useRef<string | null>(null);
 
@@ -189,6 +346,7 @@ export default function SongsPage() {
     if (filterStatus !== "all") params.set("status", filterStatus);
     if (premiumFilter !== "all") params.set("premium", premiumFilter);
     if (genreFilter !== "all") params.set("genreId", genreFilter);
+    if (moodFilter !== "all") params.set("mood", moodFilter);
     if (sort !== "newest") params.set("sort", sort);
     if (artistId) {
       params.set("artistId", artistId);
@@ -209,6 +367,7 @@ export default function SongsPage() {
     filterStatus,
     premiumFilter,
     genreFilter,
+    moodFilter,
     sort,
     artistId,
     artistName,
@@ -236,6 +395,8 @@ export default function SongsPage() {
     setPremiumFilter((prev) => (prev === nextPremium ? prev : nextPremium));
     const nextGenre = searchParams.get("genreId") ?? "all";
     setGenreFilter((prev) => (prev === nextGenre ? prev : nextGenre));
+    const nextMood = pickMood(searchParams.get("mood"));
+    setMoodFilter((prev) => (prev === nextMood ? prev : nextMood));
     const nextSort = pickSort(searchParams.get("sort"));
     setSort((prev) => (prev === nextSort ? prev : nextSort));
     const nextArtistId = searchParams.get("artistId") ?? "";
@@ -265,6 +426,7 @@ export default function SongsPage() {
     isPremium:
       premiumFilter === "all" ? undefined : premiumFilter === "premium",
     genreId: genreFilter === "all" ? undefined : genreFilter,
+    mood: moodFilter === "all" ? undefined : moodFilter,
     artistId: artistId || undefined,
     albumId: albumId || undefined,
     sort: sort === "newest" ? undefined : sort,
@@ -274,14 +436,29 @@ export default function SongsPage() {
   });
 
   const { genres } = useGenres({ limit: 100 });
+  const { artists: artistOptions, isLoading: artistsLoading } = useArtists({
+    search: debouncedArtistPickerSearch || undefined,
+    limit: 10,
+  });
+  const { albums: albumOptions, isLoading: albumsLoading } = useAlbums({
+    search: debouncedAlbumPickerSearch || undefined,
+    limit: 10,
+  });
 
   const typedSongs = songs as AdminSong[];
+
+  const moodOptions =
+    moodFilter !== "all" &&
+    !(SONG_MOODS as readonly string[]).includes(moodFilter)
+      ? [moodFilter, ...SONG_MOODS]
+      : [...SONG_MOODS];
 
   const hasActiveFilters =
     Boolean(debouncedSearchQuery) ||
     filterStatus !== "all" ||
     premiumFilter !== "all" ||
     genreFilter !== "all" ||
+    moodFilter !== "all" ||
     artistId !== "" ||
     albumId !== "";
 
@@ -305,8 +482,25 @@ export default function SongsPage() {
     setPage(1);
   };
 
+  const handleMoodChange = (value: string) => {
+    setMoodFilter(value);
+    setPage(1);
+  };
+
   const handleSortChange = (value: string) => {
     setSort(value);
+    setPage(1);
+  };
+
+  const handleSelectArtist = (item: PickerOption) => {
+    setArtistId(item.id);
+    setArtistName(item.name);
+    setPage(1);
+  };
+
+  const handleSelectAlbum = (item: PickerOption) => {
+    setAlbumId(item.id);
+    setAlbumName(item.name);
     setPage(1);
   };
 
@@ -326,6 +520,7 @@ export default function SongsPage() {
     setFilterStatus("all");
     setPremiumFilter("all");
     setGenreFilter("all");
+    setMoodFilter("all");
     setSort("newest");
     setArtistId("");
     setArtistName("");
@@ -481,6 +676,54 @@ export default function SongsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={moodFilter} onValueChange={handleMoodChange}>
+              <SelectTrigger
+                className={cn("w-32", moodFilter !== "all" && "border-primary/50 bg-primary/5")}
+              >
+                <SelectValue placeholder="Mood" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All moods</SelectItem>
+                {moodOptions.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {capitalize(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SearchEntityPicker
+              label="Artist"
+              placeholder="Search artists..."
+              icon={Users}
+              selectedId={artistId}
+              selectedName={artistName}
+              items={artistOptions.map((a: { id: string; name: string; englishName?: string | null }) => ({
+                id: a.id,
+                name: a.name,
+                subtitle: a.englishName && a.englishName !== a.name ? a.englishName : null,
+              }))}
+              isLoading={artistsLoading}
+              search={artistPickerSearch}
+              onSearchChange={setArtistPickerSearch}
+              onSelect={handleSelectArtist}
+              onClear={() => clearScope("artist")}
+            />
+            <SearchEntityPicker
+              label="Album"
+              placeholder="Search albums..."
+              icon={Disc}
+              selectedId={albumId}
+              selectedName={albumName}
+              items={albumOptions.map((a: { id: string; name: string }) => ({
+                id: a.id,
+                name: a.name,
+              }))}
+              isLoading={albumsLoading}
+              search={albumPickerSearch}
+              onSearchChange={setAlbumPickerSearch}
+              onSelect={handleSelectAlbum}
+              onClear={() => clearScope("album")}
+            />
             <Select value={sort} onValueChange={handleSortChange}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Sort" />
@@ -688,6 +931,16 @@ export default function SongsPage() {
                         <Button variant="ghost" size="sm" asChild title="Edit song">
                           <Link href={`/admin/songs/${song.id}/edit`}>
                             <Edit className="w-4 h-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                          title="Edit lyrics"
+                        >
+                          <Link href={`/admin/songs/${song.id}/lyrics`}>
+                            <ListMusic className="w-4 h-4" />
                           </Link>
                         </Button>
                         <Button

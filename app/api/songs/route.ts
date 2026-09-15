@@ -181,6 +181,7 @@ export async function GET(request: Request) {
           isPublishedParam === null ? undefined : isPublishedParam === "true";
         const search = searchParams.get("search") || searchParams.get("q");
         const isPremiumParam = searchParams.get("isPremium");
+        const mood = searchParams.get("mood");
         const sort = searchParams.get("sort");
         const rawPage = parseInt(searchParams.get("page") || "1");
         const rawLimit = parseInt(searchParams.get("limit") || "50");
@@ -193,6 +194,7 @@ export async function GET(request: Request) {
         const where: Record<string, unknown> = {
           ...(genreId && { genreId }),
           ...(albumId && { albumId }),
+          ...(mood && { mood }),
           ...(isPremiumParam === "true"
             ? { isPremium: true }
             : isPremiumParam === "false"

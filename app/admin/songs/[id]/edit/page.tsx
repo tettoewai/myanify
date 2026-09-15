@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Loader2,
   FileText,
+  ListMusic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,8 +311,10 @@ export default function EditSongPage() {
       const text = await file.text();
 
       // Parse lyrics
+      const isLrc = file.name.endsWith(".lrc");
       const { parseLRC, parsePlainText } = await import("@/lib/lyric-parser");
-      const parsedLyrics = file.name.endsWith(".lrc")
+      const { mergeParsedLines } = await import("@/lib/lyrics-editor-utils");
+      const parsedLyrics = isLrc
         ? parseLRC(text)
         : parsePlainText(text, formData.duration || 180);
 
@@ -319,9 +322,13 @@ export default function EditSongPage() {
         throw new Error("No lyrics found in file");
       }
 
-      setLyricsData(parsedLyrics);
+      // Keep previous timestamps for unchanged lines when updating
+      const { merged, reused } = mergeParsedLines(lyricsData, parsedLyrics, {
+        incomingHasRealTimes: isLrc,
+      });
+      setLyricsData(merged);
       toast.success(
-        `Lyrics uploaded successfully (${parsedLyrics.length} lines)`,
+        `Lyrics uploaded successfully (${merged.length} lines${reused > 0 ? `, kept ${reused} synced timestamps` : ""})`
       );
     } catch (error) {
       console.error("Error uploading lyrics:", error);
@@ -570,6 +577,24 @@ export default function EditSongPage() {
                     </p>
                   </div>
                 )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  asChild
+                >
+                  <Link href={`/admin/songs/${songId}/lyrics`}>
+                    <ListMusic className="w-4 h-4 mr-2" />
+                    {lyricsData.length > 0
+                      ? `Edit lyrics (${lyricsData.length} lines)`
+                      : "Open lyrics studio"}
+                  </Link>
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Sync timestamps with audio, preview karaoke and export LRC
+                  on the dedicated page.
+                </p>
               </div>
             </CardContent>
           </Card>

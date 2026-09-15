@@ -1,5 +1,6 @@
 import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import { prisma } from "@/db";
+import { getNotificationSettings } from "@/lib/notification-settings";
 
 let expo: Expo | null = null;
 
@@ -153,8 +154,9 @@ async function buildMessages(
 }
 
 /**
- * Notify users who liked an artist about a new song.
- * Targets only users who follow at least one of the song's artists.
+ * Notify users about a new song.
+ * When newSongsOnlyLiked is true (default), targets only users who follow at least one of the song's artists.
+ * When newSongsOnlyLiked is false, targets all users with active push tokens.
  */
 export async function notifyNewSong(
   songId: string,
@@ -165,14 +167,28 @@ export async function notifyNewSong(
   artistIds: string[],
 ) {
   try {
-    if (artistIds.length === 0) return;
+    const settings = await getNotificationSettings();
+    if (!settings.newSongs) return;
 
-    const followers = await prisma.likedArtist.findMany({
-      where: { artistId: { in: artistIds } },
-      select: { userId: true },
-    });
+    let userIds: string[];
 
-    const userIds = [...new Set(followers.map((f) => f.userId))];
+    if (settings.newSongsOnlyLiked) {
+      if (artistIds.length === 0) return;
+
+      const followers = await prisma.likedArtist.findMany({
+        where: { artistId: { in: artistIds } },
+        select: { userId: true },
+      });
+
+      userIds = [...new Set(followers.map((f) => f.userId))];
+    } else {
+      const tokens = await prisma.pushToken.findMany({
+        where: { isActive: true },
+        select: { userId: true },
+      });
+      userIds = [...new Set(tokens.map((t) => t.userId))];
+    }
+
     const displayArtist = artistNames.join(", ");
     const displayTitle = englishTitle || title;
 
@@ -200,6 +216,9 @@ export async function notifyNewAlbum(
   _coverUrl: string | null,
 ) {
   try {
+    const settings = await getNotificationSettings();
+    if (!settings.newAlbums) return;
+
     const tokens = await prisma.pushToken.findMany({
       where: { isActive: true },
       select: { userId: true, token: true },
@@ -246,6 +265,9 @@ export async function notifySongRequestUpdate(
   songTitle: string,
 ) {
   try {
+    const settings = await getNotificationSettings();
+    if (!settings.songRequestUpdates) return;
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -289,6 +311,9 @@ export async function notifyAnnouncement(
   audience: string,
 ) {
   try {
+    const settings = await getNotificationSettings();
+    if (!settings.announcements) return;
+
     const where: Record<string, unknown> = {};
     if (audience === "FREE") where.isPremium = false;
     else if (audience === "PREMIUM") where.isPremium = true;

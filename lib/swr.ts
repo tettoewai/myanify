@@ -25,6 +25,7 @@ export function useSongs(options?: {
   albumId?: string;
   isPublished?: boolean;
   isPremium?: boolean;
+  mood?: string;
   sort?: string;
   search?: string;
   page?: number;
@@ -36,6 +37,7 @@ export function useSongs(options?: {
   if (options?.genreId) params.set("genreId", options.genreId);
   if (options?.artistId) params.set("artistId", options.artistId);
   if (options?.albumId) params.set("albumId", options.albumId);
+  if (options?.mood) params.set("mood", options.mood);
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
   if (options?.isPremium !== undefined)
@@ -82,6 +84,7 @@ export function useAdminSongs(options?: {
   albumId?: string;
   isPublished?: boolean;
   isPremium?: boolean;
+  mood?: string;
   sort?: string;
   search?: string;
   page?: number;
@@ -93,6 +96,7 @@ export function useAdminSongs(options?: {
   if (options?.genreId) params.set("genreId", options.genreId);
   if (options?.artistId) params.set("artistId", options.artistId);
   if (options?.albumId) params.set("albumId", options.albumId);
+  if (options?.mood) params.set("mood", options.mood);
   if (options?.isPublished !== undefined)
     params.set("isPublished", String(options.isPublished));
   if (options?.isPremium !== undefined)

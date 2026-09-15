@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArtistCombobox } from "@/components/admin/artist-combobox";
+import { LyricsEditorDialog } from "@/components/admin/lyrics-editor-dialog";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Music,
+  Wand2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -77,6 +79,7 @@ export default function NewSongPage() {
   const [audioFileName, setAudioFileName] = useState("");
   const [imageFileName, setImageFileName] = useState("");
   const [lyricsFileName, setLyricsFileName] = useState("");
+  const [lyricsEditorOpen, setLyricsEditorOpen] = useState(false);
   const [songRequestId, setSongRequestId] = useState<string | null>(null);
 
   const { artists: fetchedArtists } = useArtists();
@@ -192,8 +195,10 @@ export default function NewSongPage() {
       const text = await file.text();
 
       // Parse lyrics
+      const isLrc = file.name.endsWith(".lrc");
       const { parseLRC, parsePlainText } = await import("@/lib/lyric-parser");
-      const parsedLyrics = file.name.endsWith(".lrc")
+      const { mergeParsedLines } = await import("@/lib/lyrics-editor-utils");
+      const parsedLyrics = isLrc
         ? parseLRC(text)
         : parsePlainText(text, formData.duration || 180);
 
@@ -201,9 +206,13 @@ export default function NewSongPage() {
         throw new Error("No lyrics found in file");
       }
 
-      setLyricsData(parsedLyrics);
+      // Keep previous timestamps for unchanged lines when updating
+      const { merged, reused } = mergeParsedLines(lyricsData, parsedLyrics, {
+        incomingHasRealTimes: isLrc,
+      });
+      setLyricsData(merged);
       toast.success(
-        `Lyrics uploaded successfully (${parsedLyrics.length} lines)`,
+        `Lyrics uploaded successfully (${merged.length} lines${reused > 0 ? `, kept ${reused} synced timestamps` : ""})`
       );
     } catch (error) {
       console.error("Error uploading lyrics:", error);
@@ -451,6 +460,22 @@ export default function NewSongPage() {
                       </p>
                     </div>
                   )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setLyricsEditorOpen(true)}
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {lyricsData.length > 0
+                      ? `Advanced editor (${lyricsData.length} lines)`
+                      : "Open advanced editor"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Paste lyrics, stamp timestamps with Space while previewing
+                    audio, fine-tune and export LRC.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -675,6 +700,20 @@ export default function NewSongPage() {
           </div>
         </form>
       </div>
+      <LyricsEditorDialog
+        open={lyricsEditorOpen}
+        onOpenChange={setLyricsEditorOpen}
+        initialLines={lyricsData}
+        audioUrl={audioUrl || undefined}
+        audioDuration={formData.duration || undefined}
+        songTitle={formData.title}
+        onApply={(lines) => {
+          setLyricsData(lines);
+          if (lines.length > 0 && !lyricsFileName)
+            setLyricsFileName("edited in advanced editor");
+          toast.success(`Lyrics ready (${lines.length} lines)`);
+        }}
+      />
     </div>
   );
 }
